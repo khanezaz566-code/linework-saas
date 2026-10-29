@@ -1,0 +1,151 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Linework — raster line art to centerline SVG</title>
+<meta name="description" content="Upload an icon set and get clean single-stroke centerline SVGs, verified against your image by an Edit / Output / Doctor engine loop.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23111'/%3E%3Cpath d='M9 22c4-1 5-9 9-9s3 6 5 6' fill='none' stroke='%23fff' stroke-width='2.6' stroke-linecap='round'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;450;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+<header class="top">
+  <a class="brand" href="/" aria-label="Linework home">
+    <span class="mark"><svg viewBox="0 0 32 32" width="22" height="22"><path d="M7 22c4-1 5-9 9-9s3 6 5 6" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"/></svg></span>
+    <span class="name">Linework</span>
+  </a>
+  <div class="top-right">
+    <span class="pill" id="health"><i></i><span>connecting…</span></span>
+  </div>
+</header>
+
+<main>
+  <!-- ============ Landing / upload ============ -->
+  <section id="landing" class="landing">
+    <div class="hero">
+      <h1>Line art in.<br>Clean centerlines out.</h1>
+      <p class="lede">Drop in any icon set. Three engines — <b>Edit</b>, <b>Output</b> and <b>Doctor</b> — loop until every stroke is one smooth path that matches your image.</p>
+    </div>
+
+    <div class="card upload">
+      <label class="drop" id="drop" tabindex="0">
+        <input id="file" type="file" accept="image/png,image/jpeg,image/webp,image/bmp,image/svg+xml,.svg" hidden>
+        <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 16V4m0 0L7.5 8.5M12 4l4.5 4.5"/><path d="M4 15v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3"/></svg>
+        <div class="drop-t"><b>Drop an icon sheet</b> or click to browse</div>
+        <div class="drop-s">PNG · JPG · WebP · SVG &nbsp;·&nbsp; one icon or a whole set &nbsp;·&nbsp; paste with ⌘V</div>
+      </label>
+
+      <div class="opts">
+        <div class="opt">
+          <div class="opt-l">Quality</div>
+          <div class="seg" id="quality" role="radiogroup">
+            <button type="button" data-v="fast" role="radio">Fast</button>
+            <button type="button" data-v="standard" role="radio" class="on">Standard</button>
+            <button type="button" data-v="precise" role="radio">Precise</button>
+          </div>
+        </div>
+        <div class="opt grow">
+          <div class="opt-l">Path style <span class="hint" id="cleanHint">Balanced</span></div>
+          <div class="range"><span>Exact match</span><input id="clean" type="range" min="0" max="1" step="0.05" value="0.5"><span>Cleanest paths</span></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="samples">
+      <span>or try a sample</span>
+      <button class="chip" data-sample="home-icons">Home &amp; living <em>12 icons</em></button>
+      <button class="chip" data-sample="basic-set">Basic UI set <em>6 icons</em></button>
+    </div>
+
+    <ul class="facts">
+      <li><b>Single centerlines</b><span>Every stroke is one path with a real stroke width — no outlines, no doubled lines.</span></li>
+      <li><b>Verified, not guessed</b><span>The Doctor re-renders every change and rejects anything that makes the match worse.</span></li>
+      <li><b>Yours to restyle</b><span>Recolour and re-weight the result live, then export SVG per icon or per sheet.</span></li>
+    </ul>
+  </section>
+
+  <!-- ============ Workspace ============ -->
+  <section id="work" class="work" hidden>
+    <div class="bar">
+      <div class="bar-l">
+        <button class="ghost" id="newJob">← New upload</button>
+        <span class="job-name" id="jobName"></span>
+      </div>
+      <div class="bar-r">
+        <div class="seg" id="view" role="tablist">
+          <button data-v="vector" class="on">Vector</button>
+          <button data-v="original">Original</button>
+          <button data-v="overlay">Overlay</button>
+          <button data-v="diff">Diff</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="prog" id="prog"><i></i></div>
+
+    <div class="grid">
+      <div class="stage-wrap">
+        <div class="stage" id="stage">
+          <div class="canvas" id="canvas">
+            <img id="imgOrig" alt="Original">
+            <div id="vec"></div>
+            <img id="imgDiff" alt="Diff">
+            <div id="focus" class="focus" hidden></div>
+          </div>
+          <div class="zoom">
+            <button id="zout" aria-label="Zoom out">−</button>
+            <button id="zfit">Fit</button>
+            <button id="zin" aria-label="Zoom in">+</button>
+          </div>
+          <div class="legend" id="legend" hidden>
+            <span><i style="background:#c8c8c8"></i>match</span><span><i style="background:#eb3c3c"></i>missing</span><span><i style="background:#3c78eb"></i>extra</span>
+          </div>
+        </div>
+        <div class="summary" id="summary" hidden></div>
+      </div>
+
+      <aside class="side">
+        <section class="panel">
+          <h3>Engines</h3>
+          <div class="engines" id="engines">
+            <div class="eng" data-e="edit"><i></i><div><b>Edit</b><span>Fits curves, removes duplicates</span></div><em></em></div>
+            <div class="eng" data-e="output"><i></i><div><b>Output</b><span>Renders the SVG</span></div><em></em></div>
+            <div class="eng" data-e="doctor"><i></i><div><b>Doctor</b><span>Compares with your image</span></div><em></em></div>
+          </div>
+          <details class="log" id="logBox"><summary>Activity</summary><ol id="log"></ol></details>
+        </section>
+
+        <section class="panel">
+          <h3>Icons <span class="count" id="iconCount"></span></h3>
+          <div class="icons" id="icons"></div>
+        </section>
+
+        <section class="panel" id="stylePanel">
+          <h3>Style <span class="hint">live</span></h3>
+          <label class="row"><span>Stroke colour</span><input type="color" id="stroke" value="#111111"></label>
+          <label class="row"><span>Stroke weight <b id="scaleV">100%</b></span><input type="range" id="scale" min="0.5" max="1.6" step="0.02" value="1"></label>
+          <label class="row"><span>Background</span>
+            <select id="bg"><option value="#ffffff">White</option><option value="none">Transparent</option><option value="#0b0b0c">Dark</option></select>
+          </label>
+        </section>
+
+        <section class="panel" id="exportPanel">
+          <h3>Export</h3>
+          <div class="btns">
+            <a class="btn primary" id="dlSvg" href="#">Download sheet SVG</a>
+            <a class="btn" id="dlZip" href="#">All icons (.zip)</a>
+            <button class="btn" id="copy">Copy SVG</button>
+          </div>
+        </section>
+      </aside>
+    </div>
+  </section>
+</main>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+<script src="/static/app.js"></script>
+</body>
+</html>

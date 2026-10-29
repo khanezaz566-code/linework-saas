@@ -1,0 +1,819 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Linework AI — Redraw · Vector · Perfect</title>
+<meta name="description" content="Turn raster line art and icons into clean single-centerline SVGs with luxury AI-powered precision.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%2305080c'/%3E%3Cpath d='M8 24 L16 8 L24 24 M11 19 L21 19' fill='none' stroke='%2300f5a0' stroke-width='2.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/static/style.css">
+</head>
+<body class="luxury-theme">
+<div class="app-layout">
+
+  <!-- ================= Left Navigation Sidebar ================= -->
+  <aside class="sidebar" id="sidebar">
+    <div class="brand-zone">
+      <a class="brand" href="/" aria-label="Linework AI home">
+        <div class="brand-glyph">
+          <svg viewBox="0 0 32 32" width="24" height="24">
+            <defs>
+              <linearGradient id="glyphGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stop-color="#00ffd5"/>
+                <stop offset="100%" stop-color="#00e599"/>
+              </linearGradient>
+            </defs>
+            <path d="M7 25 L16 7 L25 25 M10 20 L22 20" fill="none" stroke="url(#glyphGrad)" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </div>
+        <div class="brand-text">
+          <span class="brand-title">Linework AI</span>
+          <span class="brand-sub">Redraw · Vector · Perfect</span>
+        </div>
+      </a>
+    </div>
+
+    <nav class="nav-menu" aria-label="Main Navigation">
+      <a href="/" class="nav-item" id="navHome" title="Home">
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+        <span>Home</span>
+      </a>
+      <a href="#redraw" class="nav-item active" id="navRedraw" title="Redraw Workspace">
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/><path d="M16 21h5v-5"/></svg>
+        <span>Redraw</span>
+      </a>
+      <a href="#projects" class="nav-item" id="navProjects" title="My Projects">
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.93a2 2 0 0 1-1.66-.9l-.82-1.2A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13c0 1.1.9 2 2 2Z"/></svg>
+        <span>My Projects</span>
+      </a>
+      <a href="#templates" class="nav-item" id="navTemplates" title="Templates">
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M3 9h18"/><path d="M9 21V9"/></svg>
+        <span>Templates</span>
+      </a>
+      <a href="#settings" class="nav-item" id="navSettings" title="Settings">
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>
+        <span>Settings</span>
+      </a>
+    </nav>
+
+    <!-- Bottom Promo / Mission Card -->
+    <div class="sidebar-promo">
+      <div class="promo-icon">
+        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="#00f5a0" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+      </div>
+      <div class="promo-title">Turn Your Line Art into Perfect Vectors</div>
+      <div class="promo-desc">Fast. Accurate. Beautiful.</div>
+      <div class="promo-waves"></div>
+    </div>
+  </aside>
+
+  <!-- ================= Main Body Area ================= -->
+  <div class="main-column">
+
+    <!-- Top App Header -->
+    <header class="app-header">
+      <div class="header-left">
+        <button class="icon-btn back-btn" id="newJob" title="Return to new upload" aria-label="Return to upload">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+        </button>
+        <div class="project-info">
+          <div class="project-title-row">
+            <span class="project-title" id="jobName">Minimal Black Outline UI Icon Set</span>
+            <span class="edit-icon" title="Project name"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg></span>
+          </div>
+          <div class="project-sub" id="jobMeta">6 icons · 1024 × 1024</div>
+        </div>
+      </div>
+
+      <div class="header-right">
+        <button class="status-pill" id="btnClearCacheDirect" title="Clear all stored icon cache & memory" style="cursor:pointer; background:rgba(255,80,80,0.08); border:1px solid rgba(255,80,80,0.25);">
+          <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="#ff6b6b" stroke-width="2"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M10 11v6M14 11v6"/></svg>
+          <span class="status-text" style="color:#ff6b6b;">Clear Cache</span>
+        </button>
+        <button class="status-pill" id="btnLessons" title="View AI Lessons & Defect Memory" style="cursor:pointer; background:rgba(0,245,160,0.08); border:1px solid rgba(0,245,160,0.25);">
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="var(--accent)" stroke-width="2.2"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg>
+          <span class="status-text" style="color:var(--accent);">AI Memory</span>
+        </button>
+        <span class="status-pill" id="health">
+          <span class="status-dot"></span>
+          <span class="status-text">AI Engine Online</span>
+        </span>
+        <button class="icon-btn" title="Settings" aria-label="Settings">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+        </button>
+        <div class="user-avatar" title="User profile">EK</div>
+      </div>
+    </header>
+
+    <!-- Global Progress Bar Indicator -->
+    <div class="global-progress" id="prog"><i class="prog-bar-fill"></i></div>
+
+    <main class="content-scroll">
+
+      <!-- ============ Landing / Upload View ============ -->
+      <section id="landing" class="landing-view">
+        <div class="landing-grid">
+
+          <!-- Left Column: Upload Hero & Dropzone -->
+          <div class="landing-main">
+            <div class="section-heading">
+              <div class="heading-icon">
+                <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="#00f5a0" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 14.899A7 7 0 1 1 15.71 8h1.79a4.5 4.5 0 0 1 2.5 8.242"/><path d="M12 12v9"/><path d="m16 16-4-4-4 4"/></svg>
+              </div>
+              <div>
+                <h2>Upload Your Line Art</h2>
+                <p>Drop your image here or click to browse. We'll turn it into clean, scalable vectors with perfect precision.</p>
+              </div>
+            </div>
+
+            <!-- Luxury Glass Dropzone -->
+            <div class="card dropzone-card">
+              <label class="drop-zone" id="drop" tabindex="0">
+                <input id="file" type="file" accept="image/png,image/jpeg,image/webp,image/bmp,image/svg+xml,.svg,.zip" hidden>
+                <div class="drop-cloud-icon">
+                  <svg viewBox="0 0 24 24" width="46" height="46" fill="none" stroke="#00f5a0" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M4 14.899A7 7 0 1 1 15.71 8h1.79a4.5 4.5 0 0 1 2.5 8.242"/>
+                    <path d="M12 12v9"/>
+                    <path d="m16 16-4-4-4 4"/>
+                  </svg>
+                </div>
+                <div class="drop-primary-text">Drag &amp; Drop Your Image Here</div>
+                <div class="drop-secondary-text">or click to browse</div>
+                <div class="format-badges">
+                  <span class="fmt-label">Supported formats:</span>
+                  <span class="fmt-tag">PNG</span>
+                  <span class="fmt-tag">JPG</span>
+                  <span class="fmt-tag">SVG</span>
+                  <span class="fmt-tag">WEBP</span>
+                  <span class="fmt-tag">BMP</span>
+                </div>
+              </label>
+
+              <!-- Upload Configuration Options -->
+              <div class="upload-options">
+                <div class="opt-group">
+                  <div class="opt-header">
+                    <span>Quality Mode</span>
+                    <span class="opt-badge">AI Precision</span>
+                  </div>
+                  <div class="seg quality-seg" id="quality" role="radiogroup">
+                    <button type="button" data-v="fast" role="radio">Fast</button>
+                    <button type="button" data-v="standard" role="radio" class="on">Standard</button>
+                    <button type="button" data-v="precise" role="radio">Precise</button>
+                  </div>
+                </div>
+
+                <div class="opt-group grow">
+                  <div class="opt-header">
+                    <span>Path Optimization</span>
+                    <span class="opt-val" id="cleanHint">Balanced</span>
+                  </div>
+                  <div class="range-wrap">
+                    <span class="range-min">Exact match</span>
+                    <input id="clean" type="range" min="0" max="1" step="0.05" value="0.5">
+                    <span class="range-max">Cleanest paths</span>
+                  </div>
+                </div>
+
+                <div class="opt-group">
+                  <div class="opt-header">
+                    <span>Cache Mode</span>
+                    <span class="opt-badge" id="freshBadge" style="color:var(--accent);">Fresh (No Cache)</span>
+                  </div>
+                  <label style="display:flex; align-items:center; gap:8px; cursor:pointer; font-size:12.5px; color:var(--text-main); margin-top:8px; user-select:none;">
+                    <input id="freshRun" type="checkbox" checked style="cursor:pointer; width:16px; height:16px; accent-color:var(--accent);">
+                    <span>Bypass Cache (Force fresh run)</span>
+                  </label>
+                </div>
+              </div>
+            </div>
+
+            <!-- Samples Selector -->
+            <div class="samples-row">
+              <span class="samples-label">or try a sample:</span>
+              <button class="sample-chip" data-sample="home-icons">
+                <span class="chip-dot"></span>
+                <b>Home &amp; living</b>
+                <em>12 icons</em>
+              </button>
+              <button class="sample-chip" data-sample="basic-set">
+                <span class="chip-dot"></span>
+                <b>Basic UI set</b>
+                <em>6 icons</em>
+              </button>
+            </div>
+
+            <!-- Lower Capabilities & Features Cards -->
+            <div class="capabilities-grid">
+              <div class="cap-card">
+                <div class="cap-icon"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="#00f5a0" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/></svg></div>
+                <div class="cap-body">
+                  <b>Smart Path Detection</b>
+                  <span>Identifies and traces clean vector centerlines.</span>
+                </div>
+              </div>
+              <div class="cap-card">
+                <div class="cap-icon"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="#00f5a0" stroke-width="2"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg></div>
+                <div class="cap-body">
+                  <b>Node Optimization</b>
+                  <span>Removes extra nodes and smooths curvature kinks.</span>
+                </div>
+              </div>
+              <div class="cap-card">
+                <div class="cap-icon"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="#00f5a0" stroke-width="2"><rect width="8" height="8" x="3" y="3" rx="2"/><path d="m7 11 4-4 4 4"/><rect width="8" height="8" x="13" y="13" rx="2"/></svg></div>
+                <div class="cap-body">
+                  <b>Duplicate Centerlines</b>
+                  <span>Detects and removes double lines &amp; overlaps.</span>
+                </div>
+              </div>
+              <div class="cap-card">
+                <div class="cap-icon"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="#00f5a0" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg></div>
+                <div class="cap-body">
+                  <b>High Precision Output</b>
+                  <span>Doctor engine verifies every change against your image.</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Right Column: Info & Stats Showcase -->
+          <div class="landing-aside">
+            <div class="card showcase-card">
+              <div class="showcase-glow"></div>
+              <div class="showcase-art">
+                <svg viewBox="0 0 120 120" width="80" height="80">
+                  <circle cx="60" cy="60" r="50" fill="none" stroke="rgba(0,229,153,0.15)" stroke-width="1.5" stroke-dasharray="4 4"/>
+                  <circle cx="60" cy="60" r="36" fill="none" stroke="rgba(0,255,213,0.3)" stroke-width="1.5"/>
+                  <path d="M60 22 L72 50 L60 85 L48 50 Z" fill="rgba(0,229,153,0.08)" stroke="#00f5a0" stroke-width="2" stroke-linejoin="round"/>
+                  <circle cx="60" cy="50" r="4" fill="#00ffd5"/>
+                  <circle cx="48" cy="50" r="3" fill="#00e599"/>
+                  <circle cx="72" cy="50" r="3" fill="#00e599"/>
+                </svg>
+              </div>
+              <h3>From Line Art to Vector</h3>
+              <p>Our AI analyzes your image, detects paths, removes imperfections and creates a clean, editable vector file.</p>
+              
+              <ul class="feature-bullets">
+                <li><span class="f-dot"></span><b>Perfect for Icons</b> — Keep your icons sharp &amp; clean</li>
+                <li><span class="f-dot"></span><b>Ideal for Logos</b> — Professional quality results</li>
+                <li><span class="f-dot"></span><b>Works with Any Line Art</b> — Hand-drawn, sketch, or simple outlines</li>
+              </ul>
+
+              <!-- AI Engine Specs -->
+              <div class="specs-block">
+                <div class="spec-header">
+                  <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="#00f5a0" stroke-width="2"><path d="M13 2 3 14h9l-1 8 10-12h-9l1-8z"/></svg>
+                  <span>AI Redraw Engine</span>
+                </div>
+                <div class="spec-metrics">
+                  <div class="sm-item">
+                    <span class="sm-val">&lt; 5s</span>
+                    <span class="sm-lbl">Avg. time</span>
+                  </div>
+                  <div class="sm-item">
+                    <span class="sm-val">99.8%</span>
+                    <span class="sm-lbl">Accuracy</span>
+                  </div>
+                  <div class="sm-item">
+                    <span class="sm-val">24/7</span>
+                    <span class="sm-lbl">Available</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </section>
+
+      <!-- ============ Redraw Workspace View ============ -->
+      <section id="work" class="work-view" hidden>
+        
+        <!-- Workspace Main Grid (Canvas on Left, Engine & Metrics on Right) -->
+        <div class="workspace-grid">
+
+          <!-- Left Column: Main Canvas & Tools -->
+          <div class="canvas-column">
+
+            <!-- Canvas Top Toolbar -->
+            <div class="canvas-topbar">
+              <div class="view-switcher seg" id="view" role="tablist">
+                <button data-v="original" role="tab">Original</button>
+                <button data-v="vector" role="tab" class="on">Vector</button>
+                <button data-v="overlay" role="tab">Overlay</button>
+                <button data-v="diff" role="tab">Diff</button>
+              </div>
+
+              <!-- Dedicated Artboard Background Switcher (White / Grid / Dark) -->
+              <div class="artboard-switcher seg" id="artboardSwitcher">
+                <span class="ab-label">Artboard</span>
+                <button type="button" class="ab-btn on" data-bg="#ffffff" title="Crisp White Artboard (Black Strokes)">
+                  <i class="ab-dot white"></i><span>White</span>
+                </button>
+                <button type="button" class="ab-btn" data-bg="grid" title="Transparent Checkerboard Grid">
+                  <i class="ab-dot grid"></i><span>Transparent</span>
+                </button>
+                <button type="button" class="ab-btn" data-bg="#0c131d" title="Dark Artboard (Glowing White/Neon Strokes)">
+                  <i class="ab-dot dark"></i><span>Black</span>
+                </button>
+              </div>
+
+              <div class="topbar-right">
+                <div class="tool-strip">
+                  <button class="tool-btn active" title="Pointer select tool"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="m3 3 7.07 16.97 2.51-7.39 7.39-2.51L3 3z"/></svg></button>
+                  <button class="tool-btn" title="Path editor"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="m12 19 7-7 3 3-7 7-3-3z"/><path d="m18 13-1.5-7.5L2 2l3.5 14.5L13 18l5-5z"/></svg></button>
+                  <button class="tool-btn" title="Nodes view"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><circle cx="6" cy="6" r="3"/><circle cx="18" cy="18" r="3"/><line x1="8.5" y1="8.5" x2="15.5" y2="15.5"/></svg></button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Stage & Canvas Frame -->
+            <div class="stage-frame">
+              <!-- Artboard Floating Indicator -->
+              <div class="artboard-indicator" id="artboardIndicator">
+                <span class="ab-tag">ARTBOARD</span>
+                <span class="ab-size" id="artboardDims">-- × -- px</span>
+              </div>
+
+              <div class="stage" id="stage">
+                <!-- Checkered Canvas Canvas Wrapper -->
+                <div class="canvas ab-white" id="canvas">
+                  <img id="imgOrig" alt="Original raster image">
+                  <div id="vec"></div>
+                  <img id="imgDiff" alt="Diff image">
+                  <div id="focus" class="focus" hidden></div>
+                </div>
+
+                <!-- Laser Scanning Beam Overlay (Processing Animation) -->
+                <div class="scan-beam" id="scanBeam"></div>
+                <!-- Node Points Grid Overlay (Processing Animation) -->
+                <div class="node-grid-overlay" id="nodeOverlay"></div>
+
+                <!-- Canvas Legend for Diff Mode -->
+                <div class="legend" id="legend" hidden>
+                  <span><i style="background:#22c55e"></i>match</span>
+                  <span><i style="background:#ef4444"></i>missing</span>
+                  <span><i style="background:#3b82f6"></i>extra</span>
+                </div>
+              </div>
+
+              <!-- Canvas Bottom Floating Control Strip -->
+              <div class="canvas-footer-bar">
+                <div class="footer-status-pill" id="canvasStatusPill">
+                  <span class="pulse-dot"></span>
+                  <span class="status-msg" id="canvasStatusMsg">Ready</span>
+                  <div class="mini-prog-track" id="miniProgTrack"><div class="mini-prog-fill" id="miniProgFill"></div></div>
+                </div>
+                
+                <div class="footer-counters">
+                  <span class="counter-badge" id="canvasPathsCount"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg> Paths <b id="countPathsVal">--</b></span>
+                  <span class="counter-badge" id="canvasNodesCount"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><circle cx="6" cy="6" r="2"/><circle cx="18" cy="18" r="2"/><circle cx="12" cy="12" r="2"/></svg> Nodes <b id="countNodesVal">--</b></span>
+                </div>
+
+                <div class="zoom-cluster">
+                  <button id="zout" class="zoom-btn" aria-label="Zoom out">−</button>
+                  <button id="zfit" class="zoom-btn zoom-fit">Fit</button>
+                  <button id="zin" class="zoom-btn" aria-label="Zoom in">+</button>
+                </div>
+              </div>
+            </div>
+
+            <div class="summary" id="summary" hidden></div>
+
+          </div>
+
+          <!-- Right Column: AI Processing, Stages & Metrics -->
+          <div class="sidebar-column">
+
+            <!-- AI Engine Processing Status Card -->
+            <div class="card status-panel" id="processingCard">
+              <div class="status-card-top">
+                <div class="radar-wrap" id="radarWrap">
+                  <div class="radar-pulse"></div>
+                  <div class="radar-ring"></div>
+                  <div class="radar-core">
+                    <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="#00ffd5" stroke-width="2.5" stroke-linecap="round"><path d="m12 3 8 4.5v9L12 21l-8-4.5v-9L12 3z"/></svg>
+                  </div>
+                </div>
+                <div class="status-card-text">
+                  <h3 class="status-title" id="procTitle">Processing...</h3>
+                  <p class="status-sub" id="procSub">AI is analyzing and redrawing your image into clean vector paths.</p>
+                </div>
+              </div>
+
+              <!-- Main Percentage Progress Bar -->
+              <div class="progress-section">
+                <div class="prog-track">
+                  <div class="prog-fill" id="procBarFill" style="width: 4%;"></div>
+                </div>
+                <div class="prog-meta">
+                  <span class="prog-label">Overall Progress</span>
+                  <span class="prog-percent" id="procPercent">0%</span>
+                </div>
+                <div class="proc-cancel-wrap">
+                  <button type="button" class="btn-cancel-job" id="btnCancelJob" title="Cancel current redraw process">
+                    <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M18 6 6 18M6 6l12 12"/></svg>
+                    <span>Cancel Redraw</span>
+                  </button>
+                </div>
+              </div>
+
+              <!-- Processing Stages Checklist -->
+              <div class="stages-list">
+                <div class="stage-row" id="stageImageAnalysis" data-stage="split">
+                  <span class="stage-state-icon"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg></span>
+                  <div class="stage-info">
+                    <div class="stage-name">Image Analysis</div>
+                    <div class="stage-desc">Detecting shapes and details...</div>
+                  </div>
+                  <span class="stage-time" id="timeAnalysis">0.8s</span>
+                </div>
+
+                <div class="stage-row" id="stagePathTracing" data-stage="trace">
+                  <span class="stage-state-icon"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/></svg></span>
+                  <div class="stage-info">
+                    <div class="stage-name">Path Tracing</div>
+                    <div class="stage-desc">Creating vector paths...</div>
+                  </div>
+                  <span class="stage-time" id="timeTracing">--</span>
+                </div>
+
+                <div class="stage-row" id="stageCurveOpt" data-stage="edit">
+                  <span class="stage-state-icon"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/></svg></span>
+                  <div class="stage-info">
+                    <div class="stage-name">Curve Optimization</div>
+                    <div class="stage-desc">Smoothing and refining curves...</div>
+                  </div>
+                  <span class="stage-time" id="timeCurve">--</span>
+                </div>
+
+                <div class="stage-row" id="stageOutputGen" data-stage="output">
+                  <span class="stage-state-icon"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/></svg></span>
+                  <div class="stage-info">
+                    <div class="stage-name">Output Generation</div>
+                    <div class="stage-desc">Finalizing vector file...</div>
+                  </div>
+                  <span class="stage-time" id="timeOutput">--</span>
+                </div>
+              </div>
+
+              <!-- Processing Metrics 2x2 Grid -->
+              <div class="metrics-grid">
+                <div class="metric-tile">
+                  <div class="tile-icon"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="#00f5a0" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></div>
+                  <div class="tile-body">
+                    <span class="tile-label">Processing Time</span>
+                    <b class="tile-val" id="metricTime">0.0s</b>
+                  </div>
+                </div>
+
+                <div class="metric-tile">
+                  <div class="tile-icon"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="#00ffd5" stroke-width="2"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg></div>
+                  <div class="tile-body">
+                    <span class="tile-label">Total Paths</span>
+                    <b class="tile-val" id="metricPaths">--</b>
+                  </div>
+                </div>
+
+                <div class="metric-tile">
+                  <div class="tile-icon"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="#00e599" stroke-width="2"><circle cx="6" cy="6" r="3"/><circle cx="18" cy="18" r="3"/><line x1="8.5" y1="8.5" x2="15.5" y2="15.5"/></svg></div>
+                  <div class="tile-body">
+                    <span class="tile-label">Total Nodes</span>
+                    <b class="tile-val" id="metricNodes">--</b>
+                  </div>
+                </div>
+
+                <div class="metric-tile">
+                  <div class="tile-icon"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="#38bdf8" stroke-width="2"><rect width="8" height="8" x="3" y="3" rx="2"/><rect width="8" height="8" x="13" y="13" rx="2"/></svg></div>
+                  <div class="tile-body">
+                    <span class="tile-label">Duplicate Centerlines</span>
+                    <b class="tile-val" id="metricDupes">0</b>
+                  </div>
+                </div>
+              </div>
+
+            </div>
+
+            <!-- Style & Export Accordion / Panel -->
+            <div class="card panel" id="stylePanel">
+              <div class="panel-header">
+                <h3>Restyle &amp; Settings <span class="badge-live">Live</span></h3>
+              </div>
+              <div class="panel-body">
+                <label class="param-row">
+                  <span>Stroke colour</span>
+                  <input type="color" id="stroke" value="#111111">
+                </label>
+                <label class="param-row">
+                  <span>Stroke weight <b id="scaleV">100%</b></span>
+                  <input type="range" id="scale" min="0.5" max="1.6" step="0.02" value="1">
+                </label>
+                <label class="param-row">
+                  <span>Background</span>
+                  <select id="bg">
+                    <option value="#ffffff">White</option>
+                    <option value="none" selected>Transparent</option>
+                    <option value="#0b0b0c">Dark</option>
+                  </select>
+                </label>
+              </div>
+            </div>
+
+            <!-- Export Buttons Panel -->
+            <div class="card panel" id="exportPanel">
+              <div class="panel-header">
+                <h3>Export Vector Output</h3>
+              </div>
+              <div class="panel-body">
+                <div class="export-btns-list">
+                  <button class="btn template-action-btn" id="btnSendToTemplate">
+                    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.3"><rect width="18" height="18" x="3" y="3" rx="3"/><path d="M9 3v18M3 9h6M14 9h7M14 15h7"/></svg>
+                    <span>Send to Template Studio</span>
+                  </button>
+                  <a class="btn primary-action-btn" id="dlSvg" href="#">
+                    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                    <span>Download Sheet SVG</span>
+                  </a>
+                  <a class="btn secondary-action-btn" id="dlEps" href="#" title="Download Clean Centerlines as PostScript EPS">
+                    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><path d="M8 13h4M8 17h6"/></svg>
+                    <span>Download Sheet EPS</span>
+                  </a>
+                  <a class="btn secondary-action-btn" id="dlZip" href="#">
+                    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="m3.3 7 8.7 5 8.7-5"/><path d="M12 22V12"/></svg>
+                    <span>All Icons (.ZIP)</span>
+                  </a>
+                  <button class="btn secondary-action-btn" id="copy">
+                    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><rect width="14" height="14" x="8" y="8" rx="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>
+                    <span>Copy SVG</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Engine Activity Drawer -->
+            <details class="card panel log-drawer" id="logBox">
+              <summary class="log-summary">
+                <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>
+                <span>Engine Activity Log</span>
+                <span class="count-pill" id="iconCount"></span>
+              </summary>
+              <div class="engines-pills" id="engines" hidden>
+                <div class="eng" data-e="edit"><i></i><b>Edit</b><em></em></div>
+                <div class="eng" data-e="output"><i></i><b>Output</b><em></em></div>
+                <div class="eng" data-e="doctor"><i></i><b>Doctor</b><em></em></div>
+              </div>
+              <ol class="log-entries" id="log"></ol>
+            </details>
+
+          </div>
+
+        </div>
+
+        <!-- ================= Bottom Section: Icon Match Results & Comparison ================= -->
+        <div class="bottom-analysis-row">
+          
+          <!-- Left: Icon Match Results Cards -->
+          <div class="card icon-results-card">
+            <div class="results-header">
+              <div class="target-glyph">
+                <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="#00f5a0" stroke-width="2"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>
+              </div>
+              <div class="results-title-group">
+                <h3>Icon Match Results</h3>
+                <span class="results-sub" id="matchSubText">Detected icons · Calculating match...</span>
+              </div>
+            </div>
+
+            <!-- Scrollable list of icon cards -->
+            <div class="icon-cards-carousel" id="icons">
+              <!-- Dynamically populated icon cards -->
+            </div>
+          </div>
+
+          <!-- Right: Selected Icon Comparison (Original -> Vector) -->
+          <div class="card comparison-card" id="comparisonCard">
+            <div class="comp-box">
+              <div class="comp-label">Original</div>
+              <div class="comp-preview-frame" id="compOrigFrame">
+                <img id="compOrigImg" alt="Original icon crop" src="">
+              </div>
+            </div>
+
+            <div class="comp-arrow">
+              <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="#00f5a0" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+            </div>
+
+            <div class="comp-box active-vector-box">
+              <div class="comp-label">Vector</div>
+              <span class="match-badge" id="compMatchBadge">98.1% Match</span>
+              <div class="comp-preview-frame" id="compVecFrame">
+                <img id="compVecImg" alt="Vector icon preview" src="">
+              </div>
+            </div>
+          </div>
+
+        </div>
+
+      </section>
+
+      <!-- ============ Template Studio View ============ -->
+      <section id="templateStudio" class="template-studio-view" hidden>
+        
+        <!-- Top Toolbar -->
+        <div class="template-topbar">
+          <div class="topbar-left">
+            <button class="btn secondary-action-btn back-btn" id="btnBackToWork">
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2"><path d="m15 18-6-6 6-6"/></svg>
+              <span>Back to Redraw</span>
+            </button>
+            <div class="template-title-group">
+              <h2>Presentation Template Studio</h2>
+              <span class="template-sub" id="tplMetaSub">Merged Vector Artboard · Left Info + Right Vector Icons</span>
+            </div>
+          </div>
+
+          <div class="topbar-right">
+            <a class="btn primary-action-btn" id="btnDlTemplateSvg" href="#" download="presentation.svg">
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+              <span>Download SVG</span>
+            </a>
+            <a class="btn primary-action-btn eps-btn" id="btnDlTemplateEps" href="#" download="presentation.eps">
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><path d="M8 13h4M8 17h6"/></svg>
+              <span>Download EPS</span>
+            </a>
+            <a class="btn secondary-action-btn" id="btnDlTemplateZip" href="#">
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="m3.3 7 8.7 5 8.7-5"/><path d="M12 22V12"/></svg>
+              <span>All Assets (.ZIP)</span>
+            </a>
+          </div>
+        </div>
+
+        <!-- Studio Main Workspace Grid -->
+        <div class="template-grid">
+
+          <!-- Left Controls Column -->
+          <div class="template-controls-sidebar">
+
+            <!-- Presets Section -->
+            <div class="card panel tpl-panel">
+              <div class="panel-header">
+                <h3>Style Presets</h3>
+                <span class="badge-live">1-Click</span>
+              </div>
+              <div class="panel-body">
+                <div class="preset-cards-grid" id="presetList">
+                  <!-- Populated dynamically with swatches -->
+                </div>
+              </div>
+            </div>
+
+            <!-- Set Info & Metadata Section -->
+            <div class="card panel tpl-panel">
+              <div class="panel-header">
+                <h3>Icon Set Details</h3>
+              </div>
+              <div class="panel-body">
+                <label class="param-row text-input-row">
+                  <span>Title</span>
+                  <input type="text" id="tplTitle" value="Minimal Vector Line Icons" placeholder="e.g. Essential UI Icons">
+                </label>
+                <label class="param-row text-input-row">
+                  <span>Category / Subtitle</span>
+                  <input type="text" id="tplSubtitle" value="Clean Centerline Vector Icon Collection" placeholder="e.g. UI & Mobile App Collection">
+                </label>
+                <label class="param-row text-input-row">
+                  <span>Grid Spec</span>
+                  <input type="text" id="tplGrid" value="64 × 64 px Grid" placeholder="e.g. 64x64 px">
+                </label>
+                <label class="param-row text-input-row">
+                  <span>Author / Brand</span>
+                  <input type="text" id="tplAuthor" value="Linework AI Precision Engine" placeholder="Your Brand or Name">
+                </label>
+              </div>
+            </div>
+
+            <!-- Custom Colors / Custom Preset Section -->
+            <div class="card panel tpl-panel">
+              <div class="panel-header">
+                <h3>Custom Colors</h3>
+                <span class="opt-val" id="customColorHint">Live Edit</span>
+              </div>
+              <div class="panel-body">
+                <label class="param-row">
+                  <span>Artboard Background</span>
+                  <input type="color" id="tplBgColor" value="#090d14">
+                </label>
+                <label class="param-row">
+                  <span>Left Info Card</span>
+                  <input type="color" id="tplPanelBgColor" value="#121824">
+                </label>
+                <label class="param-row">
+                  <span>Brand &amp; Accent</span>
+                  <input type="color" id="tplAccentColor" value="#00f5a0">
+                </label>
+                <label class="param-row">
+                  <span>Heading &amp; Text</span>
+                  <input type="color" id="tplTextColor" value="#ffffff">
+                </label>
+                <label class="param-row">
+                  <span>Icon Stroke Color</span>
+                  <input type="color" id="tplStrokeColor" value="#00f5a0">
+                </label>
+                <label class="param-row">
+                  <span>Stroke Weight <b id="tplScaleVal">100%</b></span>
+                  <input type="range" id="tplStrokeScale" min="0.5" max="2.0" step="0.05" value="1.0">
+                </label>
+              </div>
+            </div>
+
+            <!-- Layout & Display Options -->
+            <div class="card panel tpl-panel">
+              <div class="panel-header">
+                <h3>Artboard Layout</h3>
+              </div>
+              <div class="panel-body">
+                <div class="seg tpl-layout-seg" id="tplLayoutSeg">
+                  <button type="button" data-v="landscape" class="on">Landscape (16:10)</button>
+                  <button type="button" data-v="square">Square (1:1)</button>
+                </div>
+                <label class="checkbox-row" style="margin-top:12px; display:flex; align-items:center; gap:8px; font-size:12.5px; cursor:pointer;">
+                  <input type="checkbox" id="tplShowGrid" checked style="accent-color:var(--accent);">
+                  <span>Show background dot grid</span>
+                </label>
+              </div>
+            </div>
+
+          </div>
+
+          <!-- Right Preview Column -->
+          <div class="template-preview-column">
+            <div class="stage-frame template-stage-frame">
+              <div class="artboard-indicator">
+                <span class="ab-tag">PRESENTATION ARTBOARD</span>
+                <span class="ab-size" id="tplDimsBadge">1600 × 1000 px · SVG &amp; EPS Merged</span>
+              </div>
+
+              <!-- Main scrollable / zoomable preview canvas -->
+              <div class="template-stage" id="templateStage">
+                <div class="template-artboard-container" id="templateSvgContainer">
+                  <!-- The merged SVG renders here live -->
+                </div>
+              </div>
+
+              <!-- Bottom zoom strip -->
+              <div class="canvas-footer-bar">
+                <div class="footer-status-pill">
+                  <span class="pulse-dot"></span>
+                  <span>Merged Template: Left Info Card + Right Traced Vector Icons</span>
+                </div>
+                <div class="zoom-cluster">
+                  <button id="tplZout" class="zoom-btn">−</button>
+                  <button id="tplZfit" class="zoom-btn zoom-fit">Fit</button>
+                  <button id="tplZin" class="zoom-btn">+</button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+        </div>
+
+      </section>
+
+    </main>
+
+  </div>
+
+</div>
+
+<!-- AI Lessons Modal -->
+<div class="modal-backdrop" id="lessonsModal" style="display:none;">
+  <div class="modal-card">
+    <div class="modal-header">
+      <h3>
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="var(--accent)" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
+        What Keeps Going Wrong (AI Lessons & Defect Census)
+      </h3>
+      <div style="display:flex; align-items:center; gap:10px;">
+        <button class="btn" id="btnClearLessons" style="background:rgba(255,80,80,0.12); border:1px solid rgba(255,80,80,0.3); color:#ff6b6b; padding:5px 10px; font-size:12px; border-radius:6px; cursor:pointer; display:flex; align-items:center; gap:5px;">
+          <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+          Clear Cache
+        </button>
+        <button class="icon-btn" id="closeLessonsModal" title="Close" style="color:var(--text-muted); font-size:16px;">✕</button>
+      </div>
+    </div>
+    <div class="modal-body" id="lessonsContent">
+      <div style="text-align:center; padding:30px; color:var(--text-dim);">Loading memory data...</div>
+    </div>
+  </div>
+</div>
+
+<!-- Notification Toast -->
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<!-- Application Script -->
+<script src="/static/app.js"></script>
+</body>
+</html>
