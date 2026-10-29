@@ -1011,7 +1011,7 @@ def merge_corners(m: Model, pairs, joint_ends=None, D=None):
                     Hin[idx + 1] = A[idx + 1] - vQ / 3.0
 
         join_type = "round" if is_round else ("miter" if (P.join == "miter" or Q.join == "miter") else P.join)
-        ml_val = max(P.ml, Q.ml)
+        ml_val = min(4.0, P.ml, Q.ml)  # was max(): a limit of 10 spread to merged paths and made spikes at acute joints
         closed = False
         if np.linalg.norm(A[0] - A[-1]) <= max(1.5, 0.25 * w_merged) and (LP + LQ) >= 3.5 * w_merged and len(A) >= 4:
             A[-1] = A[0].copy()

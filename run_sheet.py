@@ -52,22 +52,32 @@ if __name__ == '__main__':
     print('SET widths: icons changed', rep['changed'], 'classes', rep['classes'])
     res = [(t[0], t[1], m.to_json(), t[3]) for t, m in zip(res, mods)]
     allm = Model([], W, H)
+    out_dir = Path(OUT)
+    out_dir.mkdir(parents=True, exist_ok=True)
+    named_map = {1: "bubble", 4: "arrow", 11: "document"}
     for k, off, mj, met in sorted(res):
+        m_single = Model.from_json(mj)
+        (out_dir / f'icon{k+1}.svg').write_text(m_single.svg())
+        if (k + 1) in named_map:
+            (out_dir / f'{named_map[k+1]}.svg').write_text(m_single.svg())
         m = Model.from_json(mj)
         m.translate(*off)
         allm.paths += m.paths
         jn = met.get('joins', {})
+        pol_ch = jn.get('policy_changed', 0)
+        soft = met.get('soft_norm', 1.0 - met['iou'])
         jn_tuple = (jn.get('total'), jn.get('clean_first'), sum((jn.get('fixed') or {}).values()), len(jn.get('unresolved', [])))
         sx = met.get('structure', {})
         sx_counts = dict(__import__('collections').Counter(x.get('how') for x in sx.get('sites', []) if x.get('fixed')))
         sx_tuple = (sx.get('found', 0), sx.get('fixed', 0), len(sx.get('unresolved', [])))
-        print(k+1, 'IoU %.4f (init %.4f) paths %d nodes %d  %ss' % (
-            met['iou'], met['iou_initial'], met['paths'], met['nodes'], met['seconds']
-        ), met['issues'], 'JOIN', jn_tuple, 'STRUCT', sx_tuple, sx_counts, 'FIN', __import__('collections').Counter((x['kind'], x['fixed']) for x in met.get('finisher', {}).get('sites', [])))
+        print(f"Icon {k+1}: IoU {met['iou']:.4f} (soft_norm {soft:.4f}) policy_changed={pol_ch} paths={met['paths']} nodes={met['nodes']} {met['seconds']}s",
+              met['issues'], 'JOIN', jn_tuple, 'STRUCT', sx_tuple, sx_counts, 'FIN', __import__('collections').Counter((x['kind'], x['fixed']) for x in met.get('finisher', {}).get('sites', [])))
     svg = allm.svg()
     open(OUT + '.svg', 'w').write(svg)
+    (out_dir / 'sheet.svg').write_text(svg)
     img = R.render_gray(svg, W, H)
     cv2.imwrite(OUT + '.png', img)
+    cv2.imwrite(str(out_dir / 'sheet.png'), img)
     a = cv2.imread(SRC, 0)
     from linework.trace import ink_map
     D = ink_map(a)
@@ -79,3 +89,4 @@ if __name__ == '__main__':
     d[ref & ~b] = (0, 0, 255)
     d[~ref & b] = (255, 0, 0)
     cv2.imwrite(OUT + '_diff.png', d)
+    cv2.imwrite(str(out_dir / 'sheet_diff.png'), d)

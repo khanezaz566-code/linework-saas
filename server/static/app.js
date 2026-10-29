@@ -41,6 +41,11 @@
 
   const fmt = n => (n != null ? (n * 100).toFixed(1) + '%' : '--');
 
+  function getDefectCount(metrics) {
+    const iss = (metrics && (metrics.issues || metrics)) || {};
+    return (iss.duplicates || 0) + (iss.kinks || 0) + (iss.gaps || 0) + (iss.notches || 0) + (iss.spurs || 0) + (iss.regions || 0);
+  }
+
   // Health check
   fetch('/api/health')
     .then(r => r.json())
@@ -368,7 +373,9 @@
 
     if (j.version !== S.version && j.version > 0) {
       S.version = j.version;
-      loadSvg();
+      if (S.done) {
+        loadSvg();
+      }
     }
   }
 
@@ -548,7 +555,8 @@
     if (badge) {
       const p = ic.iou != null ? ic.iou : ic.live_iou;
       const fin = ic.metrics && ic.metrics.finisher;
-      let txt = p != null ? `${fmt(p)} Match` : 'Processing...';
+      const fidStr = p != null ? fmt(p) : null;
+      let txt = fidStr != null ? `${fidStr} Match` : 'Processing...';
       if (fin && fin.found > 0) {
         txt += ` · ✨ Finisher: ${fin.fixed}/${fin.found} sites`;
       }
@@ -585,6 +593,9 @@
   // ---------------------------------------------------------------- Finish Completion
   function finish(j) {
     S.done = true;
+
+    // Render the final verified vector onto the canvas now that match is 100% complete!
+    loadSvg();
 
     // Stop scanning beam
     const stg = $('#stage');

@@ -1,6 +1,6 @@
 """Orchestration: image -> icons -> (trace -> chains -> fit) -> Edit/Output/Doctor loop -> SVG."""
 from __future__ import annotations
-import time, json
+import os, time, json
 from dataclasses import dataclass, asdict, field
 import numpy as np, cv2
 
@@ -14,6 +14,7 @@ from . import rings as RG
 from . import repair as RP
 from . import finisher as FN
 from . import structfix as SF
+from . import joinpolicy as JP
 from . import structure as ST
 from . import joints as JN
 from . import lessons as LS
@@ -21,8 +22,8 @@ from .split import find_icons, crop_icon, estimate_width
 
 PRESETS = {
     "fast": dict(max_rounds=0, time_budget=25, region_edits=0, iters=18, taus=(1.0, 0.45)),
-    "standard": dict(max_rounds=2, time_budget=90, region_edits=4, iters=22, taus=(1.0, 0.5, 0.35)),
-    "precise": dict(max_rounds=5, time_budget=240, region_edits=8, iters=45, taus=(1.2, 0.8, 0.5, 0.34)),
+    "standard": dict(max_rounds=4, time_budget=120, region_edits=8, iters=28, taus=(1.0, 0.5, 0.35)),
+    "precise": dict(max_rounds=6, time_budget=300, region_edits=12, iters=36, taus=(1.2, 0.8, 0.5, 0.34)),
 }
 
 
@@ -213,7 +214,7 @@ def _process_icon(gray, opts: Options = None, emit=_noop, name="icon", set_w=Non
         if cmd["op"] in ("remove_path", "cut"):
             tol = max(tol, opts.dedupe_tol * doctor.area)
         elif cmd["op"] in ("join", "cap"):
-            tol = max(tol, 0.025 * state["cur"], 25.0)
+            tol = min(max(tol, 0.002 * state["cur"], 1.0), 3.0)  # was max(2.5 %, 25 px): a miter spike at an acute joint slipped through
         elif cmd["op"] in ("smooth_anchor", "simplify", "line_snap", "circle", "weld", "merge_nodes", "trim_tail"):
             tol = max(tol, 0.004 * state["cur"], 2.0)
         ok = s2 <= state["cur"] + tol
@@ -349,7 +350,7 @@ def _process_icon(gray, opts: Options = None, emit=_noop, name="icon", set_w=Non
             stall += 1
         else:
             stall = 0
-        if cfg["max_rounds"] == 0 or stall >= 1 or left() <= 0:
+        if cfg["max_rounds"] == 0 or stall >= 2 or left() <= 0:
             break
         rep = doctor.diagnose(state["model"], state["ink"])
         if rep["issues"] == 0 or (doctor.iou(state["ink"]) >= opts.target_iou and not (rep["redundant"] or rep["tails"])):
@@ -393,28 +394,43 @@ def _process_icon(gray, opts: Options = None, emit=_noop, name="icon", set_w=Non
         jc0 = time.process_time()
         jcap = max(6.0, 0.2 * bud[0])
         m5, ink5, cur5, jn = JN.run_join_engine(state["model"], D, doctor, ink_of, state["cur"], W0, time_ok=lambda: time.process_time() - jc0 < jcap)
-        state.update(model=m5, ink=ink5, cur=cur5)
+        # Quality Guard: only accept join modifications if it does not degrade the icon match!
+        iou_pre_join = doctor.iou(state["ink"])
+        iou_post_join = doctor.iou(ink5)
+        if cur5 <= state["cur"] + max(2.0, 0.001 * state["cur"]) and iou_post_join >= iou_pre_join - 0.001:
+            state.update(model=m5, ink=ink5, cur=cur5)
         nf = sum(jn["fixed"].values())
         ev("doctor", f"Join check: {jn['total']} joint(s), {jn['clean_first']} clean at first look, {jn['built']} built, {nf} repaired, {len(jn['unresolved'])} left for review", iou=doctor.iou(state["ink"]))
-    # final topology guard: refits above can reopen junctions, so weld/merge/trim once more
-    for _ in range(2):
-        rep = doctor.diagnose(state["model"], state["ink"])
-        open_all(rep)
-        cmds = [c for c in Doctor.cosmetic_commands(rep) if c["op"] in ("trim_tail", "merge_nodes", "weld")]
-        n = 0
-        for cmd in pending(cmds):
-            if cmd["op"] == "weld":
-                n += do_weld()[0]
-            elif cmd["path"] < len(state["model"].paths):
-                n += run(cmd)
-        if not n:
-            break
+    # Join policy guard: re-judge round / bevel / miter (+ miter limit) of every path with a corner on the real render; spikes are punished
+    nsp = 0
+    if opts.joins and not os.environ.get("DISABLE_SPIKE_GUARD"):
+        pc0 = time.process_time()
+        m8, ink8, cur8, nsp = JP.spike_guard(state["model"], D, doctor, ink_of, state["cur"], time_ok=lambda: time.process_time() - pc0 < max(6.0, 0.2 * bud[0]))
+        if nsp:
+            state.update(model=m8, ink=ink8, cur=cur8)
+        ev("doctor", f"Join policy: {nsp} path(s) got a better join type / miter limit", iou=doctor.iou(state["ink"]))
     if opts.joins:
         m_lock = JN.lock_joints(state["model"])
         ink_lock = ink_of(m_lock)
         s_lock = doctor.soft(ink_lock)
         if s_lock <= state["cur"] + max(4.0, 0.003 * max(doctor.area, 1), 0.006 * state["cur"]):
             state.update(model=m_lock, ink=ink_lock, cur=s_lock)
+    # final topology guard: refits above can reopen junctions, so weld/merge/trim once more
+    waived.clear()
+    for _ in range(2):
+        rep = doctor.diagnose(state["model"], state["ink"])
+        open_all(rep)
+        cmds = [c for c in Doctor.cosmetic_commands(rep) if c["op"] in ("trim_tail", "merge_nodes", "weld", "smooth_anchor")]
+        n = 0
+        for cmd in pending(cmds):
+            if cmd["op"] == "weld":
+                n += do_weld()[0]
+            elif cmd["path"] < len(state["model"].paths):
+                n += run(cmd)
+        for cmd in pending(Doctor.region_commands(rep, 4)):
+            n += run(cmd)
+        if not n:
+            break
     model, ink = state["model"], state["ink"]
     rep = doctor.diagnose(model, ink)
     open_all(rep)
@@ -427,7 +443,7 @@ def _process_icon(gray, opts: Options = None, emit=_noop, name="icon", set_w=Non
                     gaps=len(rep["gaps"]), notches=len(rep["notches"]), spurs=len(rep["spurs"]), restored=nm, stray=nr),
         finisher=dict(found=fin['found'], fixed=fin['fixed'], sites=fin['sites']),
         structure=dict(before=sx['before'], after=sx['after'], found=sx['found'], fixed=sx['fixed'], unresolved=sx['unresolved']),
-        joins=dict(total=jn['total'], clean_first=jn['clean_first'], built=jn['built'], fixed=jn['fixed'], unresolved=jn['unresolved']),
+        joins=dict(policy_changed=nsp, total=jn['total'], clean_first=jn['clean_first'], built=jn['built'], fixed=jn['fixed'], unresolved=jn['unresolved']),
     )
     return dict(model=model, svg=model.svg(), metrics=metrics)
 

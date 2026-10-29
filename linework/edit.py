@@ -208,7 +208,7 @@ def refine_region(m: Model, D, box, margin=12, **kw):
     return opt.refine(m, D, free=free, window=(x0, y0, x1, y1), **kw)
 
 
-def set_join(m: Model, i, join, ml=10.0):
+def set_join(m: Model, i, join, ml=4.0):
     m = m.copy()
     m.paths[i].join = join
     m.paths[i].ml = ml
@@ -242,5 +242,6 @@ def execute(m: Model, cmd: dict, D=None):
     if op == "trim_tail":
         return T.trim_tail(m, cmd["path"], cmd["end"]), None
     if op == "join":
-        return set_join(m, cmd["path"], cmd["join"]), None
+        from . import joinpolicy as JP
+        return JP.choose_join(m, cmd["path"], D), None
     raise ValueError(op)

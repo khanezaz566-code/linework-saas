@@ -116,7 +116,11 @@ class Model:
         head = re.search(r'viewBox="([^"]+)"', svg)
         vb = num(head.group(1)) if head else [0, 0, 0, 0]
         paths = []
-        for d, w in re.findall(r'<path d="([^"]+)" stroke-width="([\d.]+)"', svg):
+        for tag in re.findall(r"<path\b[^>]*>", svg):
+            attr = dict(re.findall(r'([\w:-]+)="([^"]*)"', tag))  # any attribute order
+            d, w = attr.get("d"), attr.get("stroke-width")
+            if d is None or w is None:
+                continue
             toks = re.findall(r"[MCZ][^MCZ]*", d)
             p0 = num(toks[0])[:2]
             A, Hi, Ho = [p0], [p0], []
@@ -128,8 +132,9 @@ class Model:
             if not Ho:
                 continue
             Ho.append(A[-1])
-            jm = re.search(r'<path d="%s"[^>]*stroke-linejoin="(\w+)"' % re.escape(d), svg)
-            paths.append(Path(A, Hi, Ho, float(w), jm.group(1) if jm else "round", 4.0, toks[-1].startswith("Z")))
+            join = attr.get("stroke-linejoin", "round")
+            ml = float(attr.get("stroke-miterlimit", 4.0))
+            paths.append(Path(A, Hi, Ho, float(w), join, ml, toks[-1].startswith("Z")))
         return Model(paths, int(vb[2]), int(vb[3]))
 
     @staticmethod

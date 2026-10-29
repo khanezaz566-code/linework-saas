@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.9.5 - Join policy (acute-joint spikes / blobs)
+- Root cause: Doctor command `join` (round -> miter) forced a miter limit of 10 (`edit.set_join`) and `pipeline.run` accepted it with a tolerance of max(2.5 % of the icon mismatch, 25 px), so a spike at an acute joint (bubble tail, arrow head, folded corner) passed as "not worse". `Model.from_svg` also reset the miter limit to 4.0 and found the join with a one-attribute-order regex, and `finisher` merged strokes with `max(P.ml, Q.ml)`.
+- `linework/joinpolicy.py` (new): per path, candidates round / bevel / miter(1.5, 2, 3, 4) are rendered with the real output renderer and judged in a window around each corner; ink outside the 1 px dilated source (spike) counts 3x; a change is kept only if the window is strictly better and the icon does not get worse. `spike_guard` re-judges every path with a corner at the end of the pipeline (`metrics.joins.policy_changed`).
+- `edit.set_join` default ml 4.0; op `join` now calls `joinpolicy.choose_join`. `pipeline.run` join tolerance is min(max(0.2 %, 1 px), 3 px).
+- `Model.svg/from_svg` round-trip join + miter limit in any attribute order.
+- Tests: `tests/test_join_policy.py` (4). Known: `tests/test_joints.py::test_split_corner_with_gap_becomes_one_clean_corner` fails on the untouched baseline too.
+
+
 ## 0.8.0 — Structure engine (why small fixes did not show, and the bigger answer)
 - Root cause found: the Doctor/Finisher/Join verifier compares the render with the SOURCE pixels. A lump, a wobble or a fused double outline costs only a few pixels of overlap, and when the source itself is wobbly or fused, the render copies it at 99 % match. Local repairs were therefore either "invisible" to the check or rejected as "not an improvement".
 - `linework/structure.py`: skeleton of source vs skeleton of render (render-off / source-off / thick / thin sites, severity in stroke widths).

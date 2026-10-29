@@ -410,8 +410,8 @@ async def create_job(
     file: UploadFile = File(...),
     quality: str = Form("standard"),
     clean: float = Form(0.5),          # 0 = pixel match first, 1 = cleanest paths first
-    target: float = Form(98.5),
-    fresh: bool = Form(False),
+    target: float = Form(99.5),
+    fresh: bool = Form(True),
 ):
     data = await file.read()
     if len(data) > MAX_BYTES:
@@ -420,7 +420,7 @@ async def create_job(
     return _start(gray, file.filename or "upload", quality, clean, target, fresh=fresh)
 
 
-def _start(gray, name, quality, clean, target, fresh: bool = False):
+def _start(gray, name, quality, clean, target, fresh: bool = True):
     _sweep_old()
     cancel_all_jobs()
     if quality not in PRESETS:
@@ -441,12 +441,12 @@ def _start(gray, name, quality, clean, target, fresh: bool = False):
 
 
 @app.post("/api/samples/{name}")
-def sample(name: str, quality: str = "standard", fresh: bool = False):
+def sample(name: str, quality: str = "standard", fresh: bool = True):
     fn = ROOT / "samples" / f"{name}.png"
     if not fn.exists() or not name.replace("-", "").isalnum():
         raise HTTPException(404)
     gray = cv2.imread(str(fn), 0)
-    return _start(gray, name, quality, 0.5, 98.5, fresh=fresh)
+    return _start(gray, name, quality, 0.5, 99.5, fresh=fresh)
 
 
 @app.get("/api/jobs/{job_id}")
