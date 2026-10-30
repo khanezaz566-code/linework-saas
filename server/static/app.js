@@ -373,9 +373,7 @@
 
     if (j.version !== S.version && j.version > 0) {
       S.version = j.version;
-      if (S.done) {
-        loadSvg();
-      }
+      loadSvg();
     }
   }
 
@@ -473,13 +471,17 @@
     });
 
     // Dynamic focus tracking during live processing:
-    // Follow the icon that is CURRENTLY being worked on.
+    // Follow the icon that is CURRENTLY being worked on (unless user clicked a specific card).
     if (!S.done && j.icons.length > 0) {
-      const activeIcon = j.icons.find(i => i.status === 'running') ||
-                         j.icons.find(i => i.status !== 'done') ||
-                         j.icons[0];
-      if (activeIcon && activeIcon.box) {
-        trackActiveIcon(activeIcon.k);
+      if (S.sel === null) {
+        const activeIcon = j.icons.find(i => i.status === 'running') ||
+                           j.icons.find(i => i.status !== 'done') ||
+                           j.icons[0];
+        if (activeIcon && activeIcon.box) {
+          trackActiveIcon(activeIcon.k);
+        }
+      } else if (j.icons[S.sel]) {
+        updateComparison(S.sel);
       }
     } else if (S.done && S.sel !== null && j.icons[S.sel]) {
       updateComparison(S.sel);
@@ -547,7 +549,13 @@
     // Vector SVG preview
     const vecImg = $('#compVecImg');
     if (vecImg) {
-      vecImg.src = `/api/jobs/${S.job}/icons/${k}.svg?v=${S.version}`;
+      vecImg.onerror = () => { vecImg.style.visibility = "hidden"; };
+      vecImg.onload = () => { vecImg.style.visibility = "visible"; };
+      if (ic.status === "done") {
+        vecImg.src = `/api/jobs/${S.job}/icons/${k}.svg?v=${S.version}`;
+      } else {
+        vecImg.style.visibility = "hidden";
+      }
     }
 
     // Match badge
