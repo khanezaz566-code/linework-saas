@@ -39,9 +39,21 @@ _POOL = None
 
 def pool():
     global _POOL
+    if _POOL is not None:
+        if getattr(_POOL, "_broken", False) or getattr(_POOL, "_shutdown_thread", False):
+            reset_pool()
     if _POOL is None:
-        n = max(1, int(os.environ.get("LINEWORK_WORKERS", os.cpu_count() or 2)))
-        _POOL = ProcessPoolExecutor(max_workers=n, mp_context=_CTX, initializer=worker.init, initargs=(_Q,))
+        default_w = min(6, max(2, (os.cpu_count() or 4) // 2))
+        n = max(1, int(os.environ.get("LINEWORK_WORKERS", default_w)))
+        if os.environ.get("LINEWORK_INLINE"):
+            worker.init(_Q)
+            _POOL = ThreadPoolExecutor(max_workers=n)
+        else:
+            try:
+                _POOL = ProcessPoolExecutor(max_workers=n, mp_context=_CTX, initializer=worker.init, initargs=(_Q,))
+            except Exception:
+                worker.init(_Q)
+                _POOL = ThreadPoolExecutor(max_workers=n)
     return _POOL
 
 
@@ -293,8 +305,15 @@ def _set_pass(job_id, d, jobs, order):
             k = futs[fut]
             try:
                 _, off, mj, met = fut.result()
-            except Exception:
-                continue
+            except Exception as e:
+                if "BrokenProcessPool" in type(e).__name__ or "Broken" in str(e):
+                    reset_pool()
+                    try:
+                        _, off, mj, met = worker.run_icon((job_id, k, crops[k], offs[k], o2))
+                    except Exception:
+                        continue
+                else:
+                    continue
             if SL.better(mets[k], met):
                 _store_icon(job, d, k, mj, off, met)
                 mets[k] = met
@@ -330,13 +349,26 @@ def _run_job(job_id):
         job["status"] = "running"
         job["events"].append(dict(engine="split", msg=f"Found {len(jobs)} icon(s)", t=0, n=len(job["events"])))
         order = sorted(jobs, key=lambda j: -j[1].size)
+        crop_map = {k: c for k, c, off in jobs}
+        off_map = {k: off for k, c, off in jobs}
         futs = {}
         p = pool()
         for k, crop, off in order:
             if job.get("cancelled") or job.get("status") == "cancelled":
                 break
             job["icons"][k]["status"] = "running"
-            futs[p.submit(worker.run_icon, (job_id, k, crop, off, job["options"]))] = k
+            try:
+                futs[p.submit(worker.run_icon, (job_id, k, crop, off, job["options"]))] = k
+            except Exception:
+                reset_pool()
+                p = pool()
+                try:
+                    futs[p.submit(worker.run_icon, (job_id, k, crop, off, job["options"]))] = k
+                except Exception:
+                    # Fallback directly to worker
+                    k_r, off_r, mj_r, met_r = worker.run_icon((job_id, k, crop, off, job["options"]))
+                    _store_icon(job, d, k_r, mj_r, off_r, met_r)
+                    job["done"] += 1
         for fut in as_completed(futs):
             if job.get("cancelled") or job.get("status") == "cancelled":
                 break
@@ -347,6 +379,17 @@ def _run_job(job_id):
             except Exception as e:  # keep the job alive if one icon fails
                 if job.get("cancelled") or job.get("status") == "cancelled":
                     break
+                if "BrokenProcessPool" in type(e).__name__ or "Broken" in str(e):
+                    reset_pool()
+                    try:
+                        k_r, off_r, mj_r, met_r = worker.run_icon((job_id, k, crop_map[k], off_map[k], job["options"]))
+                        _store_icon(job, d, k_r, mj_r, off_r, met_r)
+                        job["done"] += 1
+                        (d / "result.svg").write_text(_compose(job_id).svg(pretty=True))
+                        continue
+                    except Exception as e2:
+                        ic.update(status="error", error=str(e2))
+                        continue
                 ic.update(status="error", error=str(e))
                 continue
             _store_icon(job, d, k, mj, off, met)

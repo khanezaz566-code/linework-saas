@@ -411,7 +411,7 @@ def fix_end(m: Model, i, e, reach=4.5, target=None, smooth=False):
     return cand
 
 
-def collinear_pairs(m: Model, D, ang=15.0, reach=2.6):
+def collinear_pairs(m: Model, D, ang=18.0, reach=2.6):
     """Open paths that were cut where another stroke crosses them: facing endpoints <= reach*w apart, pointing at each other,
     joined by source ink.  Returns [(i, end_i, j, end_j)] with each endpoint used once."""
     ends = []
@@ -421,37 +421,45 @@ def collinear_pairs(m: Model, D, ang=15.0, reach=2.6):
         for e in (0, 1):
             a = p.A[0] if e == 0 else p.A[-1]
             h = p.Hout[0] if e == 0 else p.Hin[-1]
-            t = a - h
-            g = end_geometry(p, e)
-            if g is not None:  # direction of the stroke itself, measured outside the zone where junction artefacts live
-                t = g[1]
-            if np.linalg.norm(t) < 1e-6:
+            t_loc = a - h
+            if np.linalg.norm(t_loc) < 1e-6:
                 f = p.flat(1.0)
-                t = f[0] - f[min(len(f) - 1, 6)] if e == 0 else f[-1] - f[max(0, len(f) - 7)]
-            ends.append((i, e, a, t / max(np.linalg.norm(t), 1e-9), p.w, g[0] if g is not None else a))
+                t_loc = f[0] - f[min(len(f) - 1, 6)] if e == 0 else f[-1] - f[max(0, len(f) - 7)]
+            u_loc = t_loc / max(np.linalg.norm(t_loc), 1e-9)
+            t = t_loc
+            ca = a
+            g = end_geometry(p, e)
+            if g is not None:
+                if g[2] >= 110.0:
+                    t = g[1]
+                    ca = g[0]
+                elif u_loc @ g[1] >= 0.85:
+                    t = g[1]
+                    ca = g[0]
+            ends.append((i, e, a, t / max(np.linalg.norm(t), 1e-9), p.w, ca))
     c = np.cos(np.radians(ang))
     cands = []
     for x in range(len(ends)):
         for y in range(x + 1, len(ends)):
             i, ei, a, ta, wa, ca = ends[x]
             j, ej, b, tb, wb, cb = ends[y]
-            if i == j or abs(wa - wb) > 0.2 * max(wa, wb):
+            if i == j or abs(wa - wb) > 0.25 * max(wa, wb):
                 continue
-            if abs(_cr(cb - ca, ta)) > 0.6 * max(wa, wb):  # the other piece must lie on this piece's own line
+            if abs(_cr(cb - ca, ta)) > 0.65 * max(wa, wb):
                 continue
             v = b - a
             d = np.linalg.norm(v)
             if d > reach * max(wa, wb):
                 continue
             vc = cb - ca
-            u = vc / np.linalg.norm(vc) if np.linalg.norm(vc) > 0.5 else v / max(d, 1e-9)  # direction between the cut points (outside the hook zone)
+            u = vc / np.linalg.norm(vc) if np.linalg.norm(vc) > 0.5 else v / max(d, 1e-9)
             if ta @ u < c or tb @ (-u) < c:
                 continue
             n = max(3, int(d))
             pts = a + v * np.linspace(0, 1, n)[:, None]
             xs = np.clip(pts[:, 0].astype(int), 0, D.shape[1] - 1)
             ys = np.clip(pts[:, 1].astype(int), 0, D.shape[0] - 1)
-            if (D[ys, xs] > 0.5).mean() < 0.9:
+            if (D[ys, xs] > 0.35).mean() < 0.65 and (D[ys, xs] > 0.5).mean() < 0.60:
                 continue
             cands.append((d, i, ei, j, ej))
     used, out = set(), []
@@ -469,7 +477,7 @@ def _cut_if_hooked(p: Path, e: int):
     g = end_geometry(p, e)
     if g is None or not (g[2] >= 12.0 or g[4] >= max(0.8, 0.12 * p.w)):
         return p
-    if not _straight_before_end(p, e, g[1]):
+    if g[2] < 110.0 and not _straight_before_end(p, e, g[1]):
         return p
     mm = move_end(Model([p], 0, 0), 0, e, 1.4 * p.w)
     return p if mm is None else mm.paths[0]
@@ -863,39 +871,94 @@ def excess_ends(m: Model, ink, D, frac=0.1):
     return sorted(out, key=lambda t: -t[0])
 
 
-def corner_pairs(m: Model, tol=1.2):
-    """Two open paths that simply end at the same point (a corner drawn as two strokes with two overlapping round caps)
-    and nothing else touches that point -> [(i, end_i, j, end_j)]."""
+def corner_pairs(m: Model, tol=1.2, D=None, reach=1.55):
+    """Two open paths that simply end near the same point or form an outer corner -> [(i, end_i, j, end_j, Xc)]."""
     ends = []
     for i, p in enumerate(m.paths):
         if p.closed:
             continue
-        ends += [(i, 0, p.A[0], p.w), (i, 1, p.A[-1], p.w)]
+        for e in (0, 1):
+            pt = p.A[0] if e == 0 else p.A[-1]
+            g = end_geometry(p, e)
+            if g is not None and g[2] >= 110.0:
+                pt = g[0]
+            ends.append((i, e, pt, p.w))
     out, used = [], set()
     w_med = float(np.median([p.w for p in m.paths])) if m.paths else 10.0
     eff_tol = max(tol, 0.40 * w_med)
+    cands = []
     for x in range(len(ends)):
         for y in range(x + 1, len(ends)):
             i, ei, a, wa = ends[x]
             j, ej, b, wb = ends[y]
             if i == j or (i, ei) in used or (j, ej) in used:
                 continue
+            w_max = max(wa, wb)
+            d = float(np.linalg.norm(a - b))
+            if abs(wa - wb) > 0.25 * w_max:
+                continue
             pair_tol = max(eff_tol, 0.40 * min(wa, wb))
-            if np.linalg.norm(a - b) > pair_tol or abs(wa - wb) > 0.2 * max(wa, wb):
-                continue
-            mid = (a + b) / 2
-            third = False
-            for k, q in enumerate(m.paths):
-                if k in (i, j):
+            
+            # Close meeting point
+            if d <= pair_tol:
+                mid = (a + b) / 2
+                third = False
+                for k, q in enumerate(m.paths):
+                    if k in (i, j):
+                        continue
+                    f = q.flat(1.0)
+                    if np.linalg.norm(f - mid, axis=1).min() < 0.6 * w_max:
+                        third = True
+                        break
+                if not third:
+                    cands.append((d, i, ei, j, ej, None))
                     continue
-                f = q.flat(1.0)
-                if np.linalg.norm(f - mid, axis=1).min() < 0.7 * max(wa, wb):
-                    third = True
-                    break
-            if third:
-                continue
-            used.add((i, ei))
-            used.add((j, ej))
+
+            # Extended ray intersection for trimmed corner branches
+            if d <= reach * w_max:
+                P, Q = m.paths[i], m.paths[j]
+                gP_end = end_geometry(P, ei)
+                gQ_end = end_geometry(Q, ej)
+                if gP_end is not None and gP_end[2] >= 110.0:
+                    tP = -gP_end[1] if ei == 0 else gP_end[1]
+                else:
+                    tP = (P.A[0] - P.A[1]) if ei == 0 else (P.A[-1] - P.A[-2])
+                if gQ_end is not None and gQ_end[2] >= 110.0:
+                    tQ = -gQ_end[1] if ej == 0 else gQ_end[1]
+                else:
+                    tQ = (Q.A[0] - Q.A[1]) if ej == 0 else (Q.A[-1] - Q.A[-2])
+                nP, nQ = float(np.linalg.norm(tP)), float(np.linalg.norm(tQ))
+                if nP < 1e-4 or nQ < 1e-4:
+                    continue
+                uP, uQ = tP / nP, tQ / nQ
+                den = float(uP[0] * uQ[1] - uP[1] * uQ[0])
+                if abs(den) < 0.20:
+                    continue
+                diff = b - a
+                sP = float(diff[0] * uQ[1] - diff[1] * uQ[0]) / den
+                sQ = float(diff[1] * uP[0] - diff[0] * uP[1]) / den
+                if sP < -0.25 * w_max or sQ < -0.25 * w_max:
+                    continue
+                if sP > 1.65 * w_max or sQ > 1.65 * w_max:
+                    continue
+                Xc = a + sP * uP
+                if np.linalg.norm(Xc - (a + b) / 2) > 1.35 * w_max:
+                    continue
+                if D is not None:
+                    ix = int(np.clip(round(Xc[0]), 0, D.shape[1] - 1))
+                    iy = int(np.clip(round(Xc[1]), 0, D.shape[0] - 1))
+                    if D[iy, ix] < 0.30:
+                        continue
+                cands.append((d, i, ei, j, ej, Xc))
+
+    for d, i, ei, j, ej, Xc in sorted(cands, key=lambda t: t[0]):
+        if (i, ei) in used or (j, ej) in used:
+            continue
+        used.add((i, ei))
+        used.add((j, ej))
+        if Xc is not None:
+            out.append((i, ei, j, ej, Xc))
+        else:
             out.append((i, ei, j, ej))
     return out
 
@@ -912,10 +975,20 @@ def merge_corners(m: Model, pairs, joint_ends=None, D=None):
         P, Q = m.paths[i], m.paths[j]
         P = P if ei == 1 else _reversed(P)
         Q = Q if ej == 0 else _reversed(Q)
-        mid = (P.A[-1] + Q.A[0]) / 2
-        w_max = max(P.w, Q.w)
         gP = end_geometry(P, 1)
         gQ = end_geometry(Q, 0)
+        if gP is not None and gP[2] >= 110.0:
+            mm = move_end(Model([P], 0, 0), 0, 1, 1.4 * P.w)
+            if mm is not None:
+                P = mm.paths[0]
+                gP = end_geometry(P, 1)
+        if gQ is not None and gQ[2] >= 110.0:
+            mm = move_end(Model([Q], 0, 0), 0, 0, 1.4 * Q.w)
+            if mm is not None:
+                Q = mm.paths[0]
+                gQ = end_geometry(Q, 0)
+        mid = (P.A[-1] + Q.A[0]) / 2
+        w_max = max(P.w, Q.w)
         from . import joints as J_mod
         tP = gP[1] if gP is not None else J_mod._local_end_dir(P, 1)
         tQ = gQ[1] if gQ is not None else J_mod._local_end_dir(Q, 0)
@@ -1517,7 +1590,7 @@ def finish(model: Model, D, doctor, ink_of, cur, w, time_ok=lambda: True, max_ho
     cur = doctor.soft(ink)
     start = cur
     topo = _topo(model)
-    drift_cap = 0.006 * max(doctor.area, 1)
+    drift_cap = max(180.0, 0.015 * max(doctor.area, 1))
     sites = []
     st = dict(model=model, ink=ink, cur=cur, topo=topo)
 
@@ -1532,6 +1605,11 @@ def finish(model: Model, D, doctor, ink_of, cur, w, time_ok=lambda: True, max_ho
         s2 = doctor.soft(ink2)
         lim = st["cur"] - 0.5 if improve else st["cur"] + (tol_for(st["cur"]) if tol is None else tol)
         ok = s2 <= lim and (s2 - start) <= drift_cap
+        if not ok and tol is not None and (s2 - start) <= drift_cap:
+            iou2 = doctor.iou(ink2)
+            iou_cur = doctor.iou(st["ink"])
+            if iou2 >= iou_cur - 0.005 and s2 <= st["cur"] + max(tol, 0.08 * st["cur"]):
+                ok = True
         t2 = _topo(cand) if ok else st["topo"]  # topology is the slow check: only for candidates that already pass on match
         ok = ok and t2 <= st["topo"]
         if not ok and s2 <= lim and (s2 - start) <= drift_cap and t2 > st["topo"]:
@@ -1570,17 +1648,42 @@ def finish(model: Model, D, doctor, ink_of, cur, w, time_ok=lambda: True, max_ho
         if not pairs:
             break
         mid = np.mean([st["model"].paths[p[0]].A[0 if p[1] == 0 else -1] for p in pairs], axis=0)
-        if attempt(join_pairs(st["model"], pairs), "join", mid):
+        tol_coll = max(24.0, 0.02 * st["cur"])
+        if attempt(join_pairs(st["model"], pairs), "join", mid, tol=tol_coll):
             continue
-        sites.pop()
+        if sites and sites[-1]["kind"] == "join":
+            sites.pop()
         any_ok = False
         for pr in pairs[:20]:
             if not time_ok():
                 break
             n_ = len(st["model"].paths)
             if max(pr[0], pr[2]) < n_:
-                if attempt(join_pairs(st["model"], [pr]), "join", st["model"].paths[pr[0]].A[0 if pr[1] == 0 else -1]):
+                if attempt(join_pairs(st["model"], [pr]), "join", st["model"].paths[pr[0]].A[0 if pr[1] == 0 else -1], tol=tol_coll):
                     any_ok = True
+        if not any_ok:
+            break
+    # 0a2. corners drawn as two strokes -> one stroke with a corner node
+    for _ in range(5):
+        if not time_ok():
+            break
+        cp = corner_pairs(st["model"], D=D)
+        if not cp:
+            break
+        tol_cr = max(35.0, 0.025 * st["cur"])
+        c1 = merge_corners(st["model"], cp, D=D)
+        if attempt(c1, "corners", st["model"].paths[cp[0][0]].A[0], tol=tol_cr):
+            continue
+        if sites and sites[-1]["kind"] == "corners":
+            sites.pop()
+        any_ok = False
+        for pr in cp[:10]:
+            if not time_ok():
+                break
+            cand = merge_corners(st["model"], [pr], D=D)
+            if attempt(cand, "corners", st["model"].paths[pr[0]].A[0], tol=tol_cr):
+                any_ok = True
+                break
         if not any_ok:
             break
     # 0b. wobbly strokes that are really one straight line
@@ -1692,16 +1795,28 @@ def finish(model: Model, D, doctor, ink_of, cur, w, time_ok=lambda: True, max_ho
         if best is not None and best[0] < st["cur"] - 0.5:
             attempt(best[1], "tips", xy, improve=True)
     # 4e. corners drawn as two strokes -> one stroke with a corner node
-    cp = corner_pairs(st["model"])
-    if cp:
+    for _ in range(5):
+        if not time_ok():
+            break
+        cp = corner_pairs(st["model"], D=D)
+        if not cp:
+            break
+        tol_cr = max(35.0, 0.025 * st["cur"])
         c1 = merge_corners(st["model"], cp, D=D)
-        if not attempt(c1, "corners", st["model"].paths[cp[0][0]].A[0]):
+        if attempt(c1, "corners", st["model"].paths[cp[0][0]].A[0], tol=tol_cr):
+            continue
+        if sites and sites[-1]["kind"] == "corners":
             sites.pop()
-            for pr in cp[:15]:
-                if not time_ok():
-                    break
-                if max(pr[0], pr[2]) < len(st["model"].paths):
-                    attempt(merge_corners(st["model"], [pr], D=D), "corners", st["model"].paths[pr[0]].A[0])
+        any_ok = False
+        for pr in cp[:10]:
+            if not time_ok():
+                break
+            cand = merge_corners(st["model"], [pr], D=D)
+            if attempt(cand, "corners", st["model"].paths[pr[0]].A[0], tol=tol_cr):
+                any_ok = True
+                break
+        if not any_ok:
+            break
     # 4c. round shapes: wobbly circular arcs / near-circles become exact circles and arcs
     for i in range(len(st["model"].paths)):
         if not time_ok() or i >= len(st["model"].paths):
@@ -1782,6 +1897,20 @@ def finish(model: Model, D, doctor, ink_of, cur, w, time_ok=lambda: True, max_ho
         if i < len(st["model"].paths):
             attempt(make_straight(st["model"], i), "straighten", xy, tol=max(12.0, 0.025 * st["cur"]))
     st["model"] = T.prune_all_apexes(st["model"])
+    # 8. pole / apex convergence: multi-branch convergence to circle poles or shared apexes
+    if "poles" not in skip:
+        try:
+            from . import pole_convergence as PC
+            m_pole, n_pole = PC.repair_pole_convergences(st["model"], w, doctor, ink_of, st["cur"])
+            if n_pole > 0:
+                ink_p = ink_of(m_pole)
+                cur_p = doctor.soft(ink_p)
+                if cur_p <= st["cur"] + max(2.0, 0.0015 * st["cur"]) or doctor.iou(ink_p) >= doctor.iou(st["ink"]) - 0.0005:
+                    st.update(model=m_pole, ink=ink_p, cur=cur_p)
+                    for _ in range(n_pole):
+                        sites.append(dict(kind="pole_convergence", x=0.0, y=0.0, fixed=True))
+        except Exception:
+            pass
     found = len(sites)
     fixed = sum(s["fixed"] for s in sites)
     return st["model"], st["ink"], st["cur"], dict(sites=sites, found=found, fixed=fixed, drift=float(st["cur"] - start))
