@@ -1448,6 +1448,68 @@ def width_plan(m: Model, ratio=1.22, max_dev=0.4, anchor=None):
     return plan
 
 
+def acute_apex_candidates(m: Model, D, w_fallback=10.0):
+    """Detect acute corners (interior angle < 95 deg) where a round stroke-join stops short of the raster tip."""
+    H, W = D.shape
+    cands = []
+    for pi, p in enumerate(m.paths):
+        A = p.A
+        N = len(A)
+        if N < 3:
+            continue
+        check_indices = range(N) if p.closed else range(1, N - 1)
+        for j in check_indices:
+            prev_idx = (j - 1) % (N - 1) if p.closed else (j - 1)
+            next_idx = (j + 1) % (N - 1) if p.closed else (j + 1)
+            v_in = A[j] - A[prev_idx]
+            v_out = A[next_idx] - A[j]
+            len_in = float(np.linalg.norm(v_in))
+            len_out = float(np.linalg.norm(v_out))
+            if len_in < 1.0 or len_out < 1.0:
+                continue
+            u_in = v_in / len_in
+            u_out = v_out / len_out
+            cos_turn = float(u_in @ u_out)
+            if -cos_turn > -0.1:  # interior angle < 95 deg
+                bisect = u_in - u_out
+                b_norm = float(np.linalg.norm(bisect))
+                if b_norm < 1e-4:
+                    continue
+                u_bisect = bisect / b_norm
+
+                w_eff = p.w or w_fallback
+                r = int(round(1.5 * w_eff))
+                y0, y1 = max(0, int(A[j][1] - r)), min(H, int(A[j][1] + r + 1))
+                x0, x1 = max(0, int(A[j][0] - r)), min(W, int(A[j][0] + r + 1))
+                ys, xs = np.where(D[y0:y1, x0:x1] > 0.4)
+                if len(ys) == 0:
+                    continue
+                pts = np.column_stack([x0 + xs, y0 + ys])
+                projs = (pts - A[j]) @ u_bisect
+                best_idx = projs.argmax()
+                p_tip = pts[best_idx].astype(float)
+
+                a_target = p_tip - 0.48 * w_eff * u_bisect
+                delta = a_target - A[j]
+                d_len = float(np.linalg.norm(delta))
+                if d_len < 0.5 or d_len > 0.7 * w_eff:
+                    shifts = [u_bisect * s for s in [1.5, 3.0, 4.5] if s < 0.55 * w_eff]
+                else:
+                    shifts = [delta * frac for frac in [0.4, 0.7, 1.0]] + [u_bisect * s for s in [1.5, 3.0, 4.5] if s < 0.55 * w_eff]
+
+                for sh in shifts:
+                    cand = m.copy()
+                    cp = cand.paths[pi]
+                    cp.A[j] = A[j] + sh
+                    cp.Hin[j] = cp.Hin[j] + sh
+                    cp.Hout[j] = cp.Hout[j] + sh
+                    if p.closed and (j == 0 or j == N - 1):
+                        cp.A[0] = cp.A[j].copy()
+                        cp.A[-1] = cp.A[j].copy()
+                    cands.append((cand, (float(A[j][0]), float(A[j][1]))))
+    return cands
+
+
 # ------------------------------------------------------------------ engine
 def finish(model: Model, D, doctor, ink_of, cur, w, time_ok=lambda: True, max_hot=4, set_w=None, skip=()):
     """Returns (model, ink, soft, report) where report = dict(sites=[...], found=int, fixed=int, drift=float)."""
@@ -1689,6 +1751,12 @@ def finish(model: Model, D, doctor, ink_of, cur, w, time_ok=lambda: True, max_ho
     for i, xy in sorted(speck_paths(st["model"]), key=lambda t: -t[0]):
         if i < len(st["model"].paths):
             attempt(E.remove_path(st["model"], i), "specks", xy, tol=0.6 * w)
+    # 5b. acute apexes: round joins on acute corners that fall short of the raster tip are extended along the bisector to meet the true raster apex
+    if "apexes" not in skip:
+        for cand, xy in acute_apex_candidates(st["model"], D, w_fallback=w)[:30]:
+            if not time_ok():
+                break
+            attempt(cand, "apex", xy, improve=True)
     # 6. hot spots: re-fit harder, then redraw locally
     regs = sorted(doctor.regions(st["ink"], win=9), key=lambda r: -r[4])[:max_hot]
     for r in regs:
