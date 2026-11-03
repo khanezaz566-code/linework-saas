@@ -117,6 +117,18 @@ def detect_rings(D, w, min_support=0.93, max_rings=80):
         ex, ey, ea, eb, th = e
         if max(ea, eb) > rmax * 1.2 or max(ea, eb) / max(min(ea, eb), 1e-6) > 1.6:
             continue
+        rr = (ea + eb) / 2
+        pts_chk = P[np.abs(np.hypot(P[:, 0] - ex, P[:, 1] - ey) - rr) < max(2.5, 0.35 * w)]
+        if len(pts_chk) >= 12:
+            rx0, rx1 = np.percentile(pts_chk[:, 0], [3, 97])
+            ry0, ry1 = np.percentile(pts_chk[:, 1], [3, 97])
+            d_rect = np.minimum(
+                np.minimum(np.abs(pts_chk[:, 0] - rx0), np.abs(pts_chk[:, 0] - rx1)),
+                np.minimum(np.abs(pts_chk[:, 1] - ry0), np.abs(pts_chk[:, 1] - ry1)),
+            )
+            d_circ = np.abs(np.hypot(pts_chk[:, 0] - ex, pts_chk[:, 1] - ey) - rr)
+            if float(d_rect.mean()) <= float(d_circ.mean()) * 1.08:
+                continue
         # support + width measured along the fitted centreline
         A, Hi, Ho = E.ellipse_beziers(np.array([ex, ey]), ea, eb, th)
         flat = Path(A, Hi, Ho, 1.0, closed=True).flat(1.0)

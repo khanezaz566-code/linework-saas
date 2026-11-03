@@ -162,8 +162,28 @@ def robust_ellipse(flat, w, inlier_frac=0.7, iters=5):
 def circle(m: Model, i, max_dev=0.9, robust=False):
     m = m.copy()
     p = m.paths[i]
+    f05 = p.flat(0.5)
+    if len(f05) >= 8:
+        x0, x1 = np.percentile(f05[:, 0], [2, 98])
+        y0, y1 = np.percentile(f05[:, 1], [2, 98])
+        bw_r, bh_r = float(x1 - x0), float(y1 - y0)
+        d_rect = np.minimum(
+            np.minimum(np.abs(f05[:, 0] - x0), np.abs(f05[:, 0] - x1)),
+            np.minimum(np.abs(f05[:, 1] - y0), np.abs(f05[:, 1] - y1)),
+        )
+        cx_e, cy_e = 0.5 * (x0 + x1), 0.5 * (y0 + y1)
+        r_e = 0.25 * (bw_r + bh_r)
+        d_ell = np.abs(np.hypot(f05[:, 0] - cx_e, f05[:, 1] - cy_e) - r_e)
+        # Never turn an axis-aligned square/rectangle into a circle!
+        if float(d_rect.mean()) <= float(d_ell.mean()) * 1.12:
+            return m
+        if float(np.percentile(d_rect, 85)) <= max(1.25, 0.13 * p.w) and max(bw_r, bh_r) <= 3.6 * p.w:
+            return m
+    else:
+        bw_r, bh_r = 0.0, 0.0
     r = fit_ellipse(p.flat())
-    if robust and (r is None or r[1] > max_dev):
+    # Only allow robust_ellipse fallback on larger rings (>= 3.2 * w), never on small buttons/squares
+    if robust and max(bw_r, bh_r) >= 3.2 * p.w and (r is None or r[1] > max_dev):
         rr = robust_ellipse(p.flat(), p.w)
         r = (rr[0], rr[2]) if rr else None
         lim = max(max_dev, 1.5, 0.25 * p.w)

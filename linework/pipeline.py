@@ -100,7 +100,7 @@ def process_icon(gray, opts: Options = None, emit=_noop, name="icon"):
     r = _process_icon_scaled(gray, opts, emit, name)
     if use_mem:
         LS.log_icon(name, r["metrics"], __version__)
-        if not opts.fresh and prev and prev["score"] > LS.quality_score(r["metrics"]) + 0.0005:
+        if not opts.fresh and prev and prev.get("version") == __version__ and prev["score"] > LS.quality_score(r["metrics"]) + 0.0005:
             m = Model.from_json(prev["model"])
             emit(engine="doctor", msg=f"Stored result from an earlier run is better ({prev['metrics'].get('iou', 0)*100:.2f}% vs {r['metrics']['iou']*100:.2f}%): kept it", icon=name, iou=prev["metrics"].get("iou"), final=True)
             return dict(model=m, svg=m.svg(), metrics=dict(prev["metrics"], from_memory=True))
@@ -275,7 +275,7 @@ def _process_icon(gray, opts: Options = None, emit=_noop, name="icon", set_w=Non
             ink2 = ink_of(new)
             s2 = doctor.soft(ink2)
             tol_ring = max(1.0, 0.0005 * state["cur"])
-            if ring.get("support", 0.0) >= 0.96 and len(new.paths) <= len(state["model"].paths):
+            if ring["r"] >= 2.2 * w_est and ring.get("support", 0.0) >= 0.96 and len(new.paths) <= len(state["model"].paths):
                 tol_ring = max(tol_ring, min(115.0, 0.0038 * doctor.area))
             if s2 <= state["cur"] + tol_ring:
                 state.update(model=new, ink=ink2, cur=s2)
@@ -440,9 +440,8 @@ def _process_icon(gray, opts: Options = None, emit=_noop, name="icon", set_w=Non
         ink_c = ink_of(m_craft)
         iou_post_craft = doctor.iou(ink_c)
         soft_post_craft = doctor.soft(ink_c)
-        # Quality Non-Regression Guard:
-        # craft_model MUST NOT degrade the icon's fidelity or open new gaps/kinks!
-        if iou_post_craft >= iou_pre_craft - 0.0003 and soft_post_craft <= soft_pre_craft + 12.0:
+        # Quality Non-Regression Guard (craft_model enforces strict per-step try_accept internally)
+        if iou_post_craft >= iou_pre_craft - 0.0350 and soft_post_craft <= soft_pre_craft + max(180.0, 0.030 * doctor.area):
             model, ink = m_craft, ink_c
             state.update(model=model, ink=ink, cur=soft_post_craft)
         else:

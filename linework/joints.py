@@ -549,7 +549,7 @@ def smooth_continuation_pairs(m: Model, J: Joint, D):
                 if dot > -0.85 or dot_loc > -0.82:
                     continue
             else:
-                if dot > -0.25 and dot_loc > -0.45:
+                if dot > -0.80 or dot_loc > -0.75:
                     continue
             n = max(3, int(dist))
             pts = a + (b - a) * np.linspace(0, 1, n)[:, None]
@@ -583,7 +583,7 @@ def corner_continuation_pairs(m: Model, J: Joint, D):
             if abs(wa - wb) > 0.25 * max(wa, wb):
                 continue
             w = max(wa, wb)
-            if P.length() < 2.5 * w or Q.length() < 2.5 * w:
+            if P.length() < 1.6 * w or Q.length() < 1.6 * w:
                 continue
             gP = FN.end_geometry(P, ei)
             gQ = FN.end_geometry(Q, ek)

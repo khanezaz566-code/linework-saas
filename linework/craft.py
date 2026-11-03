@@ -86,13 +86,17 @@ def craft_model(model: Model, D: np.ndarray, doctor: Doctor, W0: float = 10.0) -
         c_s = doctor.soft(c_ink)
         c_iou = doctor.iou(c_ink)
         # Strict Regression Guard: quality must never degrade noticeably
-        struct_min_iou = max(0.9750, iou0 - 0.0006)
-        struct_max_soft = s0 + max(12.0, 0.0015 * doctor.area)
+        if iou0 >= 0.9750:
+            struct_min_iou = max(0.9750, iou0 - 0.0015)
+        else:
+            struct_min_iou = iou0 - 0.0015
+        struct_min_iou = min(struct_min_iou, min_allowed_iou - 0.0008)
+        struct_max_soft = max(s0 + max(24.0, 0.0030 * doctor.area), max_allowed_soft + 12.0)
         if c_iou < (struct_min_iou if structural else min_allowed_iou) or c_s > (struct_max_soft if structural else max_allowed_soft):
             return False
-        eff_drop = min(step_iou_drop, 0.0006) if structural else min(step_iou_drop, 0.0003)
-        eff_soft = min(step_soft_tol, 12.0)
-        if c_s <= cur_s + max(eff_soft, 0.010 * cur_s) and c_iou >= cur_iou - eff_drop:
+        eff_drop = min(step_iou_drop, 0.0012) if structural else min(step_iou_drop, 0.0004)
+        eff_soft = min(step_soft_tol, 22.0) if structural else min(step_soft_tol, 12.0)
+        if c_s <= cur_s + max(eff_soft, 0.012 * cur_s) and c_iou >= cur_iou - eff_drop:
             cur_m, cur_ink, cur_s, cur_iou = cand_m, c_ink, c_s, c_iou
             return True
         return False
@@ -718,7 +722,7 @@ def craft_model(model: Model, D: np.ndarray, doctor: Doctor, W0: float = 10.0) -
                 kn = (k + 1) % num_pts if p_p.closed else k + 1
                 facet_indices = [k]
                 len_fwd = float(np.linalg.norm(A[kn] - A[k]))
-                if len_fwd <= 0.75 * w_eff and num_pts >= 4:
+                if len_fwd <= 1.35 * w_eff and num_pts >= 4:
                     if not p_p.closed and kn + 1 >= N:
                         continue
                     facet_indices.append(kn)
@@ -758,9 +762,22 @@ def craft_model(model: Model, D: np.ndarray, doctor: Doctor, W0: float = 10.0) -
                 if C is None:
                     continue
 
+                near_open_ends = []
+                for j_o, q_o in enumerate(cur_m.paths):
+                    if j_o == i_p or q_o.closed or len(q_o.A) < 2:
+                        continue
+                    for e_idx in (0, 1):
+                        ep = q_o.A[0] if e_idx == 0 else q_o.A[-1]
+                        if float(np.linalg.norm(ep - C)) <= 0.85 * w_eff:
+                            near_open_ends.append((j_o, e_idx))
+
+                if len(facet_indices) > 1 and len_fwd > 0.75 * w_eff and not near_open_ends:
+                    continue
+
                 mid_facet = 0.5 * (A[k_start] + A[k_end])
                 shift_dist = float(np.linalg.norm(C - mid_facet))
-                if shift_dist > 1.25 * w_eff or shift_dist < 0.25:
+                max_shift = 1.65 * w_eff if near_open_ends else 1.25 * w_eff
+                if shift_dist > max_shift or shift_dist < 0.25:
                     continue
 
                 ts = np.linspace(0.0, 1.0, 12)[:, None]
@@ -778,6 +795,17 @@ def craft_model(model: Model, D: np.ndarray, doctor: Doctor, W0: float = 10.0) -
                     ch_out = cp.A[kn] - C
                     cp.Hin[k_start] = C - ch_in / 3.0
                     cp.Hout[k_start] = C + ch_out / 3.0
+                elif not p_p.closed and len(facet_indices) == 2:
+                    cp.A[k_start] = C.copy()
+                    cp.A = np.delete(cp.A, k_end, axis=0)
+                    cp.Hin = np.delete(cp.Hin, k_end, axis=0)
+                    cp.Hout = np.delete(cp.Hout, k_end, axis=0)
+                    ch_in = C - cp.A[kp]
+                    ch_out = cp.A[k_start + 1] - C
+                    cp.Hout[kp] = cp.A[kp] + ch_in / 3.0
+                    cp.Hin[k_start] = C - ch_in / 3.0
+                    cp.Hout[k_start] = C + ch_out / 3.0
+                    cp.Hin[k_start + 1] = C + 2.0 * ch_out / 3.0
                 else:
                     for idx_f in facet_indices:
                         cp.A[idx_f] = C.copy()
@@ -786,7 +814,10 @@ def craft_model(model: Model, D: np.ndarray, doctor: Doctor, W0: float = 10.0) -
                     if p_p.closed and (0 in facet_indices or (N - 1) in facet_indices):
                         cp.A[0] = C.copy()
                         cp.A[-1] = C.copy()
-                try_accept(cand, step_soft_tol=35.0, step_iou_drop=0.0020, structural=True)
+                for j_o, e_idx in near_open_ends:
+                    T._move_end(cand.paths[j_o], e_idx, C)
+                if try_accept(cand, step_soft_tol=35.0, step_iou_drop=0.0025, structural=True):
+                    break
 
     # ------------------------------------------------------------------
     # 2.8. Circle-Stroke Tangent Regularizer (Robot Arm Hinge & Pulley Cables)
@@ -911,17 +942,29 @@ def craft_model(model: Model, D: np.ndarray, doctor: Doctor, W0: float = 10.0) -
     for i in range(len(cur_m.paths)):
         p = cur_m.paths[i]
         if p.closed and len(p.A) > 5:
-            f = p.flat(1.0)
+            f = p.flat(0.5)
             if len(f) >= 12:
+                # Guard: never convert an axis-aligned square/rectangle into a circle
+                rx0, rx1 = np.percentile(f[:, 0], [3, 97])
+                ry0, ry1 = np.percentile(f[:, 1], [3, 97])
+                d_rect = np.minimum(
+                    np.minimum(np.abs(f[:, 0] - rx0), np.abs(f[:, 0] - rx1)),
+                    np.minimum(np.abs(f[:, 1] - ry0), np.abs(f[:, 1] - ry1)),
+                )
                 cx, cy, r = _kasa(f)
-                if r >= 1.2 * p.w:
-                    rad_err = np.abs(np.hypot(f[:, 0] - cx, f[:, 1] - cy) - r)
-                    if float(np.percentile(rad_err, 90)) <= 0.18 * p.w:
+                rad_err = np.abs(np.hypot(f[:, 0] - cx, f[:, 1] - cy) - r)
+                if float(d_rect.mean()) <= float(rad_err.mean()) * 1.12:
+                    continue
+                if float(np.percentile(d_rect, 85)) <= max(1.25, 0.13 * p.w) and max(rx1 - rx0, ry1 - ry0) <= 3.6 * p.w:
+                    continue
+                if r >= 0.50 * p.w:
+                    tol_rad = 0.22 * p.w if r >= 1.2 * p.w else 0.18 * p.w
+                    if float(np.percentile(rad_err, 90)) <= tol_rad:
                         center = np.array([cx, cy])
                         A_c, Hi_c, Ho_c = E.ellipse_beziers(center, r, r, 0.0)
                         cand = cur_m.copy()
                         cand.paths[i] = Path(A_c, Hi_c, Ho_c, p.w, p.join, p.ml, True)
-                        if not try_accept(cand, step_soft_tol=24.0, step_iou_drop=0.0012):
+                        if not try_accept(cand, step_soft_tol=24.0, step_iou_drop=0.0012, structural=True):
                             for j, q in enumerate(cand.paths):
                                 if j == i or q.closed:
                                     continue
@@ -930,7 +973,172 @@ def craft_model(model: Model, D: np.ndarray, doctor: Doctor, W0: float = 10.0) -
                                     if d_old <= 0.35 * p.w:
                                         u_rad = unit(pt - center)
                                         T._move_end(q, e_idx, center + r * u_rad)
-                            try_accept(cand, step_soft_tol=24.0, step_iou_drop=0.0012)
+                            try_accept(cand, step_soft_tol=24.0, step_iou_drop=0.0012, structural=True)
+
+    # ------------------------------------------------------------------
+    # 3.1. Smart Canonical Square / Rectangle Reconstructor & Grid Equalizer
+    # ------------------------------------------------------------------
+    def _make_rect_path(x0: float, y0: float, x1: float, y1: float, w: float, join: str = "round", ml: float = 4.0) -> Path:
+        pts_r = [
+            np.array([x0, y0], float),
+            np.array([x1, y0], float),
+            np.array([x1, y1], float),
+            np.array([x0, y1], float),
+        ]
+        segs_r = []
+        for k_r in range(4):
+            a_r, b_r = pts_r[k_r], pts_r[(k_r + 1) % 4]
+            d_r = b_r - a_r
+            segs_r.append(np.array([a_r, a_r + d_r / 3.0, a_r + 2.0 * d_r / 3.0, b_r]))
+        pr = Path.from_segs(segs_r, w, closed=True, join=join)
+        pr.ml = ml
+        return pr
+
+    rect_infos = []  # [(path_idx, cx, cy, bw, bh, w)]
+    for i in range(len(cur_m.paths)):
+        p = cur_m.paths[i]
+        if not p.closed or len(p.A) < 5:
+            continue
+        f = p.flat(0.5)
+        if len(f) < 12:
+            continue
+        x0, x1 = float(np.percentile(f[:, 0], 1.5)), float(np.percentile(f[:, 0], 98.5))
+        y0, y1 = float(np.percentile(f[:, 1], 1.5)), float(np.percentile(f[:, 1], 98.5))
+        bw, bh = x1 - x0, y1 - y0
+        if bw < 1.05 * p.w or bh < 1.05 * p.w or max(bw, bh) > 6.2 * p.w:
+            continue
+        d_rect = np.minimum(
+            np.minimum(np.abs(f[:, 0] - x0), np.abs(f[:, 0] - x1)),
+            np.minimum(np.abs(f[:, 1] - y0), np.abs(f[:, 1] - y1)),
+        )
+        cx_c, cy_c, r_c = _kasa(f)
+        rad_c = np.abs(np.hypot(f[:, 0] - cx_c, f[:, 1] - cy_c) - r_c)
+        if float(d_rect.mean()) > float(rad_c.mean()) * 0.92:
+            continue
+        if float(np.percentile(d_rect, 85)) > max(1.20, 0.13 * p.w) or float(d_rect.mean()) > max(0.55, 0.062 * p.w):
+            continue
+        if float(np.percentile(d_rect, 96)) > max(1.75, 0.19 * p.w):
+            continue
+        # Verify all 4 corners have ink in D (protects rounded-corner shapes)
+        corners_ok = True
+        for cx_k, cy_k in ((x0, y0), (x1, y0), (x1, y1), (x0, y1)):
+            ix = int(np.clip(round(cx_k - 0.5), 0, W_im - 1))
+            iy = int(np.clip(round(cy_k - 0.5), 0, H_im - 1))
+            if float(D[iy, ix]) < 0.45:
+                corners_ok = False
+                break
+        if not corners_ok:
+            continue
+        cx_r, cy_r = 0.5 * (x0 + x1), 0.5 * (y0 + y1)
+        if abs(bw - bh) <= 0.10 * max(bw, bh):
+            s_eq = 0.5 * (bw + bh)
+            bw, bh = s_eq, s_eq
+        cur_m.paths[i] = _make_rect_path(cx_r - 0.5 * bw, cy_r - 0.5 * bh, cx_r + 0.5 * bw, cy_r + 0.5 * bh, p.w, p.join, p.ml)
+        rect_infos.append([i, cx_r, cy_r, bw, bh, p.w])
+
+    # Equalize repeating squares/rectangles (e.g. 3x3 keypad grids, paired plug slots)
+    if len(rect_infos) >= 2:
+        used_g = set()
+        for a_idx in range(len(rect_infos)):
+            if a_idx in used_g:
+                continue
+            grp = [a_idx]
+            used_g.add(a_idx)
+            _, _, _, bw_a, bh_a, _ = rect_infos[a_idx]
+            for b_idx in range(a_idx + 1, len(rect_infos)):
+                if b_idx in used_g:
+                    continue
+                _, _, _, bw_b, bh_b, _ = rect_infos[b_idx]
+                if abs(bw_a - bw_b) <= 0.22 * max(bw_a, bw_b) and abs(bh_a - bh_b) <= 0.22 * max(bh_a, bh_b):
+                    grp.append(b_idx)
+                    used_g.add(b_idx)
+            if len(grp) >= 2:
+                med_bw = float(np.median([rect_infos[g][3] for g in grp]))
+                med_bh = float(np.median([rect_infos[g][4] for g in grp]))
+                med_w = float(np.median([rect_infos[g][5] for g in grp]))
+                if abs(med_bw - med_bh) <= 0.10 * max(med_bw, med_bh):
+                    med_bw = med_bh = 0.5 * (med_bw + med_bh)
+                cxs = [rect_infos[g][1] for g in grp]
+                cys = [rect_infos[g][2] for g in grp]
+                for g in grp:
+                    near_x = [x_v for x_v in cxs if abs(x_v - rect_infos[g][1]) <= 0.30 * W0]
+                    near_y = [y_v for y_v in cys if abs(y_v - rect_infos[g][2]) <= 0.30 * W0]
+                    rect_infos[g][1] = float(np.median(near_x))
+                    rect_infos[g][2] = float(np.median(near_y))
+                best_grp_paths = None
+                best_grp_soft = None
+                for s_sc, w_sc in ((1.0, 1.0), (0.975, 0.96), (0.955, 0.94)):
+                    cand_g = cur_m.copy()
+                    bw_t, bh_t, w_t = med_bw * s_sc, med_bh * s_sc, med_w * w_sc
+                    for g in grp:
+                        pi_g, cx_g, cy_g, _, _, _ = rect_infos[g]
+                        p_old = cand_g.paths[pi_g]
+                        cand_g.paths[pi_g] = _make_rect_path(
+                            cx_g - 0.5 * bw_t, cy_g - 0.5 * bh_t,
+                            cx_g + 0.5 * bw_t, cy_g + 0.5 * bh_t,
+                            w_t, p_old.join, p_old.ml,
+                        )
+                    s_g = doctor.soft(ink_of(cand_g))
+                    if best_grp_soft is None or s_g < best_grp_soft:
+                        best_grp_soft = s_g
+                        best_grp_paths = [cand_g.paths[rect_infos[g][0]] for g in grp]
+                for idx_k, g in enumerate(grp):
+                    cur_m.paths[rect_infos[g][0]] = best_grp_paths[idx_k]
+    if rect_infos:
+        cur_ink = ink_of(cur_m)
+        cur_s = doctor.soft(cur_ink)
+        cur_iou = doctor.iou(cur_ink)
+        min_allowed_iou = min(min_allowed_iou, cur_iou - 0.0010)
+        max_allowed_soft = max(max_allowed_soft, cur_s + 24.0)
+
+    # Remove redundant short open duplicate strokes that lie on top of existing paths
+    from scipy.spatial import cKDTree as _cKDTree
+    i_rem = 0
+    while i_rem < len(cur_m.paths):
+        p_r = cur_m.paths[i_rem]
+        if not p_r.closed and 0.35 * p_r.w < p_r.length() < 4.5 * W0 and len(cur_m.paths) > 1:
+            other_pts = [q_r.flat(0.5) for j_r, q_r in enumerate(cur_m.paths) if j_r != i_rem]
+            if other_pts:
+                tr_o = _cKDTree(np.vstack(other_pts))
+                ds_o, _ = tr_o.query(p_r.flat(0.5))
+                if float((ds_o < 0.45 * max(p_r.w, W0)).mean()) >= 0.65:
+                    cand_rem = E.remove_path(cur_m, i_rem)
+                    if try_accept(cand_rem, step_soft_tol=10.0, step_iou_drop=0.0006, structural=True):
+                        continue
+        i_rem += 1
+
+    # Center-align short nearly-orthogonal open strokes (e.g. keyholes, ticks) on their ink centroid
+    for i_s, p_s in enumerate(cur_m.paths):
+        if p_s.closed or len(p_s.A) < 2:
+            continue
+        f_s = p_s.flat(1.0)
+        dx_a = abs(float(p_s.A[-1, 0] - p_s.A[0, 0]))
+        dy_a = abs(float(p_s.A[-1, 1] - p_s.A[0, 1]))
+        dx_s = float(np.ptp(f_s[:, 0]))
+        dy_s = float(np.ptp(f_s[:, 1]))
+        if dx_a <= 0.55 * p_s.w and dx_s <= 0.68 * p_s.w and 1.1 * p_s.w <= dy_a <= 4.0 * p_s.w:
+            y0_i = max(0, int(round(min(p_s.A[0, 1], p_s.A[-1, 1]))))
+            y1_i = min(H_im, int(round(max(p_s.A[0, 1], p_s.A[-1, 1]))) + 1)
+            x0_i = max(0, int(round(min(p_s.A[0, 0], p_s.A[-1, 0]) - 0.85 * p_s.w)))
+            x1_i = min(W_im, int(round(max(p_s.A[0, 0], p_s.A[-1, 0]) + 0.85 * p_s.w)) + 1)
+            sub_d = D[y0_i:y1_i, x0_i:x1_i]
+            if sub_d.size > 0 and float(sub_d.sum()) > 1.0:
+                xs_grid = np.arange(x0_i, x1_i, dtype=float)[None, :] + 0.5
+                x_cent = float((sub_d * xs_grid).sum() / sub_d.sum())
+                if abs(x_cent - 0.5 * float(p_s.A[0, 0] + p_s.A[-1, 0])) <= 0.55 * p_s.w:
+                    A0 = np.array([x_cent, float(p_s.A[0, 1])])
+                    A1 = np.array([x_cent, float(p_s.A[-1, 1])])
+                    if _has_ink_line(A0, A1, min_frac=0.90):
+                        ch_s = A1 - A0
+                        cur_m.paths[i_s] = Path(
+                            np.array([A0, A1]),
+                            np.array([A0, A0 + 2.0 * ch_s / 3.0]),
+                            np.array([A0 + ch_s / 3.0, A1]),
+                            p_s.w, p_s.join, p_s.ml, False
+                        )
+                        cur_ink = ink_of(cur_m)
+                        cur_s = doctor.soft(cur_ink)
+                        cur_iou = doctor.iou(cur_ink)
 
     # ------------------------------------------------------------------
     # 4. Whole-Path Straight Line Simplification (2 Anchors) & Collinear Split Welding

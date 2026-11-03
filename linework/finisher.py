@@ -455,11 +455,21 @@ def collinear_pairs(m: Model, D, ang=18.0, reach=2.6):
             u = vc / np.linalg.norm(vc) if np.linalg.norm(vc) > 0.5 else v / max(d, 1e-9)
             if ta @ u < c or tb @ (-u) < c:
                 continue
-            n = max(3, int(d))
+            n = max(7, int(round(d * 2)))
             pts = a + v * np.linspace(0, 1, n)[:, None]
             xs = np.clip(pts[:, 0].astype(int), 0, D.shape[1] - 1)
             ys = np.clip(pts[:, 1].astype(int), 0, D.shape[0] - 1)
+            if d > 0.35 * max(wa, wb) and float(D[ys, xs].min()) < 0.25:
+                continue
             if (D[ys, xs] > 0.35).mean() < 0.65 and (D[ys, xs] > 0.5).mean() < 0.60:
+                continue
+            # At a 3+ way junction, only merge genuinely collinear through-branches (within 12 deg)
+            mid_ab = 0.5 * (a + b)
+            n_near = sum(
+                1 for k_o, q_o in enumerate(m.paths)
+                if k_o not in (i, j) and np.linalg.norm(q_o.flat(1.0) - mid_ab, axis=1).min() < 0.65 * max(wa, wb)
+            )
+            if n_near >= 1 and float(ta @ (-tb)) < np.cos(np.radians(12.0)):
                 continue
             cands.append((d, i, ei, j, ej))
     used, out = set(), []
@@ -642,6 +652,9 @@ def find_penetrating_stubs(m: Model, D):
                 dist_to_other = ds[step_k]
                 j = own[idxs[step_k]]
                 if dist_to_other < 0.40 * w:
+                    # Advance to local minimum of ds along this crossing
+                    if step_k + 1 < len(ds) and ds[step_k + 1] < dist_to_other and own[idxs[step_k + 1]] == j:
+                        continue
                     s = float(cum[step_k])
                     if s >= 0.55 * w:
                         test_pts = f[::-1][:step_k]
@@ -649,7 +662,12 @@ def find_penetrating_stubs(m: Model, D):
                         ys = np.clip(test_pts[:, 1].astype(int), 0, D.shape[0] - 1)
                         has_hole = float((D[ys, xs] < 0.45).mean()) >= 0.20
                         is_closed = m.paths[j].closed
-                        if has_hole or is_closed:
+                        crossed_bridge = (
+                            dist_to_other < 0.26 * w
+                            and s <= 2.6 * w
+                            and (j != own[idxs[0]] or float(ds[:step_k].max()) >= 0.35 * w)
+                        )
+                        if has_hole or is_closed or crossed_bridge:
                             hits.append((i, e, s, a.copy(), j))
                             break
     return hits
@@ -912,10 +930,16 @@ def corner_pairs(m: Model, tol=1.2, D=None, reach=1.55):
                         break
                 if not third:
                     cands.append((d, i, ei, j, ej, None))
-                    continue
+                continue
 
             # Extended ray intersection for trimmed corner branches
             if d <= reach * w_max:
+                mid = (a + b) / 2
+                if any(
+                    np.linalg.norm(q.flat(1.0) - mid, axis=1).min() < 0.6 * w_max
+                    for k, q in enumerate(m.paths) if k not in (i, j)
+                ):
+                    continue
                 P, Q = m.paths[i], m.paths[j]
                 gP_end = end_geometry(P, ei)
                 gQ_end = end_geometry(Q, ej)
@@ -943,6 +967,11 @@ def corner_pairs(m: Model, tol=1.2, D=None, reach=1.55):
                     continue
                 Xc = a + sP * uP
                 if np.linalg.norm(Xc - (a + b) / 2) > 1.35 * w_max:
+                    continue
+                if any(
+                    np.linalg.norm(q.flat(1.0) - Xc, axis=1).min() < 0.75 * w_max
+                    for k, q in enumerate(m.paths) if k not in (i, j)
+                ):
                     continue
                 if D is not None:
                     ix = int(np.clip(round(Xc[0]), 0, D.shape[1] - 1))
@@ -1514,6 +1543,8 @@ def width_plan(m: Model, ratio=1.22, max_dev=0.4, anchor=None):
             centers[jn] = float(anchor)
     plan = {}
     for i, p in enumerate(m.paths):
+        if (not p.closed and p.length() <= 0.35 * p.w) or (p.closed and p.length() <= 3.6 * p.w):
+            continue
         j = int(np.argmin([abs(p.w - c) for c in centers]))
         dev = abs(p.w - centers[j]) / centers[j]
         if 0.03 < dev <= max_dev:
@@ -2101,5 +2132,20 @@ def _redraw_region(m: Model, D, box, w, margin=None):
     if not nm.paths:
         return None
     keep = [p for i, p in enumerate(m.paths) if i not in set(inside)]
-    out = Model(keep + nm.paths, m.width, m.height)
+    if keep:
+        from scipy.spatial import cKDTree as _cKDTree
+        keep_pts = np.vstack([kp.flat(1.0) for kp in keep])
+        keep_tree = _cKDTree(keep_pts)
+        filtered_nm = []
+        for np_cand in nm.paths:
+            f_np = np_cand.flat(1.0)
+            ds_k, _ = keep_tree.query(f_np)
+            if float((ds_k < 0.45 * max(np_cand.w, w)).mean()) < 0.55:
+                filtered_nm.append(np_cand)
+        if not filtered_nm:
+            return None
+        nm_paths = filtered_nm
+    else:
+        nm_paths = nm.paths
+    out = Model(keep + nm_paths, m.width, m.height)
     return T.weld_all(out)

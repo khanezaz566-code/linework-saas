@@ -177,32 +177,87 @@ def initial_model(chains, D, sigma=2.0, err=0.3, dw=0.1) -> Model:
 
 
 def add_dots(model: Model, D, min_frac=0.25):
-    """Compact ink blobs left uncovered by the traced strokes (dots, i-dots, noses) become zero-length round-capped strokes."""
+    """Compact ink blobs left uncovered by the traced strokes (dots, i-dots, solid circular disks) become clean dots or solid circles."""
     import cv2 as _cv2
     from .render import render_gray
+    from . import edit as _E
+    ws = [p.w for p in model.paths] or [8.0]
+    w0 = float(np.median(ws))
+    src_mask = (D > 0.5).astype(np.uint8)
+    n_src, src_lab, src_st, src_ce = _cv2.connectedComponentsWithStats(src_mask)
+    added = 0
+
+    # 1. Detect standalone solid filled black circles up to 5.5 * w0 diameter
+    #    (e.g., solid WiFi dots or solid circular inner disks that skeletonization Either skipped or distorted into a stub)
+    for sl in range(1, n_src):
+        sx, sy, sbw, sbh, sa = src_st[sl]
+        if sa < min_frac * np.pi * (w0 / 2) ** 2 or max(sbw, sbh) > 5.5 * w0:
+            continue
+        if min(sbw, sbh) < 0.72 * max(sbw, sbh):
+            continue
+        ell_area = np.pi * (sbw / 2.0) * (sbh / 2.0)
+        if not (0.72 * ell_area <= sa <= 1.22 * ell_area):
+            continue
+        comp_mask = (src_lab[sy:sy + sbh, sx:sx + sbw] == sl).astype(np.uint8)
+        cnts, hier = _cv2.findContours(comp_mask, _cv2.RETR_CCOMP, _cv2.CHAIN_APPROX_NONE)
+        if not cnts or (hier is not None and any(h[3] != -1 for h in hier[0])):
+            continue  # Has an internal hole -> hollow ring, not a solid disk
+        pts_c = cnts[0].reshape(-1, 2).astype(float) + np.array([sx + 0.5, sy + 0.5])
+        cx_s, cy_s = float(src_ce[sl][0]) + 0.5, float(src_ce[sl][1]) + 0.5
+        r_s = float(np.sqrt(sa / np.pi))
+        if r_s >= 0.75 * w0:
+            rad_d = np.abs(np.hypot(pts_c[:, 0] - cx_s, pts_c[:, 1] - cy_s) - r_s)
+            if float(np.percentile(rad_d, 90)) > max(1.15, 0.14 * r_s):
+                continue
+        # Check if existing paths inside this isolated component are missing or just a distorted stub
+        inside_idxs = []
+        for idx_p, p in enumerate(model.paths):
+            fp = p.flat(1.0)
+            if ((fp[:, 0] >= sx - 2) & (fp[:, 0] <= sx + sbw + 2) & (fp[:, 1] >= sy - 2) & (fp[:, 1] <= sy + sbh + 2)).mean() > 0.85:
+                inside_idxs.append(idx_p)
+        # Only replace if no paths exist yet, or existing path doesn't cover the disk well
+        if inside_idxs:
+            if r_s <= 1.25 * w0:
+                continue
+            g_tmp = render_gray(model.svg(), model.width, model.height)
+            cov_frac = float(((g_tmp[sy:sy + sbh, sx:sx + sbw] < 128) & (comp_mask > 0)).sum()) / max(1.0, float(sa))
+            if cov_frac >= 0.92 and len(inside_idxs) == 1:
+                continue
+            for idx_p in sorted(inside_idxs, reverse=True):
+                model.paths.pop(idx_p)
+        c = np.array([cx_s, cy_s])
+        diam = float(2.0 * r_s)
+        if diam > 1.35 * w0:
+            A_c, Hi_c, Ho_c = _E.ellipse_beziers(c, diam / 4.0, diam / 4.0, 0.0)
+            model.paths.append(Path(A_c, Hi_c, Ho_c, max(diam / 2.0, 2.0), closed=True))
+        else:
+            A = np.array([c, c + [0.05, 0.0]])
+            model.paths.append(Path(A, A.copy(), A.copy(), max(diam, 2.0)))
+        added += 1
+
+    # 2. Standard residual uncovered compact dot pass
     g = render_gray(model.svg(), model.width, model.height) if model.paths else np.full(D.shape, 255, np.uint8)
     covered_raw = (g < 128).astype(np.uint8)
     covered = _cv2.dilate(covered_raw, np.ones((3, 3), np.uint8))
-    src_mask = (D > 0.5).astype(np.uint8)
-    _, src_lab, src_st, _ = _cv2.connectedComponentsWithStats(src_mask)
     resid = src_mask & (1 - covered)
     n, lab, st, ce = _cv2.connectedComponentsWithStats(resid)
-    ws = [p.w for p in model.paths] or [8.0]
-    w0 = float(np.median(ws))
-    added = 0
     for i in range(1, n):
         x, y, bw, bh, a = st[i]
-        if a < min_frac * np.pi * (w0 / 2) ** 2 or max(bw, bh) > 1.8 * w0 or a < 0.5 * bw * bh:
+        if a < min_frac * np.pi * (w0 / 2) ** 2 or max(bw, bh) > 2.6 * w0 or a < 0.5 * bw * bh:
             continue
         # Never add a fake dot on an uncovered corner tip of a large connected stroke component
         cy_i, cx_i = int(round(ce[i][1])), int(round(ce[i][0]))
         if 0 <= cy_i < src_lab.shape[0] and 0 <= cx_i < src_lab.shape[1]:
             sl = src_lab[cy_i, cx_i]
-            if sl > 0 and src_st[sl, _cv2.CC_STAT_AREA] > 3.5 * w0 * w0:
+            if sl > 0 and src_st[sl, _cv2.CC_STAT_AREA] > 5.5 * w0 * w0:
                 continue
         c = ce[i] + 0.5
         diam = float(2 * np.sqrt(a / np.pi))
-        A = np.array([c, c + [0.05, 0.0]])
-        model.paths.append(Path(A, A.copy(), A.copy(), max(diam, 2.0)))
+        if diam > 1.35 * w0:
+            A_c, Hi_c, Ho_c = _E.ellipse_beziers(c, diam / 4.0, diam / 4.0, 0.0)
+            model.paths.append(Path(A_c, Hi_c, Ho_c, max(diam / 2.0, 2.0), closed=True))
+        else:
+            A = np.array([c, c + [0.05, 0.0]])
+            model.paths.append(Path(A, A.copy(), A.copy(), max(diam, 2.0)))
         added += 1
     return added
