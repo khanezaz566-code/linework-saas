@@ -45,6 +45,10 @@
         <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/><path d="M16 21h5v-5"/></svg>
         <span>Redraw</span>
       </a>
+      <a href="#bgstudio" class="nav-item" id="navBgStudio" title="Vector BG Studio">
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="m4.93 4.93 4.24 4.24M14.83 9.17l4.24-4.24M14.83 14.83l4.24 4.24M9.17 14.83l-4.24 4.24"/></svg>
+        <span>BG Studio</span>
+      </a>
       <a href="#projects" class="nav-item" id="navProjects" title="My Projects">
         <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.93a2 2 0 0 1-1.66-.9l-.82-1.2A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13c0 1.1.9 2 2 2Z"/></svg>
         <span>My Projects</span>
@@ -782,10 +786,276 @@
 
       </section>
 
+      <!-- ============ Vector BG Studio View ============ -->
+      <section id="bgStudio" class="bg-studio-view" hidden>
+
+        <!-- Top Header Bar -->
+        <div class="bg-studio-topbar">
+          <div class="topbar-left">
+            <button type="button" class="icon-btn back-btn" id="btnBackFromBgStudio" title="Back to Redraw" aria-label="Back to Redraw">
+              <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+            </button>
+            <div class="bg-title-group">
+              <div class="bg-title-row">
+                <h2>Vector BG Studio</h2>
+                <span class="bg-badge-pill" id="bgDesignBadge">510 Ready Designs</span>
+              </div>
+              <span class="bg-sub-text">510 ready designs, each with endless unique variations. Pure editable SVG vector shapes.</span>
+            </div>
+          </div>
+
+          <div class="topbar-right">
+            <!-- Stepper / Design Picker -->
+            <div class="bg-stepper-cluster">
+              <button type="button" class="bg-nav-btn" id="bgPrevDesign" title="Previous Design (1-510)">◀</button>
+              <div class="bg-design-input-wrap">
+                <span class="bg-hash-label">#</span>
+                <input type="number" id="bgDesignNum" min="1" max="510" value="1" title="Design Number (1-510)">
+                <span class="bg-of-label">/ 510</span>
+              </div>
+              <button type="button" class="bg-nav-btn" id="bgNextDesign" title="Next Design (1-510)">▶</button>
+            </div>
+
+            <!-- Action buttons -->
+            <button type="button" class="btn primary-action-btn" id="btnBgNewVariation" title="Generate next unique variation of this design">
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/><path d="M16 21h5v-5"/></svg>
+              <span>New variation</span>
+            </button>
+
+            <button type="button" class="btn secondary-action-btn" id="btnBgShuffle" title="Shuffle pattern, mood, colors and seed">
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 3 21 3 21 8"/><line x1="4" y1="20" x2="21" y2="3"/><polyline points="21 16 21 21 16 21"/><line x1="15" y1="15" x2="21" y2="21"/><line x1="4" y1="4" x2="9" y2="9"/></svg>
+              <span>Shuffle everything</span>
+            </button>
+
+            <!-- Export SVG Button -->
+            <div class="bg-export-wrap">
+              <button type="button" class="btn primary-action-btn eps-btn" id="btnBgExportSvg" title="Download clean SVG file">
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                <span>Export SVG</span>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Studio Main Grid -->
+        <div class="bg-studio-grid">
+
+          <!-- Left Controls Column -->
+          <div class="bg-controls-sidebar">
+
+            <!-- Panel: Library, Pattern & Mood -->
+            <div class="card tpl-panel">
+              <div class="panel-header">
+                <div class="panel-title">
+                  <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="var(--accent)" stroke-width="2.2"><rect width="7" height="7" x="3" y="3" rx="1"/><rect width="7" height="7" x="14" y="3" rx="1"/><rect width="7" height="7" x="14" y="14" rx="1"/><rect width="7" height="7" x="3" y="14" rx="1"/></svg>
+                  <span>Pattern &amp; Mood Library</span>
+                </div>
+                <span class="opt-val" id="bgCurrentDesignName">Twist Burst Classic</span>
+              </div>
+
+              <!-- Category filter tabs -->
+              <div class="bg-cat-tabs" id="bgCatTabs">
+                <button type="button" class="bg-cat-tab active" data-cat="all">All (34)</button>
+                <button type="button" class="bg-cat-tab" data-cat="Radial">Radial</button>
+                <button type="button" class="bg-cat-tab" data-cat="Tiles">Tiles</button>
+                <button type="button" class="bg-cat-tab" data-cat="Lines">Lines</button>
+                <button type="button" class="bg-cat-tab" data-cat="Soft">Soft</button>
+              </div>
+
+              <div class="form-row">
+                <label for="bgPatternSelect">Pattern Style</label>
+                <select id="bgPatternSelect" class="bg-select"></select>
+              </div>
+
+              <div class="form-row">
+                <label for="bgMoodSelect">Style / Mood</label>
+                <select id="bgMoodSelect" class="bg-select"></select>
+              </div>
+
+              <div class="form-row">
+                <label>Variation Strength</label>
+                <div class="seg" id="bgStrengthSeg" role="radiogroup">
+                  <button type="button" data-v="subtle" class="bg-seg-btn">Subtle</button>
+                  <button type="button" data-v="medium" class="bg-seg-btn on">Medium</button>
+                  <button type="button" data-v="wild" class="bg-seg-btn">Wild</button>
+                </div>
+              </div>
+
+              <div class="form-row flex-between">
+                <label>Variation Index</label>
+                <div class="bg-var-counter">
+                  <button type="button" class="bg-mini-btn" id="bgVarPrev" title="Previous Variation">−</button>
+                  <span class="bg-var-val" id="bgVarIndexVal">Var #0 (Original)</span>
+                  <button type="button" class="bg-mini-btn" id="bgVarNext" title="Next Variation">+</button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Panel: Pattern Dynamic Parameters -->
+            <div class="card tpl-panel" id="bgParamsPanel">
+              <div class="panel-header">
+                <div class="panel-title">
+                  <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="var(--accent)" stroke-width="2.2"><path d="M12 20v-6M6 20V10M18 20V4"/></svg>
+                  <span>Shape &amp; Geometry Controls</span>
+                </div>
+                <button type="button" class="bg-text-btn" id="btnResetParams">Reset</button>
+              </div>
+              <div id="bgParamsList" class="bg-params-container">
+                <!-- Dynamically populated sliders for the selected pattern -->
+              </div>
+            </div>
+
+            <!-- Panel: Palette & Color Styling -->
+            <div class="card tpl-panel">
+              <div class="panel-header">
+                <div class="panel-title">
+                  <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="var(--accent)" stroke-width="2.2"><circle cx="13.5" cy="6.5" r=".5" fill="currentColor"/><circle cx="17.5" cy="10.5" r=".5" fill="currentColor"/><circle cx="8.5" cy="7.5" r=".5" fill="currentColor"/><circle cx="6.5" cy="12.5" r=".5" fill="currentColor"/><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 0 1 1.668-1.668h1.996c3.051 0 5.555-2.503 5.555-5.554C21.965 6.012 17.461 2 12 2z"/></svg>
+                  <span>Colors &amp; Palette</span>
+                </div>
+                <select id="bgPaletteSelect" class="bg-select-compact"></select>
+              </div>
+
+              <div id="bgColorsList" class="bg-colors-grid">
+                <!-- Dynamically populated color swatches -->
+              </div>
+
+              <div class="form-row" style="margin-top: 10px;">
+                <div class="flex-between">
+                  <label for="bgHueShift">Hue Shift</label>
+                  <span class="opt-val" id="bgHueVal">0°</span>
+                </div>
+                <input id="bgHueShift" type="range" min="0" max="360" step="5" value="0" class="range-slider">
+              </div>
+
+              <div class="form-row" style="margin-top: 6px;">
+                <label class="check-label">
+                  <input type="checkbox" id="bgTransparent">
+                  <span>Transparent Background (no background rect)</span>
+                </label>
+              </div>
+            </div>
+
+            <!-- Panel: Artboard Canvas Dimensions & Angle -->
+            <div class="card tpl-panel">
+              <div class="panel-header">
+                <div class="panel-title">
+                  <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="var(--accent)" stroke-width="2.2"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M3 9h18M9 21V9"/></svg>
+                  <span>Canvas Size &amp; Angle</span>
+                </div>
+              </div>
+
+              <div class="form-row">
+                <label for="bgSizeSelect">Artboard Ratio</label>
+                <select id="bgSizeSelect" class="bg-select">
+                  <option value="1920x1080" selected>1920 × 1080 (Landscape 16:9 FHD)</option>
+                  <option value="3840x2160">3840 × 2160 (4K UHD)</option>
+                  <option value="2560x1440">2560 × 1440 (2K QHD)</option>
+                  <option value="1080x1080">1080 × 1080 (Square 1:1 Post)</option>
+                  <option value="1080x1920">1080 × 1920 (Portrait 9:16 Story/Reel)</option>
+                  <option value="1200x630">1200 × 630 (Social Share / OpenGraph)</option>
+                </select>
+              </div>
+
+              <div class="form-row">
+                <div class="flex-between">
+                  <label for="bgRotate">Pattern Rotation</label>
+                  <span class="opt-val" id="bgRotateVal">0°</span>
+                </div>
+                <input id="bgRotate" type="range" min="-180" max="180" step="15" value="0" class="range-slider">
+              </div>
+            </div>
+
+          </div>
+
+          <!-- Right Stage Column: Preview & Output Actions -->
+          <div class="bg-preview-column">
+            <div class="stage-frame bg-stage-frame">
+
+              <!-- Stage Top Info Strip -->
+              <div class="bg-stage-top-strip">
+                <div class="bg-meta-pill">
+                  <span class="pulse-dot"></span>
+                  <span id="bgLiveMetaDesc">24 rays from one center · 1920 × 1080 px</span>
+                </div>
+
+                <div class="bg-zoom-cluster">
+                  <button type="button" id="bgZout" class="zoom-btn" title="Zoom Out">−</button>
+                  <button type="button" id="bgZfit" class="zoom-btn zoom-fit" title="Reset Zoom">Fit</button>
+                  <button type="button" id="bgZin" class="zoom-btn" title="Zoom In">+</button>
+                </div>
+              </div>
+
+              <!-- Main Interactive Viewport Stage -->
+              <div class="bg-stage" id="bgStage">
+                <div class="bg-artboard-container" id="bgSvgContainer">
+                  <!-- Live Generated SVG renders here -->
+                </div>
+              </div>
+
+              <!-- Stage Bottom Toolbar & Quick Actions -->
+              <div class="bg-stage-bottom-bar">
+                <div class="bg-bottom-actions">
+                  <button type="button" class="btn bg-btn-compact" id="btnBgCopySvg" title="Copy raw SVG markup to clipboard">
+                    <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>
+                    <span>Copy SVG code</span>
+                  </button>
+
+                  <button type="button" class="btn bg-btn-compact" id="btnBgShowCode" title="View / Inspect SVG code">
+                    <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
+                    <span>Show code</span>
+                  </button>
+
+                  <button type="button" class="btn bg-btn-compact" id="btnBgDownloadPng" title="Export high-resolution raster PNG">
+                    <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                    <span>Download PNG</span>
+                  </button>
+
+                  <button type="button" class="btn bg-btn-compact" id="btnBgSendToTemplate" title="Apply this generated background to Presentation Template Studio">
+                    <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="var(--accent)" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+                    <span>Use in Template Studio</span>
+                  </button>
+                </div>
+
+                <div class="bg-stats-group">
+                  <span class="bg-stat-tag" id="bgShapesCount">28 shapes</span>
+                  <span class="bg-stat-tag" id="bgByteSize">26 KB</span>
+                  <span class="bg-stat-tag hash-tag" id="bgHashTag">#hash</span>
+                </div>
+              </div>
+
+            </div>
+          </div>
+
+        </div>
+
+      </section>
+
     </main>
 
   </div>
 
+</div>
+
+<!-- SVG Code View Modal -->
+<div class="modal-backdrop" id="bgCodeModal" style="display:none;">
+  <div class="modal-card" style="max-width: 720px;">
+    <div class="modal-header">
+      <h3>
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="var(--accent)" stroke-width="2"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
+        Generated SVG Vector Code
+      </h3>
+      <div style="display:flex; align-items:center; gap:10px;">
+        <button type="button" class="btn" id="btnModalCopyCode" style="background:rgba(0,245,160,0.12); border:1px solid rgba(0,245,160,0.3); color:var(--accent); padding:5px 12px; font-size:12px; border-radius:6px; cursor:pointer; display:flex; align-items:center; gap:5px;">
+          <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>
+          Copy Code
+        </button>
+        <button type="button" class="icon-btn" id="closeBgCodeModal" title="Close" style="color:var(--text-muted); font-size:16px;">✕</button>
+      </div>
+    </div>
+    <div class="modal-body" style="padding: 16px;">
+      <textarea id="bgCodeTextarea" readonly style="width: 100%; height: 380px; background: #080c14; border: 1px solid var(--line-dim); border-radius: 8px; color: #a5f3fc; font-family: monospace; font-size: 12px; line-height: 1.5; padding: 12px; resize: vertical; outline: none;"></textarea>
+    </div>
+  </div>
 </div>
 
 <!-- AI Lessons Modal -->
@@ -814,6 +1084,8 @@
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
 <!-- Application Script -->
+<script src="/static/bg-generator.js"></script>
+  <script src="/static/bg-studio.js"></script>
 <script src="/static/app.js"></script>
 </body>
 </html>

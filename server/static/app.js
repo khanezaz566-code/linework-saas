@@ -229,7 +229,10 @@
     }
     $('#work').hidden = true;
     const tplSt = $('#templateStudio'); if (tplSt) tplSt.hidden = true;
+    const bgSt = $('#bgStudio'); if (bgSt) bgSt.hidden = true;
     $('#landing').hidden = false;
+    $$('.nav-menu .nav-item').forEach(el => el.classList.remove('active'));
+    const navRedraw = $('#navRedraw'); if (navRedraw) navRedraw.classList.add('active');
     const stg = $('#stage');
     if (stg) stg.classList.remove('processing');
   }
@@ -1423,6 +1426,35 @@
   if (tplZout) tplZout.onclick = () => setTemplateZoom(tplZoom / 1.2);
   const tplZfit = $('#tplZfit');
   if (tplZfit) tplZfit.onclick = () => setTemplateZoom(1.0);
+
+  // Navigation: Redraw
+  const navRedraw = $('#navRedraw');
+  if (navRedraw) {
+    navRedraw.addEventListener('click', e => {
+      e.preventDefault();
+      const bgSt = $('#bgStudio'); if (bgSt) bgSt.hidden = true;
+      const tplSt = $('#templateStudio'); if (tplSt) tplSt.hidden = true;
+      $$('.nav-menu .nav-item').forEach(el => el.classList.remove('active'));
+      navRedraw.classList.add('active');
+      if (S.job) {
+        $('#work').hidden = false;
+        $('#landing').hidden = true;
+      } else {
+        $('#landing').hidden = false;
+        $('#work').hidden = true;
+      }
+    });
+  }
+
+  // Export app instance
+  window.LineworkApp = {
+    get job() { return S.job; },
+    get S() { return S; },
+    cancelJob: cancelCurrentJob,
+    openTemplate: openTemplateStudio,
+    closeTemplate: closeTemplateStudio,
+    toast: toast
+  };
 
   hint();
 })();
