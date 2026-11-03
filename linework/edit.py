@@ -179,7 +179,11 @@ def circle(m: Model, i, max_dev=0.9, robust=False):
 
 # ------------------------------------------------------------------ gradient optimiser (see opt.py)
 def _is_exact_ring(p: Path) -> bool:
-    return bool(p.closed and len(p.A) == 4 and np.linalg.norm((p.A[0] + p.A[2]) - (p.A[1] + p.A[3])) < 0.25)
+    if not p.closed:
+        return False
+    if len(p.A) in (4, 5):
+        return bool(np.linalg.norm((p.A[0] + p.A[2]) - (p.A[1] + p.A[3])) < 0.75)
+    return False
 
 
 def refine_all(m: Model, D, **kw):

@@ -432,6 +432,35 @@ def _process_icon(gray, opts: Options = None, emit=_noop, name="icon", set_w=Non
         if not n:
             break
     model, ink = state["model"], state["ink"]
+    try:
+        from .craft import craft_model
+        iou_pre_craft = doctor.iou(ink)
+        soft_pre_craft = doctor.soft(ink)
+        m_craft = craft_model(model, D, doctor, W0)
+        ink_c = ink_of(m_craft)
+        iou_post_craft = doctor.iou(ink_c)
+        soft_post_craft = doctor.soft(ink_c)
+        # Quality Non-Regression Guard:
+        # craft_model MUST NOT degrade the icon's fidelity or open new gaps/kinks!
+        if iou_post_craft >= iou_pre_craft - 0.0003 and soft_post_craft <= soft_pre_craft + 12.0:
+            model, ink = m_craft, ink_c
+            state.update(model=model, ink=ink, cur=soft_post_craft)
+        else:
+            ev("doctor", f"Craft Guard: preserved clean vector ({iou_pre_craft*100:.2f}% vs degraded {iou_post_craft*100:.2f}%)")
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+    try:
+        from .finisher import repair_acute_apexes
+        cur_soft = doctor.soft(ink)
+        m_apex, n_apex = repair_acute_apexes(model, W0, doctor, ink_of, cur_soft)
+        if n_apex > 0:
+            ink_a = ink_of(m_apex)
+            model, ink = m_apex, ink_a
+            state.update(model=model, ink=ink, cur=doctor.soft(ink_a))
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
     rep = doctor.diagnose(model, ink)
     open_all(rep)
     iou = doctor.iou(ink)
@@ -484,3 +513,176 @@ def second_pass_options(opts: Options) -> dict:
     d.update(fresh=True, max_rounds=max(cfg["max_rounds"], 4), time_budget=cfg["time_budget"] * 2.2, region_edits=max(cfg["region_edits"], 6),
              trace_good=0.985, trace_ok=0.965)
     return d
+def regenerate_icon_deep(crop: np.ndarray, old_model: Model | None = None, opts: Options = None, emit=_noop) -> dict:
+    """Deep Join-Solving & Missing-Element Recovery Engine for single-icon regeneration.
+    Analyzes the source raster D and existing vector model (if any) for missing elements,
+    unjoined gaps, pinched rings, broken through-lines, wavy T-junctions, and deflected hooks,
+    combines Deep Join Repair with a Full-Power Precise Redraw, and uses a Component-Level
+    Non-Regression Merger so regenerating fixes join/missing-element issues without ever
+    introducing new bugs into already-clean parts of the icon.
+    """
+    from .craft import craft_model
+    from .finisher import repair_acute_apexes
+
+    t0 = time.time()
+    opts = opts or Options()
+    D = ink_map(crop)
+    W0 = estimate_width(D)
+    doctor = Doctor(D)
+
+    def _score_model(m: Model):
+        ink = ink_of(m)
+        s = doctor.soft(ink)
+        iou = doctor.iou(ink)
+        rep = doctor.diagnose(m, ink)
+        nodes = int(sum(len(p.A) for p in m.paths))
+        # Structural defect penalty: heavily penalize gaps, kinks, missing regions, notches/spurs, and excess nodes
+        defect_pen = (
+            35.0 * len(rep["gaps"])
+            + 25.0 * len(rep["kinks"])
+            + 45.0 * len(rep["regions"])
+            + 20.0 * (len(rep["notches"]) + len(rep["spurs"]))
+            + 1.15 * nodes
+        )
+        return s + defect_pen, iou, s, rep
+
+    candidates = []
+
+    # 1. Deep Join & Missing-Element Repair on existing model (if provided)
+    if old_model is not None and len(old_model.paths) > 0:
+        m_rep = old_model.copy()
+        try:
+            add_dots(m_rep, D, W0)
+        except Exception:
+            pass
+        try:
+            s_cur = doctor.soft(ink_of(m_rep))
+            m_ap, n_ap = repair_acute_apexes(m_rep, W0, doctor, ink_of, s_cur)
+            if n_ap > 0:
+                m_rep = m_ap
+        except Exception:
+            pass
+        try:
+            m_rep = craft_model(m_rep, D, doctor, W0)
+        except Exception:
+            pass
+        try:
+            ink_cur = ink_of(m_rep)
+            s_cur = doctor.soft(ink_cur)
+            m_jn, ink_jn, s_jn, _ = JN.run_join_engine(m_rep, D, doctor, ink_of, s_cur, W0, time_ok=lambda: True)
+            if s_jn <= s_cur + max(18.0, 0.008 * s_cur):
+                m_rep = m_jn
+        except Exception:
+            pass
+        try:
+            ink_cur = ink_of(m_rep)
+            s_cur = doctor.soft(ink_cur)
+            m_fn, ink_fn, s_fn, _ = FN.run(m_rep, D, doctor, ink_of, s_cur, W0, max_sites=10, time_ok=lambda: True)
+            if s_fn <= s_cur + max(12.0, 0.005 * s_cur):
+                m_rep = m_fn
+        except Exception:
+            pass
+        try:
+            m_rep = craft_model(m_rep, D, doctor, W0)
+        except Exception:
+            pass
+        candidates.append(("repaired", m_rep))
+
+    # 2. Full-Power Fresh Precise Redraw (bypasses memory cache, uses multi-threshold + full Doctor + Join Engine + Craft)
+    prec_opts = Options(
+        quality="precise",
+        target_iou=max(0.995, opts.target_iou),
+        dedupe_tol=opts.dedupe_tol,
+        joins=True,
+        memory=False,
+        fresh=True,
+    )
+    res_prec = process_icon(crop, prec_opts, emit=emit)
+    m_prec = res_prec["model"]
+    candidates.append(("precise", m_prec))
+
+    # 3. Component-Level Non-Regression Hybrid Merger (if both repaired and precise exist)
+    if len(candidates) >= 2:
+        try:
+            m_a = candidates[0][1]
+            m_b = candidates[1][1]
+            rad = int(max(4, round(0.65 * W0)))
+            kern = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (2 * rad + 1, 2 * rad + 1))
+            dil = cv2.dilate((D > 0.35).astype(np.uint8), kern)
+            n_comp, labels, stats, _ = cv2.connectedComponentsWithStats(dil)
+            if n_comp > 2:
+                H_c, W_c = D.shape
+
+                def _assign_paths(m_in):
+                    groups = {cid: [] for cid in range(1, n_comp)}
+                    for p in m_in.paths:
+                        f = p.flat(2.0)
+                        xs = np.clip(np.round(f[:, 0]).astype(int), 0, W_c - 1)
+                        ys = np.clip(np.round(f[:, 1]).astype(int), 0, H_c - 1)
+                        cids = labels[ys, xs]
+                        pos = cids[cids > 0]
+                        if len(pos) > 0:
+                            cid = int(np.bincount(pos).argmax())
+                        else:
+                            cid = 1
+                        groups[cid].append(p.copy())
+                    return groups
+
+                g_a = _assign_paths(m_a)
+                g_b = _assign_paths(m_b)
+                ink_a = ink_of(m_a)
+                ink_b = ink_of(m_b)
+                hybrid_paths = []
+                for cid in range(1, n_comp):
+                    mask_c = labels == cid
+                    err_a = float(np.abs(ink_a[mask_c] - D[mask_c]).sum()) + 1.15 * sum(len(p.A) for p in g_a[cid])
+                    err_b = float(np.abs(ink_b[mask_c] - D[mask_c]).sum()) + 1.15 * sum(len(p.A) for p in g_b[cid])
+                    if err_a <= err_b:
+                        hybrid_paths.extend(g_a[cid])
+                    else:
+                        hybrid_paths.extend(g_b[cid])
+                if hybrid_paths:
+                    m_hyb = Model(hybrid_paths, m_a.width, m_a.height)
+                    candidates.append(("hybrid", m_hyb))
+        except Exception:
+            pass
+
+    # Pick the best candidate by combined structural + visual score
+    best_name, best_m, best_score, best_iou, best_s, best_rep = None, None, 1e18, 0.0, 1e18, None
+    for name, cand_m in candidates:
+        sc, iou_c, s_c, rep_c = _score_model(cand_m)
+        if sc < best_score:
+            best_name, best_m, best_score, best_iou, best_s, best_rep = name, cand_m, sc, iou_c, s_c, rep_c
+
+    if best_iou >= 0.96:
+        try:
+            LS.remember_good_icon(D, best_m, best_iou)
+        except Exception:
+            pass
+
+    metrics = dict(
+        iou=best_iou,
+        iou_initial=res_prec["metrics"].get("iou_initial", best_iou),
+        soft_norm=best_rep["soft_norm"],
+        paths=len(best_m.paths),
+        nodes=int(sum(len(p.A) for p in best_m.paths)),
+        stroke_width=float(W0),
+        rounds=res_prec["metrics"].get("rounds", 3),
+        seconds=round(time.time() - t0, 2),
+        regenerated=True,
+        regen_mode=best_name,
+        issues=dict(
+            duplicates=len(best_rep["redundant"]) + len(best_rep["tails"]),
+            kinks=len(best_rep["kinks"]),
+            regions=len(best_rep["regions"]),
+            gaps=len(best_rep["gaps"]),
+            notches=len(best_rep["notches"]),
+            spurs=len(best_rep["spurs"]),
+            restored=res_prec["metrics"]["issues"].get("restored", 0),
+            stray=res_prec["metrics"]["issues"].get("stray", 0),
+        ),
+        finisher=res_prec["metrics"].get("finisher", dict(found=0, fixed=0, sites=[])),
+        structure=res_prec["metrics"].get("structure", dict(before=0, after=0, found=0, fixed=0, unresolved=[])),
+        joins=res_prec["metrics"].get("joins", dict(policy_changed=0, total=0, clean_first=0, built=0, fixed={}, unresolved=[])),
+    )
+    return dict(model=best_m, svg=best_m.svg(), metrics=metrics)

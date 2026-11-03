@@ -9,8 +9,8 @@ from concurrent.futures import ProcessPoolExecutor, as_completed
 from pathlib import Path as FsPath
 
 import cv2, numpy as np
-from fastapi import FastAPI, UploadFile, File, Form, HTTPException, Query
-from fastapi.responses import FileResponse, Response, JSONResponse
+from fastapi import FastAPI, UploadFile, File, Form, HTTPException, Query, Body
+from fastapi.responses import FileResponse, Response, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 
 ROOT = FsPath(__file__).resolve().parent.parent
@@ -379,19 +379,16 @@ def _run_job(job_id):
             except Exception as e:  # keep the job alive if one icon fails
                 if job.get("cancelled") or job.get("status") == "cancelled":
                     break
-                if "BrokenProcessPool" in type(e).__name__ or "Broken" in str(e):
-                    reset_pool()
-                    try:
-                        k_r, off_r, mj_r, met_r = worker.run_icon((job_id, k, crop_map[k], off_map[k], job["options"]))
-                        _store_icon(job, d, k_r, mj_r, off_r, met_r)
-                        job["done"] += 1
-                        (d / "result.svg").write_text(_compose(job_id).svg(pretty=True))
-                        continue
-                    except Exception as e2:
-                        ic.update(status="error", error=str(e2))
-                        continue
-                ic.update(status="error", error=str(e))
-                continue
+                reset_pool()
+                try:
+                    k_r, off_r, mj_r, met_r = worker.run_icon((job_id, k, crop_map[k], off_map[k], job["options"]))
+                    _store_icon(job, d, k_r, mj_r, off_r, met_r)
+                    job["done"] += 1
+                    _finish_composite(job_id)
+                    continue
+                except Exception as e2:
+                    ic.update(status="error", error=str(e2))
+                    continue
             _store_icon(job, d, k, mj, off, met)
             job["done"] += 1
             _finish_composite(job_id)
@@ -548,6 +545,106 @@ def icon_svg(job_id: str, k: int, stroke: str = "#000000", scale: float = 1.0, d
     return Response(svg, media_type="image/svg+xml", headers=headers)
 
 
+
+
+def _icon_crop(job_id, k):
+    """The exact crop (and its offset in the sheet) the engine works on for icon k; cached next to the job."""
+    job = _get(job_id)
+    d = _jobdir(job_id)
+    icons = job.get("icons", [])
+    if k < 0 or k >= len(icons):
+        raise HTTPException(404, f"Icon {k} not found in job")
+    cache, offf = d / f"icon_crop_{k}.png", d / f"icon_crop_{k}.json"
+    if cache.exists() and offf.exists():
+        c = cv2.imread(str(cache), 0)
+        if c is not None:
+            return c, tuple(json.loads(offf.read_text()))
+    orig_path = d / "original.png"
+    if not orig_path.exists():
+        raise HTTPException(404, "Original sheet image not found")
+    gray = cv2.imread(str(orig_path), 0)
+    opts = Options(**job.get("options", {}))
+    _, _, jobs = process_sheet(gray, opts)
+    if k < len(jobs):
+        _, crop, off = jobs[k]
+    else:
+        b = icons[k]["box"]
+        crop = gray[b[1]:b[3], b[0]:b[2]]
+        off = (b[0], b[1])
+    cv2.imwrite(str(cache), crop)
+    offf.write_text(json.dumps([int(off[0]), int(off[1])]))
+    return crop, (int(off[0]), int(off[1]))
+
+
+@app.get("/api/jobs/{job_id}/icons/{k}/crop.png")
+def icon_crop_png(job_id: str, k: int):
+    c, _ = _icon_crop(job_id, k)
+    ok, buf = cv2.imencode(".png", c)
+    if not ok:
+        raise HTTPException(500, "encode failed")
+    return Response(buf.tobytes(), media_type="image/png")
+
+
+@app.post("/api/jobs/{job_id}/icons/{k}/regenerate")
+def regenerate_icon_endpoint(job_id: str, k: int, payload: dict = Body(None)):
+    """Regenerate one icon. With `regions` ([[x0,y0,x1,y1], ...] in crop pixels) only those marked places are
+    repaired (Mark & Fix); without, the whole icon gets the deep join/missing-element pass."""
+    from linework.pipeline import regenerate_icon_deep
+    from linework.focusfix import focus_fix
+    from linework.doctor import ink_of as _ink_of
+    job = _get(job_id)
+    d = _jobdir(job_id)
+    opts = Options(**job.get("options", {}))
+    crop, off = _icon_crop(job_id, k)
+    local_fn = d / f"icon_local_{k}.json"
+    old_model = Model.from_json(local_fn.read_text()) if local_fn.exists() else None
+    payload = payload or {}
+    regions = []
+    for r in (payload.get("regions") or [])[:12]:
+        try:
+            x0, y0, x1, y1 = [float(v) for v in r]
+        except Exception:
+            continue
+        if x1 - x0 >= 2 and y1 - y0 >= 2:
+            regions.append((x0, y0, x1, y1))
+    prev_status = job["icons"][k].get("status", "done")
+    job["icons"][k]["status"] = "running"
+    job["icons"][k]["stage"] = "doctor"
+    try:
+        if regions and old_model is not None:
+            try:
+                res = focus_fix(crop, old_model, regions, opts, deep=bool(payload.get("deep")),
+                                old_metrics=job["icons"][k].get("metrics"))
+            except ValueError as e:
+                raise HTTPException(400, str(e))
+            report = res["report"]
+        else:
+            res = regenerate_icon_deep(crop, old_model=old_model, opts=opts)
+            diff = float(np.abs(_ink_of(old_model) - _ink_of(res["model"])).sum()) if old_model is not None else 1e9
+            changed = diff > 12.0
+            report = dict(
+                changed=changed, regions=0, actions=[], deep=True,
+                note=("Whole icon re-solved." if changed else
+                      "The full regenerate found nothing better than the current vector (it never replaces it with something worse). "
+                      "Use Mark & Fix and draw a box around the exact place that looks wrong."),
+            )
+    except Exception:
+        job["icons"][k]["status"] = prev_status
+        raise
+    _store_icon(job, d, k, res["model"].to_json(), off, res["metrics"])
+    _finish_composite(job_id)
+    (d / "job.json").write_text(json.dumps({key: val for key, val in job.items() if key != "events"}))
+    return dict(
+        ok=True,
+        k=k,
+        icon=job["icons"][k],
+        iou=job.get("iou"),
+        version=job.get("version"),
+        audit=job.get("audit"),
+        report=report,
+    )
+
+
 @app.get("/api/template/presets")
 def template_presets():
     from linework.template import PRESETS
@@ -677,6 +774,12 @@ def download_zip(job_id: str, stroke: str = "#000000", scale: float = 1.0):
         report = [dict(icon=ic["k"] + 1, **ic.get("metrics", {})) for ic in job["icons"]]
         z.writestr("report.json", json.dumps(dict(match=job.get("iou"), icons=report), indent=2))
     return Response(buf.getvalue(), media_type="application/zip", headers={"Content-Disposition": _attachment_disposition(job["name"], "-linework.zip")})
+
+
+@app.get("/bg-studio")
+@app.get("/bgstudio")
+def bg_studio_redirect():
+    return RedirectResponse(url="/#bgstudio")
 
 
 app.mount("/static", StaticFiles(directory=ROOT / "server" / "static"), name="static")

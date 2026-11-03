@@ -1584,6 +1584,165 @@ def acute_apex_candidates(m: Model, D, w_fallback=10.0):
 
 
 # ------------------------------------------------------------------ engine
+def _intersect_rays(p0, p1, q0, q1):
+    v = p1 - p0
+    w = q1 - q0
+    M = np.column_stack([v, -w])
+    if abs(np.linalg.det(M)) < 1e-4:
+        return None
+    try:
+        ts = np.linalg.solve(M, q1 - p1)
+        if ts[0] < -0.2 or ts[1] < -0.2:
+            return None
+        return p1 + ts[0] * v
+    except np.linalg.LinAlgError:
+        return None
+
+
+def repair_acute_apexes(m: Model, W0: float, doctor, ink_of, cur_soft: float):
+    cur_m = m.copy()
+    cur_s = cur_soft
+    total_fixed = 0
+
+    for pi, p in enumerate(cur_m.paths):
+        A = p.A
+        N = len(A)
+        if N < 4:
+            continue
+        w_eff = p.w or W0
+        max_step = min(18.0, 1.15 * w_eff)
+        num_pts = N - 1 if p.closed else N
+
+        acute_clusters = []
+        in_cluster = []
+        for k in range(num_pts):
+            d_b = 0.0
+            p_back, prev_idx = None, k - 1
+            for step in range(1, num_pts // 2):
+                idx = (k - step) % num_pts if p.closed else k - step
+                if idx < 0:
+                    break
+                d_b += float(np.linalg.norm(A[(k - step + 1) % num_pts if p.closed else k - step + 1] - A[idx]))
+                if d_b >= 0.75 * w_eff:
+                    p_back = A[idx]
+                    prev_idx = idx
+                    break
+            d_f = 0.0
+            p_fwd, next_idx = None, k + 1
+            for step in range(1, num_pts // 2):
+                idx = (k + step) % num_pts if p.closed else k + step
+                if idx >= num_pts:
+                    break
+                d_f += float(np.linalg.norm(A[idx] - A[(k + step - 1) % num_pts if p.closed else k + step - 1]))
+                if d_f >= 0.75 * w_eff:
+                    p_fwd = A[idx]
+                    next_idx = idx
+                    break
+            if p_back is not None and p_fwd is not None:
+                v_in = A[k] - p_back
+                v_out = p_fwd - A[k]
+                lin = float(np.linalg.norm(v_in))
+                lout = float(np.linalg.norm(v_out))
+                if lin > 1e-4 and lout > 1e-4:
+                    u_in = v_in / lin
+                    u_out = v_out / lout
+                    cos_t = float(u_in @ u_out)
+                    if -cos_t > 0.10:
+                        bisect = u_in - u_out
+                        bn = float(np.linalg.norm(bisect))
+                        if bn > 1e-4:
+                            in_cluster.append((k, bisect / bn, prev_idx, next_idx))
+                            continue
+            if in_cluster:
+                acute_clusters.append(in_cluster)
+                in_cluster = []
+        if in_cluster:
+            acute_clusters.append(in_cluster)
+
+        if p.closed and len(acute_clusters) >= 2:
+            if acute_clusters[0][0][0] == 0 and acute_clusters[-1][-1][0] == num_pts - 1:
+                acute_clusters[0] = acute_clusters[-1] + acute_clusters[0]
+                acute_clusters.pop()
+
+        for cl in acute_clusters:
+            k_indices = [item[0] for item in cl]
+            u_b = np.mean([item[1] for item in cl], axis=0)
+            u_bn = float(np.linalg.norm(u_b))
+            if u_bn < 1e-4:
+                continue
+            u_b /= u_bn
+
+            k_start = k_indices[0]
+            k_end = k_indices[-1]
+            prev_idx = cl[0][2]
+            next_idx = cl[-1][3]
+
+            best_cand = None
+            best_s = cur_s
+
+            is_sharp_single = (
+                len(k_indices) == 1 and
+                float(np.linalg.norm(p.Hin[k_start] - A[k_start])) <= 0.25 * w_eff and
+                float(np.linalg.norm(p.Hout[k_start] - A[k_start])) <= 0.25 * w_eff
+            )
+            pt_apex = _intersect_rays(A[prev_idx], A[k_start], A[next_idx], A[k_end]) if is_sharp_single else None
+            if pt_apex is not None:
+                for extra in [0.0, 1.5, 3.0, 4.5]:
+                    cand_pt = pt_apex + u_b * extra
+                    if np.linalg.norm(cand_pt - A[k_start]) > max_step:
+                        continue
+                    cand = cur_m.copy()
+                    cp = cand.paths[pi]
+                    for ki in k_indices:
+                        delta = cand_pt - A[ki]
+                        cp.A[ki] = cand_pt.copy()
+                        cp.Hin[ki] = p.Hin[ki] + delta
+                        cp.Hout[ki] = p.Hout[ki] + delta
+                    if p.closed and (0 in k_indices or (N - 1) in k_indices):
+                        delta0 = cand_pt - A[0]
+                        cp.A[0] = cand_pt.copy()
+                        cp.A[-1] = cand_pt.copy()
+                        cp.Hin[0] = p.Hin[0] + delta0
+                        cp.Hout[0] = p.Hout[0] + delta0
+                        cp.Hin[-1] = cp.Hin[0].copy()
+                        cp.Hout[-1] = cp.Hout[0].copy()
+                    s_cand = doctor.soft(ink_of(cand))
+                    if s_cand < best_s - 1.0:
+                        best_s = s_cand
+                        best_cand = cand
+
+            if best_cand is None:
+                for step in [2.0, 4.0, 6.0, 8.0, 10.0, 12.0]:
+                    if step > max_step:
+                        continue
+                    cand = cur_m.copy()
+                    cp = cand.paths[pi]
+                    delta = u_b * step
+                    for ki in k_indices:
+                        cp.A[ki] = A[ki] + delta
+                        cp.Hin[ki] = p.Hin[ki] + delta
+                        cp.Hout[ki] = p.Hout[ki] + delta
+                    if p.closed and (0 in k_indices or (N - 1) in k_indices):
+                        wrap_pt = cp.A[0] if 0 in k_indices else cp.A[-1]
+                        cp.A[0] = wrap_pt.copy()
+                        cp.A[-1] = wrap_pt.copy()
+                        cp.Hin[0] = p.Hin[0] + delta
+                        cp.Hout[0] = p.Hout[0] + delta
+                        cp.Hin[-1] = cp.Hin[0].copy()
+                        cp.Hout[-1] = cp.Hout[0].copy()
+                    s_cand = doctor.soft(ink_of(cand))
+                    if s_cand < best_s - 1.0:
+                        best_s = s_cand
+                        best_cand = cand
+
+            if best_cand is not None:
+                cur_m = best_cand
+                cur_s = best_s
+                total_fixed += 1
+
+    return cur_m, total_fixed
+
+
 def finish(model: Model, D, doctor, ink_of, cur, w, time_ok=lambda: True, max_hot=4, set_w=None, skip=()):
     """Returns (model, ink, soft, report) where report = dict(sites=[...], found=int, fixed=int, drift=float)."""
     ink = ink_of(model)

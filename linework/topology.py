@@ -25,16 +25,51 @@ def _end(p: Path, e):
 
 
 def _move_end(p: Path, e, target):
+    target = np.asarray(target, float)
     if e == 0:
-        d = target - p.A[0]
+        p_other = p.A[1]
+        chord_old = p_other - p.A[0]
+        L_old = float(np.linalg.norm(chord_old))
+        was_straight = True
+        if L_old > 1e-4:
+            u = chord_old / L_old
+            perp = np.array([-u[1], u[0]])
+            if abs(float((p.Hout[0] - p.A[0]) @ perp)) > 0.35 or abs(float((p.Hin[1] - p.A[0]) @ perp)) > 0.35:
+                was_straight = False
         p.A[0] = target
-        p.Hout[0] = p.Hout[0] + d
-        p.Hin[0] = p.Hin[0] + d
+        if was_straight:
+            chord = p_other - target
+            p.Hin[0] = target.copy()
+            p.Hout[0] = target + chord / 3.0
+            p.Hin[1] = target + 2.0 * chord / 3.0
+            if len(p.A) == 2:
+                p.Hout[1] = p_other.copy()
+        else:
+            d = target - p.A[0]
+            p.Hout[0] = p.Hout[0] + d
+            p.Hin[0] = p.Hin[0] + d
     else:
-        d = target - p.A[-1]
+        p_other = p.A[-2]
+        chord_old = p.A[-1] - p_other
+        L_old = float(np.linalg.norm(chord_old))
+        was_straight = True
+        if L_old > 1e-4:
+            u = chord_old / L_old
+            perp = np.array([-u[1], u[0]])
+            if abs(float((p.Hout[-2] - p_other) @ perp)) > 0.35 or abs(float((p.Hin[-1] - p_other) @ perp)) > 0.35:
+                was_straight = False
         p.A[-1] = target
-        p.Hin[-1] = p.Hin[-1] + d
-        p.Hout[-1] = p.Hout[-1] + d
+        if was_straight:
+            chord = target - p_other
+            p.Hout[-2] = p_other + chord / 3.0
+            p.Hin[-1] = p_other + 2.0 * chord / 3.0
+            p.Hout[-1] = target.copy()
+            if len(p.A) == 2:
+                p.Hin[0] = p_other.copy()
+        else:
+            d = target - p.A[-1]
+            p.Hin[-1] = p.Hin[-1] + d
+            p.Hout[-1] = p.Hout[-1] + d
 
 
 def _ends(m: Model):
