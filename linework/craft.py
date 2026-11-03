@@ -705,6 +705,120 @@ def craft_model(model: Model, D: np.ndarray, doctor: Doctor, W0: float = 10.0) -
                             try_accept(cand, step_soft_tol=35.0, step_iou_drop=0.0035, structural=True)
 
     # ------------------------------------------------------------------
+    # 2.65. T-Junction Through-Stroke De-Pull & Smooth Continuation
+    # ------------------------------------------------------------------
+    def _split_cubic_left(s: np.ndarray, t: float) -> np.ndarray:
+        p0, p1, p2, p3 = s[0], s[1], s[2], s[3]
+        p01 = p0 + t * (p1 - p0)
+        p12 = p1 + t * (p2 - p1)
+        p23 = p2 + t * (p3 - p2)
+        p012 = p01 + t * (p12 - p01)
+        p123 = p12 + t * (p23 - p12)
+        p0123 = p012 + t * (p123 - p012)
+        return np.array([p0, p01, p012, p0123])
+
+    def _depull_t_junctions():
+        changed_tj = True
+        while changed_tj:
+            changed_tj = False
+            ends = []
+            for i_p, p_p in enumerate(cur_m.paths):
+                if p_p.closed or len(p_p.A) < 2:
+                    continue
+                ends.append((i_p, 0, p_p.A[0].copy()))
+                ends.append((i_p, 1, p_p.A[-1].copy()))
+            for a_idx in range(len(ends)):
+                cluster = [ends[a_idx]]
+                for b_idx in range(a_idx + 1, len(ends)):
+                    if ends[b_idx][0] == ends[a_idx][0]:
+                        continue
+                    if float(np.linalg.norm(ends[b_idx][2] - ends[a_idx][2])) <= 0.55 * W0:
+                        cluster.append(ends[b_idx])
+                if len(cluster) != 3:
+                    continue
+                J = np.mean([c[2] for c in cluster], axis=0)
+                info = []
+                for i_p, e_idx, pt in cluster:
+                    p = cur_m.paths[i_p]
+                    segs = p.segs()
+                    if e_idx == 0:
+                        segs = [s[::-1].copy() for s in segs[::-1]]
+                    s_last = segs[-1]
+                    L_last = float(np.linalg.norm(s_last[3] - s_last[0]))
+                    if len(segs) >= 2 and L_last <= 3.6 * p.w and L_last <= 0.48 * p.length():
+                        trimmed_segs = segs[:-1]
+                        s_end = trimmed_segs[-1]
+                        Q = s_end[3].copy()
+                        v_t = s_end[3] - s_end[2]
+                        if np.linalg.norm(v_t) < 0.5:
+                            v_t = s_end[3] - s_end[0]
+                        t_in = unit(v_t)
+                    elif L_last > 1.35 * p.w:
+                        tau = max(0.30, 1.0 - (1.15 * p.w) / L_last)
+                        s_left = _split_cubic_left(s_last, tau)
+                        trimmed_segs = segs[:-1] + [s_left]
+                        Q = s_left[3].copy()
+                        v_t = s_left[3] - s_left[2]
+                        if np.linalg.norm(v_t) < 0.5:
+                            v_t = s_left[3] - s_left[0]
+                        t_in = unit(v_t)
+                    else:
+                        trimmed_segs = None
+                        Q = s_last[0].copy()
+                        t_in = unit(s_last[3] - s_last[0])
+                    u_stem = unit(J - (segs[-1][0] if L_last >= 0.5 * p.w else segs[0][0]))
+                    info.append({
+                        'i_p': i_p, 'e_idx': e_idx, 'segs': segs,
+                        'trimmed_segs': trimmed_segs, 'Q': Q, 't_in': t_in,
+                        'u_stem': u_stem, 'w': p.w, 'join': p.join, 'ml': p.ml
+                    })
+                for idx_c in range(3):
+                    idx_a = (idx_c + 1) % 3
+                    idx_b = (idx_c + 2) % 3
+                    ia, ib, ic = info[idx_a], info[idx_b], info[idx_c]
+                    if ia['i_p'] == ib['i_p'] or ia['trimmed_segs'] is None or ib['trimmed_segs'] is None:
+                        continue
+                    if abs(ia['w'] - ib['w']) > 0.35 * max(ia['w'], ib['w']):
+                        continue
+                    cos_ab = float(ia['t_in'] @ (-ib['t_in']))
+                    if cos_ab < np.cos(np.radians(32.0)):
+                        continue
+                    if abs(float(ic['u_stem'] @ ia['t_in'])) > np.cos(np.radians(32.0)):
+                        continue
+                    Pa, Pb = ia['Q'], ib['Q']
+                    L_ab = float(np.linalg.norm(Pb - Pa))
+                    if L_ab < 1.0:
+                        continue
+                    ta, tb = ia['t_in'], -ib['t_in']
+                    s_bridge = np.array([Pa, Pa + ta * (L_ab / 3.0), Pb - tb * (L_ab / 3.0), Pb])
+                    ts = np.linspace(0.0, 1.0, 41)
+                    pts_br = bez(s_bridge, ts)
+                    d_j = np.linalg.norm(pts_br - J[None, :], axis=1)
+                    best_k = int(np.argmin(d_j))
+                    J_proj = pts_br[best_k]
+                    pull_dist = float(d_j[best_k])
+                    if pull_dist < 0.35 or pull_dist > 0.70 * W0:
+                        continue
+                    xs_b = np.clip(np.round(pts_br[:, 0] - 0.5).astype(int), 0, W_im - 1)
+                    ys_b = np.clip(np.round(pts_br[:, 1] - 0.5).astype(int), 0, H_im - 1)
+                    if float((D[ys_b, xs_b] > 0.35).mean()) < 0.80:
+                        continue
+                    segs_a = ia['trimmed_segs']
+                    segs_b = [s[::-1].copy() for s in ib['trimmed_segs'][::-1]]
+                    new_segs = segs_a + [s_bridge] + segs_b
+                    cand = cur_m.copy()
+                    np_w = Path.from_segs(new_segs, 0.5 * (ia['w'] + ib['w']), closed=False, join=ia['join'])
+                    np_w.ml = ia['ml']
+                    T._move_end(cand.paths[ic['i_p']], ic['e_idx'], J_proj)
+                    cand.paths[ia['i_p']] = np_w
+                    del cand.paths[ib['i_p']]
+                    if try_accept(cand, step_soft_tol=28.0, step_iou_drop=0.0020, structural=True):
+                        changed_tj = True
+                        break
+                if changed_tj:
+                    break
+
+    # ------------------------------------------------------------------
     # 2.7. Universal Acute & Sharp Corner Apex Ray-Extension Regularizer
     # ------------------------------------------------------------------
     def _regularize_acute_and_corner_apexes():
@@ -771,12 +885,25 @@ def craft_model(model: Model, D: np.ndarray, doctor: Doctor, W0: float = 10.0) -
                         if float(np.linalg.norm(ep - C)) <= 0.85 * w_eff:
                             near_open_ends.append((j_o, e_idx))
 
-                if len(facet_indices) > 1 and len_fwd > 0.75 * w_eff and not near_open_ends:
-                    continue
+                if not near_open_ends:
+                    # Without an open branch meeting at the apex, never sharpen short rounded-corner / end-cap facets!
+                    if min(l_in, l_out) < 1.15 * w_eff:
+                        continue
+                    if dev_in > 0.12 * w_eff or dev_out > 0.12 * w_eff:
+                        continue
+                    if len(facet_indices) > 1 and len_fwd > 0.65 * w_eff:
+                        continue
+                    # Verify that the outer corner of the stroke in D is actually sharp (has ink at C + 0.32*w*u_bis)
+                    u_bis = unit(u_in - u_out)
+                    pt_outer = C + 0.32 * w_eff * u_bis
+                    ix_o = int(np.clip(round(pt_outer[0] - 0.5), 0, W_im - 1))
+                    iy_o = int(np.clip(round(pt_outer[1] - 0.5), 0, H_im - 1))
+                    if float(D[iy_o, ix_o]) < 0.50:
+                        continue
 
                 mid_facet = 0.5 * (A[k_start] + A[k_end])
                 shift_dist = float(np.linalg.norm(C - mid_facet))
-                max_shift = 1.65 * w_eff if near_open_ends else 1.25 * w_eff
+                max_shift = 1.65 * w_eff if near_open_ends else 1.15 * w_eff
                 if shift_dist > max_shift or shift_dist < 0.25:
                     continue
 
@@ -816,7 +943,9 @@ def craft_model(model: Model, D: np.ndarray, doctor: Doctor, W0: float = 10.0) -
                         cp.A[-1] = C.copy()
                 for j_o, e_idx in near_open_ends:
                     T._move_end(cand.paths[j_o], e_idx, C)
-                if try_accept(cand, step_soft_tol=35.0, step_iou_drop=0.0025, structural=True):
+                tol_s = 35.0 if near_open_ends else 2.0
+                tol_i = 0.0025 if near_open_ends else 0.0003
+                if try_accept(cand, step_soft_tol=tol_s, step_iou_drop=tol_i, structural=bool(near_open_ends)):
                     break
 
     # ------------------------------------------------------------------
@@ -882,6 +1011,7 @@ def craft_model(model: Model, D: np.ndarray, doctor: Doctor, W0: float = 10.0) -
     _straighten_collinear_stem_trunks()
     _straighten_endpoint_hooks()
     _regularize_multi_branch_junctions()
+    _depull_t_junctions()
     _regularize_acute_and_corner_apexes()
     _regularize_circle_tangents()
 
@@ -914,6 +1044,8 @@ def craft_model(model: Model, D: np.ndarray, doctor: Doctor, W0: float = 10.0) -
         if gf is not None:
             T._move_end(cand.paths[gj], gf, best_target)
         try_accept(cand, step_soft_tol=32.0, step_iou_drop=0.0035, structural=True)
+
+    _depull_t_junctions()
 
     # ------------------------------------------------------------------
     # 3. Canonical 4-Anchor Circle / Ring Reconstruction
@@ -1190,7 +1322,7 @@ def craft_model(model: Model, D: np.ndarray, doctor: Doctor, W0: float = 10.0) -
 
     for i in range(len(cur_m.paths)):
         p = cur_m.paths[i]
-        if not p.closed and len(p.A) > 2:
+        if not p.closed and len(p.A) >= 2:
             f = p.flat(1.0)
             chord = p.A[-1] - p.A[0]
             L = float(np.linalg.norm(chord))
@@ -1198,13 +1330,14 @@ def craft_model(model: Model, D: np.ndarray, doctor: Doctor, W0: float = 10.0) -
                 u_ch = chord / L
                 perp = np.array([-u_ch[1], u_ch[0]])
                 max_dev = float(np.max(np.abs((f - p.A[0]) @ perp)))
-                if max_dev <= max(0.65, 0.052 * p.w):
+                tol_str = max(1.15, 0.125 * p.w) if _has_ink_line(p.A[0], p.A[-1], min_frac=0.90) else max(0.65, 0.052 * p.w)
+                if max_dev <= tol_str:
                     A_l = np.array([p.A[0], p.A[-1]])
                     Hi_l = np.array([p.A[0], p.A[0] + 2.0 * chord / 3.0])
                     Ho_l = np.array([p.A[0] + chord / 3.0, p.A[-1]])
                     cand = cur_m.copy()
                     cand.paths[i] = Path(A_l, Hi_l, Ho_l, p.w, p.join, p.ml, False)
-                    try_accept(cand, step_soft_tol=22.0, step_iou_drop=0.0010)
+                    try_accept(cand, step_soft_tol=26.0, step_iou_drop=0.0014, structural=True)
 
     # ------------------------------------------------------------------
     # 4.5 - 6. Iterative V-Notch / Z-Fold Removal, Chamfer Collapse & Pairwise Cubic Simplification
@@ -1423,20 +1556,21 @@ def craft_model(model: Model, D: np.ndarray, doctor: Doctor, W0: float = 10.0) -
                     perp2 = np.array([-u2[1], u2[0]])
                     dev1 = max(abs(float((s1[1] - s1[0]) @ perp1)), abs(float((s1[2] - s1[0]) @ perp1)))
                     dev2 = max(abs(float((s2[1] - s2[0]) @ perp2)), abs(float((s2[2] - s2[0]) @ perp2)))
-                    max_d = max(0.40, 0.05 * p.w)
+                    max_d = max(0.85, 0.095 * p.w)
                     if dev1 <= max_d and dev2 <= max_d:
                         ch_total = s2[3] - s1[0]
                         L_tot = float(np.linalg.norm(ch_total))
                         if L_tot > 1.0:
                             u_tot = ch_total / L_tot
-                            if float(u1 @ u_tot) >= np.cos(np.radians(6.0)) and float(u2 @ u_tot) >= np.cos(np.radians(6.0)):
+                            ang_tol = 8.5 if _has_ink_line(s1[0], s2[3], min_frac=0.90) else 6.0
+                            if float(u1 @ u_tot) >= np.cos(np.radians(ang_tol)) and float(u2 @ u_tot) >= np.cos(np.radians(ang_tol)):
                                 s_new = np.array([s1[0], s1[0] + ch_total / 3.0, s1[0] + 2.0 * ch_total / 3.0, s2[3]])
                                 cand_segs = segs[:k] + [s_new] + segs[k + 2:]
                                 cand_p = Path.from_segs(cand_segs, p.w, closed=p.closed, join=p.join)
                                 cand_p.ml = p.ml
                                 cand_m = cur_m.copy()
                                 cand_m.paths[i] = cand_p
-                                if try_accept(cand_m, step_soft_tol=18.0, step_iou_drop=0.0010, structural=True):
+                                if try_accept(cand_m, step_soft_tol=22.0, step_iou_drop=0.0012, structural=True):
                                     segs = cand_segs
                                     changed_str = True
                                     break
@@ -1546,7 +1680,7 @@ def craft_model(model: Model, D: np.ndarray, doctor: Doctor, W0: float = 10.0) -
                 elif dx <= 0.28 * p.w and dy >= 1.0 * p.w and dx < 0.22 * dy:
                     is_ortho = True
 
-            if max(dev1, dev2) <= max(0.22, 0.025 * p.w):
+            if max(dev1, dev2) <= max(0.75, 0.085 * p.w) or is_ortho:
                 s[1] = s[0] + ch / 3.0
                 s[2] = s[0] + 2.0 * ch / 3.0
                 seg_changed = True

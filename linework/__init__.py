@@ -1,3 +1,3 @@
 """Linework: raster line-art -> clean single-stroke centerline SVG, verified by an Edit/Output/Doctor loop."""
-__version__ = "0.9.6"
+__version__ = "0.9.7"
 
