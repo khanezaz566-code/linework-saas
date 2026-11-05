@@ -56,7 +56,8 @@ def _migrate_db(conn):
         "phone": "TEXT",
         "whatsapp": "TEXT",
         "free_bg_used": "INTEGER DEFAULT 0",
-        "last_active": "TEXT"
+        "last_active": "TEXT",
+        "last_seen_epoch": "INTEGER DEFAULT 0"
     }
     for col, col_type in needed_user_cols.items():
         if col not in existing_user_cols:
@@ -88,8 +89,14 @@ def _migrate_db(conn):
     WHERE username = 'admin' AND (phone IS NULL OR phone = '')
     """, (BKASH_NUMBER, BKASH_NUMBER))
     
-    # Check sessions table columns
+        # Check sessions table columns
     cur.execute("PRAGMA table_info(sessions)")
+    existing_sess_cols = {row["name"] for row in cur.fetchall()}
+    if "last_seen_epoch" not in existing_sess_cols:
+        try:
+            cur.execute("ALTER TABLE sessions ADD COLUMN last_seen_epoch INTEGER DEFAULT 0")
+        except Exception:
+            pass
     existing_sess_cols = {row["name"] for row in cur.fetchall()}
     if "last_seen" not in existing_sess_cols:
         try:
@@ -196,10 +203,12 @@ def register_user(name: str, phone: str, whatsapp: str, password: str):
 
         salt = secrets.token_hex(16)
         pwd_hash = _hash_password(password, salt)
+        now_epoch = int(datetime.now().timestamp())
+        now_iso = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         cur.execute("""
-        INSERT INTO users (username, name, phone, whatsapp, password_hash, salt, role, status, plan, free_sheets_used, free_bg_used)
-        VALUES (?, ?, ?, ?, ?, ?, 'user', 'active', 'free', 0, 0)
-        """, (phone_norm, name, phone_norm, wp_norm, pwd_hash, salt))
+        INSERT INTO users (username, name, phone, whatsapp, password_hash, salt, role, status, plan, free_sheets_used, free_bg_used, last_active, last_seen_epoch)
+        VALUES (?, ?, ?, ?, ?, ?, 'user', 'active', 'free', 0, 0, ?, ?)
+        """, (phone_norm, name, phone_norm, wp_norm, pwd_hash, salt, now_iso, now_epoch))
         conn.commit()
         user_id = cur.lastrowid
         cur.execute("SELECT * FROM users WHERE id = ?", (user_id,))
@@ -238,8 +247,11 @@ def authenticate_user(identifier: str, password: str):
 
 def create_session(user_id: int) -> str:
     token = secrets.token_hex(32)
+    now_epoch = int(datetime.now().timestamp())
+    now_iso = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     with get_db() as conn:
-        conn.execute("INSERT INTO sessions (token, user_id) VALUES (?, ?)", (token, user_id))
+        conn.execute("INSERT INTO sessions (token, user_id, last_seen, last_seen_epoch) VALUES (?, ?, ?, ?)", (token, user_id, now_iso, now_epoch))
+        conn.execute("UPDATE users SET last_active = ?, last_seen_epoch = ? WHERE id = ?", (now_iso, now_epoch, user_id))
         conn.commit()
     return token
 
@@ -260,16 +272,29 @@ def get_user_from_token(token: str):
         u_dict = dict(user)
         _check_pro_expiration(u_dict, conn)
         
-        # Keep activity timestamp fresh
+        # Keep activity timestamp fresh (both iso string and epoch integer)
         try:
+            now_epoch = int(datetime.now().timestamp())
             now_iso = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-            conn.execute("UPDATE sessions SET last_seen = ? WHERE token = ?", (now_iso, token))
-            conn.execute("UPDATE users SET last_active = ? WHERE id = ?", (now_iso, u_dict["id"]))
+            conn.execute("UPDATE sessions SET last_seen = ?, last_seen_epoch = ? WHERE token = ?", (now_iso, now_epoch, token))
+            conn.execute("UPDATE users SET last_active = ?, last_seen_epoch = ? WHERE id = ?", (now_iso, now_epoch, u_dict["id"]))
             conn.commit()
         except Exception:
             pass
         return u_dict
 
+
+
+def update_user_heartbeat(user_id: int, token: str = None):
+    now_epoch = int(datetime.now().timestamp())
+    with get_db() as conn:
+        try:
+            conn.execute("UPDATE users SET last_seen_epoch = ? WHERE id = ?", (now_epoch, user_id))
+            if token:
+                conn.execute("UPDATE sessions SET last_seen_epoch = ? WHERE token = ?", (now_epoch, token))
+            conn.commit()
+        except Exception:
+            pass
 
 def delete_session(token: str):
     with get_db() as conn:
@@ -480,6 +505,7 @@ def list_users(search: str = None, filter_type: str = None):
         query = """
         SELECT id, username, name, phone, whatsapp, email, role, status, plan, 
                free_sheets_used, free_bg_used, pro_expires_at, created_at,
+               COALESCE(last_seen_epoch, 0) AS last_seen_epoch,
                COALESCE(last_active, created_at) AS last_active
         FROM users
         """
@@ -490,7 +516,10 @@ def list_users(search: str = None, filter_type: str = None):
             conditions.append("(username LIKE ? OR name LIKE ? OR phone LIKE ? OR whatsapp LIKE ?)")
             params.extend([s, s, s, s])
             
-        if filter_type == "pro":
+        if filter_type == "online":
+            now_epoch = int(datetime.now().timestamp())
+            conditions.append(f"last_seen_epoch >= {now_epoch - 900}")
+        elif filter_type == "pro":
             conditions.append("plan IN ('bundle_pro', 'redraw_pro', 'bg_pro', 'pro')")
         elif filter_type == "free":
             conditions.append("plan = 'free'")
@@ -506,27 +535,48 @@ def list_users(search: str = None, filter_type: str = None):
         cur.execute(query, tuple(params))
         rows = [dict(r) for r in cur.fetchall()]
         
-        # Calculate online status & remaining days for each user
-        now = datetime.now()
+        now_epoch = int(datetime.now().timestamp())
         for r in rows:
-            last_act_str = r.get("last_active")
-            is_online = False
-            if last_act_str:
-                try:
-                    last_act_dt = datetime.fromisoformat(last_act_str.replace("Z", ""))
-                    if (now - last_act_dt).total_seconds() < 900:  # 15 minutes
-                        is_online = True
-                except Exception:
-                    pass
+            last_epoch = int(r.get("last_seen_epoch") or 0)
+            diff = now_epoch - last_epoch if last_epoch > 0 else 9999999
+            
+            # Presence status
+            if diff < 70:
+                presence = "online"
+                presence_text = "🟢 Live Online Now"
+                is_online = True
+            elif diff < 900:
+                presence = "away"
+                presence_text = f"🟡 Active {diff // 60}m ago"
+                is_online = True
+            elif diff < 86400:
+                presence = "offline"
+                presence_text = f"⚪ Active {diff // 3600}h ago"
+                is_online = False
+            else:
+                presence = "offline"
+                presence_text = "⚪ Offline"
+                is_online = False
+                
+            r["presence"] = presence
+            r["presence_text"] = presence_text
             r["is_online"] = is_online
             
+            # Quota info
+            sheets_used = int(r.get("free_sheets_used") or 0)
+            bg_used = int(r.get("free_bg_used") or 0)
+            r["sheets_left"] = max(0, 3 - sheets_used)
+            r["bg_left"] = max(0, 10 - bg_used)
+            r["is_trial_exhausted"] = (sheets_used >= 3 and bg_used >= 10)
+            
+            # Days remaining on pro
             exp_str = r.get("pro_expires_at")
             days_left = 0
             if exp_str and r.get("plan") != "free":
                 try:
                     exp_dt = datetime.fromisoformat(exp_str)
-                    diff = (exp_dt - now).days
-                    days_left = max(0, diff) if diff < 20000 else 9999
+                    diff_days = (exp_dt - datetime.now()).days
+                    days_left = max(0, diff_days) if diff_days < 20000 else 9999
                 except Exception:
                     pass
             r["days_left"] = days_left
@@ -538,6 +588,7 @@ def list_users(search: str = None, filter_type: str = None):
 
 
 def get_admin_stats():
+    now_epoch = int(datetime.now().timestamp())
     with get_db() as conn:
         cur = conn.cursor()
         cur.execute("SELECT COUNT(*) FROM users")
@@ -547,19 +598,15 @@ def get_admin_stats():
         cur.execute("SELECT COUNT(*) FROM users WHERE status = 'banned'")
         banned_users = cur.fetchone()[0]
         
-        # Live active online users (active in last 15 minutes)
-        cur.execute("""
-        SELECT COUNT(DISTINCT user_id) FROM sessions 
-        WHERE last_seen >= datetime('now', '-15 minutes')
-        """)
+        # Real-time online: users seen in last 5 minutes (300 seconds)
+        threshold_online = now_epoch - 300
+        cur.execute("SELECT COUNT(DISTINCT id) FROM users WHERE last_seen_epoch >= ?", (threshold_online,))
         live_online = cur.fetchone()[0] or 0
-        live_online = max(live_online, 1)  # At least 1 (the current admin)
+        live_online = max(live_online, 1)  # At least 1 (the admin viewing)
         
-        # Active Today (last 24 hours)
-        cur.execute("""
-        SELECT COUNT(DISTINCT user_id) FROM sessions 
-        WHERE last_seen >= datetime('now', '-24 hours')
-        """)
+        # Active Today: users seen in last 24 hours (86400 seconds)
+        threshold_24h = now_epoch - 86400
+        cur.execute("SELECT COUNT(DISTINCT id) FROM users WHERE last_seen_epoch >= ?", (threshold_24h,))
         active_today = max(cur.fetchone()[0] or 0, live_online)
         
         cur.execute("SELECT COUNT(*) FROM users WHERE plan = 'free'")
@@ -573,7 +620,6 @@ def get_admin_stats():
         
         pro_users = redraw_pro_users + bg_pro_users + bundle_pro_users
         
-        # Monthly Recurring Revenue (MRR) projection
         mrr = (redraw_pro_users * 300) + (bg_pro_users * 200) + (bundle_pro_users * 500)
         
         cur.execute("SELECT COUNT(*) FROM payments WHERE status = 'pending'")

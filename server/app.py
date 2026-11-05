@@ -946,6 +946,17 @@ async def api_login(request: Request):
     return response
 
 
+
+@app.get("/api/auth/ping")
+@app.post("/api/auth/ping")
+def api_auth_ping(request: Request):
+    user = get_current_user(request)
+    if not user:
+        return {"ok": False, "logged_in": False}
+    token = request.headers.get("Authorization", "").replace("Bearer ", "").strip() or request.cookies.get("lw_token")
+    db.update_user_heartbeat(user["id"], token=token)
+    return {"ok": True, "logged_in": True, "user_id": user["id"]}
+
 @app.get("/api/auth/me")
 def api_me(request: Request):
     user = get_current_user(request)

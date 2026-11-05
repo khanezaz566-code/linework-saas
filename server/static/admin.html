@@ -3,6 +3,9 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+  <meta http-equiv="Pragma" content="no-cache">
+  <meta http-equiv="Expires" content="0">
   <title>Executive Commercial Controller — Linework AI SaaS</title>
   <link rel="icon" type="image/x-icon" href="/static/vectorcraft.ico">
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -93,7 +96,7 @@
     .live-radar-pill {
       background: rgba(0, 245, 160, 0.08);
       border: 1px solid rgba(0, 245, 160, 0.3);
-      padding: 6px 12px;
+      padding: 6px 14px;
       border-radius: 20px;
       display: inline-flex;
       align-items: center;
@@ -198,9 +201,9 @@
       border: 1px solid rgba(179, 136, 255, 0.3);
     }
     .badge.free {
-      background: rgba(255, 255, 255, 0.06);
-      color: var(--text-muted);
-      border: 1px solid var(--card-border);
+      background: rgba(255, 183, 3, 0.15);
+      color: var(--gold);
+      border: 1px solid rgba(255, 183, 3, 0.4);
     }
     .badge.pending {
       background: var(--gold-dim);
@@ -221,6 +224,7 @@
       background: rgba(0, 245, 160, 0.15);
       color: #00f5a0;
       border: 1px solid #00f5a0;
+      box-shadow: 0 0 8px rgba(0, 245, 160, 0.4);
     }
 
     main {
@@ -335,11 +339,26 @@
       font-weight: 600;
       cursor: pointer;
       transition: all 0.2s;
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
     }
     .filter-tab.active {
       background: #19202f;
       color: #00f5a0;
       font-weight: 700;
+    }
+
+    .tab-badge {
+      background: rgba(255,255,255,0.08);
+      padding: 1px 6px;
+      border-radius: 10px;
+      font-size: 10px;
+      font-family: var(--mono);
+    }
+    .filter-tab.active .tab-badge {
+      background: rgba(0, 245, 160, 0.2);
+      color: #00f5a0;
     }
 
     .table-wrap {
@@ -594,7 +613,7 @@
           bKash: <b style="color:#00f5a0; margin-left:4px;">01794590310</b>
         </span>
         <button class="btn btn-outline btn-sm" id="btnAutoRefreshToggle" onclick="toggleAutoRefresh()">
-          🔄 Auto-Refresh: ON (8s)
+          🔄 Auto-Refresh: ON (5s)
         </button>
         <a href="/" class="btn btn-outline btn-sm" target="_blank">Launch App ↗</a>
         <button id="btnAdminLogout" class="btn btn-danger btn-sm">Sign Out</button>
@@ -705,11 +724,21 @@
 
           <div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap;">
             <div class="filter-tabs">
-              <button class="filter-tab active" data-filter="all" onclick="setCustomerFilter('all')">All</button>
-              <button class="filter-tab" data-filter="online" onclick="setCustomerFilter('online')">🟢 Online</button>
-              <button class="filter-tab" data-filter="pro" onclick="setCustomerFilter('pro')">⚡ Pro Subscribers</button>
-              <button class="filter-tab" data-filter="free" onclick="setCustomerFilter('free')">🎁 Free Trial</button>
-              <button class="filter-tab" data-filter="banned" onclick="setCustomerFilter('banned')">🚫 Suspended</button>
+              <button class="filter-tab active" data-filter="all" onclick="setCustomerFilter('all')">
+                All Customers <span class="tab-badge" id="tabCountAll">0</span>
+              </button>
+              <button class="filter-tab" data-filter="online" onclick="setCustomerFilter('online')">
+                🟢 Live Online <span class="tab-badge" id="tabCountOnline">0</span>
+              </button>
+              <button class="filter-tab" data-filter="free" onclick="setCustomerFilter('free')">
+                🎁 Free Trial <span class="tab-badge" id="tabCountFree">0</span>
+              </button>
+              <button class="filter-tab" data-filter="pro" onclick="setCustomerFilter('pro')">
+                ⚡ Pro Subscribers <span class="tab-badge" id="tabCountPro">0</span>
+              </button>
+              <button class="filter-tab" data-filter="banned" onclick="setCustomerFilter('banned')">
+                🚫 Suspended <span class="tab-badge" id="tabCountBanned">0</span>
+              </button>
             </div>
             <input type="text" id="custSearchInput" class="search-input" placeholder="Search by name, phone or whatsapp..." oninput="handleSearch()">
           </div>
@@ -721,10 +750,10 @@
               <tr>
                 <th>ID</th>
                 <th>Customer Name & Phone</th>
-                <th>WhatsApp Contact</th>
-                <th>Live Status</th>
+                <th>WhatsApp Direct</th>
+                <th>Live Presence</th>
                 <th>Current Plan</th>
-                <th>Usage (Icons / BG)</th>
+                <th>Quota Used & Remaining</th>
                 <th>Validity / Days Left</th>
                 <th>Access & Actions</th>
               </tr>
@@ -893,6 +922,7 @@
         localStorage.setItem('lw_token', data.token);
         hideAuthScreen();
         loadAllData();
+        startAutoRefresh();
         showToast('Connected to Linework Commercial HQ!');
       } catch (err) {
         alert(err.message);
@@ -957,6 +987,20 @@
         // 3. Customer CRM Table
         const users = await apiCall('/api/admin/users');
         state.allUsers = users;
+
+        // Update tab count badges
+        const countAll = users.length;
+        const countOnline = users.filter(u => u.is_online).length;
+        const countFree = users.filter(u => u.plan === 'free').length;
+        const countPro = users.filter(u => ['bundle_pro', 'redraw_pro', 'bg_pro', 'pro'].includes(u.plan)).length;
+        const countBanned = users.filter(u => u.status === 'banned').length;
+
+        document.getElementById('tabCountAll').textContent = countAll;
+        document.getElementById('tabCountOnline').textContent = countOnline;
+        document.getElementById('tabCountFree').textContent = countFree;
+        document.getElementById('tabCountPro').textContent = countPro;
+        document.getElementById('tabCountBanned').textContent = countBanned;
+
         renderUsers(filterUsers(users));
       } catch (err) {
         console.error(err);
@@ -1025,18 +1069,39 @@
         const waClean = (u.whatsapp || u.phone || '').replace(/[^0-9]/g, '');
         const waLink = waClean ? `https://wa.me/88${waClean.replace(/^88/, '')}?text=${encodeURIComponent('Hello ' + (u.name || '') + ', from Linework AI support!')}` : null;
         
-        let planBadge = '<span class="badge free">Free Trial</span>';
-        if (u.plan === 'redraw_pro') planBadge = '<span class="badge pro">Redraw Pro (৳300)</span>';
-        else if (u.plan === 'bg_pro') planBadge = '<span class="badge pro">BG Pro (৳200)</span>';
-        else if (u.plan === 'bundle_pro' || u.plan === 'pro') planBadge = '<span class="badge bundle">Bundle Pro (৳500)</span>';
+        let planBadge = '<span class="badge free">🎁 Free Trial</span>';
+        if (u.plan === 'redraw_pro') planBadge = '<span class="badge pro">⚡ Redraw Pro (৳300)</span>';
+        else if (u.plan === 'bg_pro') planBadge = '<span class="badge pro">⚡ BG Pro (৳200)</span>';
+        else if (u.plan === 'bundle_pro') planBadge = '<span class="badge bundle">👑 Bundle Pro (৳500)</span>';
+        else if (u.plan === 'pro') planBadge = '<span class="badge bundle">💎 Lifetime VIP</span>';
 
-        const livePill = u.is_online ? '<span class="badge online">🟢 Online</span>' : '<span style="font-size:11px; color:var(--text-dim); font-family:var(--mono);">' + (u.last_active ? u.last_active.slice(5, 16) : 'Offline') + '</span>';
+        let livePill = '<span class="badge" style="background:rgba(255,255,255,0.04); color:var(--text-dim);">' + (u.presence_text || 'Offline') + '</span>';
+        if (u.presence === 'online') {
+          livePill = '<span class="badge online">🟢 Online Now</span>';
+        } else if (u.presence === 'away') {
+          livePill = '<span class="badge" style="background:rgba(255,183,3,0.12); color:#ffb703; border:1px solid rgba(255,183,3,0.3);">' + u.presence_text + '</span>';
+        }
 
-        let validityText = '<span style="color:var(--text-dim);">No Active Pro</span>';
+        let quotaContent = '';
+        if (u.plan === 'free') {
+          const sheetColor = u.free_sheets_used >= 3 ? '#ff4757' : '#00f5a0';
+          const bgColor = u.free_bg_used >= 10 ? '#ff4757' : '#00d2ff';
+          quotaContent = `
+            <div style="font-size:12px; font-family:var(--mono); line-height:1.5;">
+              Icons: <b style="color:${sheetColor};">${u.free_sheets_used}/3 Used</b> (${u.sheets_left} Left)<br>
+              BG: <b style="color:${bgColor};">${u.free_bg_used}/10 Used</b> (${u.bg_left} Left)
+              ${u.is_trial_exhausted ? '<div style="color:#ff4757; font-weight:700; font-size:10px; margin-top:2px;">⚠️ TRIAL FINISHED</div>' : ''}
+            </div>
+          `;
+        } else {
+          quotaContent = `<div style="font-size:12px; color:#00f5a0; font-weight:700;">⚡ Unlimited Vector Output</div>`;
+        }
+
+        let validityText = '<span style="color:var(--text-muted); font-size:12px;">Free Trial Tier</span>';
         if (u.plan !== 'free') {
           if (u.days_left >= 9000) validityText = '<b style="color:#00f5a0;">Lifetime VIP</b>';
           else if (u.days_left > 0) validityText = `<b style="color:#00d2ff;">${u.days_left} Days Left</b>`;
-          else validityText = '<b style="color:#ff4757;">Expired</b>';
+          else validityText = '<b style="color:#ff4757;">Subscription Expired</b>';
         }
 
         return `
@@ -1044,7 +1109,10 @@
             <td style="font-family:var(--mono); color:var(--text-dim);">#${u.id}</td>
             <td>
               <div class="user-name-box">
-                <span class="user-name-title">${escapeHtml(u.name || u.username)}</span>
+                <span class="user-name-title">
+                  ${escapeHtml(u.name || u.username)}
+                  ${u.role === 'admin' ? '<span class="badge" style="background:rgba(255,183,3,0.2); color:#ffb703; font-size:9px;">ADMIN</span>' : ''}
+                </span>
                 <span class="user-phone-link">${escapeHtml(u.phone || 'No phone')}</span>
               </div>
             </td>
@@ -1053,13 +1121,8 @@
             </td>
             <td>${livePill}</td>
             <td>${planBadge}</td>
-            <td>
-              <div style="font-size:12px; font-family:var(--mono);">
-                Icons: <b style="color:${u.free_sheets_used >= 3 ? '#ff4757' : '#00f5a0'};">${u.free_sheets_used}/3</b><br>
-                BG: <b style="color:${u.free_bg_used >= 10 ? '#ff4757' : '#00d2ff'};">${u.free_bg_used}/10</b>
-              </div>
-            </td>
-            <td style="font-size:12px;">${validityText}</td>
+            <td>${quotaContent}</td>
+            <td>${validityText}</td>
             <td>
               <div style="display:flex; align-items:center; gap:6px;">
                 <button class="btn btn-primary btn-sm" onclick="openGrantModal(${u.id})">⚡ Grant Access</button>
@@ -1198,7 +1261,7 @@
       state.autoRefresh = !state.autoRefresh;
       const btn = document.getElementById('btnAutoRefreshToggle');
       if (state.autoRefresh) {
-        btn.textContent = '🔄 Auto-Refresh: ON (8s)';
+        btn.textContent = '🔄 Auto-Refresh: ON (5s)';
         btn.classList.remove('btn-danger');
         startAutoRefresh();
       } else {
@@ -1214,7 +1277,7 @@
         if (state.autoRefresh && state.token) {
           loadAllData();
         }
-      }, 8000);
+      }, 5000);
     }
 
     function escapeHtml(str) {

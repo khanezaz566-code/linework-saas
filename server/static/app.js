@@ -2194,6 +2194,30 @@
   };
 
   window.LineworkAuth = LineworkAuth;
+
+  // Live Presence Heartbeat (pings server immediately, every 20s, and on user activity)
+  function sendLivePing() {
+    const token = (window.LineworkAuth && window.LineworkAuth.token) || localStorage.getItem('lw_token');
+    if (token) {
+      fetch('/api/auth/ping', {
+        headers: { 'Authorization': 'Bearer ' + token }
+      }).catch(() => {});
+    }
+  }
+
+  sendLivePing();
+  setInterval(sendLivePing, 20000);
+
+  ['click', 'keydown', 'touchstart'].forEach(evt => {
+    window.addEventListener(evt, () => {
+      const now = Date.now();
+      if (!window._lastPing || (now - window._lastPing > 25000)) {
+        window._lastPing = now;
+        sendLivePing();
+      }
+    }, { passive: true });
+  });
+
   LineworkAuth.init();
 
   window.LineworkApp = {
