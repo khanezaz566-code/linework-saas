@@ -165,16 +165,24 @@ def init_db():
 
         _migrate_db(conn)
 
-        # Ensure default admin exists
+        # Ensure default admin exists and is ALWAYS active admin with bundle_pro
         cur = conn.cursor()
         cur.execute("SELECT id FROM users WHERE username = 'admin' OR phone = ?", (BKASH_NUMBER,))
-        if not cur.fetchone():
+        adm_row = cur.fetchone()
+        if not adm_row:
             salt = secrets.token_hex(16)
             pwd_hash = _hash_password("admin123", salt)
             cur.execute("""
             INSERT INTO users (username, name, phone, whatsapp, email, password_hash, salt, role, status, plan, pro_expires_at)
             VALUES (?, ?, ?, ?, ?, ?, ?, 'admin', 'active', 'bundle_pro', ?)
             """, ("admin", "Super Admin", BKASH_NUMBER, BKASH_NUMBER, "admin@linework.ai", pwd_hash, salt, "2099-12-31 23:59:59"))
+            conn.commit()
+        else:
+            cur.execute("""
+            UPDATE users
+            SET role = 'admin', status = 'active', plan = 'bundle_pro', pro_expires_at = '2099-12-31 23:59:59'
+            WHERE id = ?
+            """, (adm_row[0],))
             conn.commit()
 
 
@@ -480,7 +488,7 @@ def submit_payment_request(user_id: int, plan_selected: str, amount: int, phone:
 def grant_user_access(user_id: int, plan: str = None, days: int = 30, role: str = None, status: str = None, reset_quota: bool = False, sheets_used: int = None, bg_used: int = None):
     with get_db() as conn:
         cur = conn.cursor()
-        cur.execute("SELECT plan, role, status FROM users WHERE id = ?", (user_id,))
+        cur.execute("SELECT plan, role, status, phone, username FROM users WHERE id = ?", (user_id,))
         curr = cur.fetchone()
         if not curr:
             return False
@@ -488,6 +496,13 @@ def grant_user_access(user_id: int, plan: str = None, days: int = 30, role: str 
         target_plan = plan if plan is not None else curr["plan"]
         target_role = role if role is not None else curr["role"]
         target_status = status if status is not None else curr["status"]
+
+        # Protect Super Admin from accidental demotion or suspension
+        if str(curr["phone"]) == str(BKASH_NUMBER) or curr["username"] == "admin" or user_id == 1:
+            target_role = "admin"
+            target_status = "active"
+            if target_plan == "free":
+                target_plan = "bundle_pro" 
         
         now = datetime.now()
         if target_plan in ("bundle_pro", "redraw_pro", "bg_pro", "pro"):

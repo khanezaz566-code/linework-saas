@@ -879,19 +879,26 @@
     async function apiCall(endpoint, options = {}) {
       options.headers = options.headers || {};
       options.cache = 'no-store';
-      if (state.token) {
-        options.headers['Authorization'] = 'Bearer ' + state.token;
+      const token = state.token || sessionStorage.getItem('lw_admin_token') || localStorage.getItem('lw_admin_token');
+      if (token) {
+        options.headers['Authorization'] = 'Bearer ' + token;
       }
       const sep = endpoint.includes('?') ? '&' : '?';
       const urlWithBuster = endpoint + sep + '_t=' + Date.now();
       const res = await fetch(urlWithBuster, options);
       if (res.status === 401 || res.status === 403) {
         showAuthScreen();
-        throw new Error('Unauthorized');
+        throw new Error('Access denied or session expired. Please sign in again.');
       }
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
-        throw new Error(data.detail || 'API Error');
+        let msg = data.detail || data.message || data.error;
+        if (!msg) {
+          msg = `HTTP Error ${res.status}: ${res.statusText || 'Server Error'}`;
+        } else if (typeof msg === 'object') {
+          try { msg = JSON.stringify(msg); } catch {}
+        }
+        throw new Error(msg);
       }
       return res.json();
     }
@@ -1212,22 +1219,34 @@
       e.preventDefault();
       const userId = document.getElementById('grantUserId').value;
       const plan = document.getElementById('grantPlan').value;
-      const days = parseInt(document.getElementById('grantDays').value);
+      const days = parseInt(document.getElementById('grantDays').value) || 30;
       const role = document.getElementById('grantRole').value;
       const status = document.getElementById('grantStatus').value;
       const resetQuota = document.getElementById('grantResetQuota').checked;
 
+      const submitBtn = document.querySelector('#grantAccessForm button[type="submit"]');
+      const oldTxt = submitBtn ? submitBtn.textContent : '';
+      if (submitBtn) {
+        submitBtn.disabled = true;
+        submitBtn.textContent = 'Saving...';
+      }
+
       try {
-        await apiCall(`/api/admin/users/${userId}/access`, {
+        const res = await apiCall(`/api/admin/users/${userId}/access`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ plan, days, role, status, reset_quota: resetQuota })
         });
         closeGrantModal();
-        showToast(`Access granted successfully to User #${userId}!`);
-        loadAllData();
+        showToast(res.message || `Access granted successfully to User #${userId}!`);
+        await loadAllData();
       } catch (err) {
         alert(err.message);
+      } finally {
+        if (submitBtn) {
+          submitBtn.disabled = false;
+          submitBtn.textContent = oldTxt;
+        }
       }
     });
 

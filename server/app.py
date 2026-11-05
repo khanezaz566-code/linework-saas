@@ -1133,14 +1133,17 @@ async def api_admin_grant_access(user_id: int, request: Request):
     require_admin(request)
     body = await request.json()
     plan = body.get("plan", "free")
-    days = int(body.get("days", 30))
+    try:
+        days = int(body.get("days", 30))
+    except Exception:
+        days = 30
     role = body.get("role", "user")
     status = body.get("status", "active")
     reset_quota = bool(body.get("reset_quota", False))
     sheets_used = body.get("sheets_used")
     bg_used = body.get("bg_used")
     
-    db.grant_user_access(
+    ok = db.grant_user_access(
         user_id=user_id,
         plan=plan,
         days=days,
@@ -1150,6 +1153,8 @@ async def api_admin_grant_access(user_id: int, request: Request):
         sheets_used=sheets_used,
         bg_used=bg_used
     )
+    if not ok:
+        raise HTTPException(404, f"Customer #{user_id} not found in database. The user list may have refreshed.")
     return {"ok": True, "message": f"Access granted successfully for user #{user_id}"}
 
 
