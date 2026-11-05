@@ -1,6 +1,10 @@
-"""Database & Authentication Manager for Linework AI
-Handles SQLite persistence for users, session tokens, trial sheet usage,
-pro subscriptions, and bKash payment verification requests.
+"""Database & Authentication Manager for Linework AI SaaS
+Handles SQLite persistence for:
+- User accounts (Name, Phone, WhatsApp, Password)
+- Free Trial Quotas (3 icon sets for Redraw, 10 backgrounds for BG Studio)
+- Paid Subscriptions (Redraw Pro: 300 Tk, BG Studio Pro: 200 Tk, Bundle Pro: 500 Tk)
+- bKash Manual Payment Requests (Send Money to 01794590310, TrxID verification, Admin Approvals)
+- Admin Portal Controller & Analytics
 """
 import os
 import sys
@@ -19,11 +23,70 @@ DB_PATH = DB_DIR / "linework_app.db"
 UPLOAD_DIR = DB_DIR / "uploads"
 UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 
+# Official Support & Payment Number
+BKASH_NUMBER = "01794590310"
+SUPPORT_PHONE = "01794590310"
+SUPPORT_WHATSAPP = "01794590310"
+
+# Plan Definitions
+PLANS = {
+    "free": {"name": "Free Trial", "price": 0, "sheets_limit": 3, "bg_limit": 10},
+    "redraw_pro": {"name": "Icon Redraw Pro", "price": 300, "sheets_limit": -1, "bg_limit": 10},
+    "bg_pro": {"name": "BG Studio Pro", "price": 200, "sheets_limit": 3, "bg_limit": -1},
+    "bundle_pro": {"name": "All-In-One Bundle Pro", "price": 500, "sheets_limit": -1, "bg_limit": -1},
+    "pro": {"name": "Legacy Pro", "price": 500, "sheets_limit": -1, "bg_limit": -1},
+}
+
 
 def get_db():
     conn = sqlite3.connect(str(DB_PATH))
     conn.row_factory = sqlite3.Row
     return conn
+
+
+def _migrate_db(conn):
+    """Safely apply column additions to existing SQLite tables."""
+    cur = conn.cursor()
+    # Check users table columns
+    cur.execute("PRAGMA table_info(users)")
+    existing_user_cols = {row["name"] for row in cur.fetchall()}
+    
+    needed_user_cols = {
+        "name": "TEXT",
+        "phone": "TEXT",
+        "whatsapp": "TEXT",
+        "free_bg_used": "INTEGER DEFAULT 0"
+    }
+    for col, col_type in needed_user_cols.items():
+        if col not in existing_user_cols:
+            try:
+                cur.execute(f"ALTER TABLE users ADD COLUMN {col} {col_type}")
+            except Exception:
+                pass
+
+    # Check payments table columns
+    cur.execute("PRAGMA table_info(payments)")
+    existing_pay_cols = {row["name"] for row in cur.fetchall()}
+    
+    needed_pay_cols = {
+        "user_name": "TEXT",
+        "whatsapp": "TEXT",
+        "plan_selected": "TEXT DEFAULT 'bundle_pro'"
+    }
+    for col, col_type in needed_pay_cols.items():
+        if col not in existing_pay_cols:
+            try:
+                cur.execute(f"ALTER TABLE payments ADD COLUMN {col} {col_type}")
+            except Exception:
+                pass
+
+    # Ensure admin has phone and name set
+    cur.execute("""
+    UPDATE users 
+    SET phone = ?, name = 'Super Admin', whatsapp = ? 
+    WHERE username = 'admin' AND (phone IS NULL OR phone = '')
+    """, (BKASH_NUMBER, BKASH_NUMBER))
+    conn.commit()
 
 
 def init_db():
@@ -32,6 +95,9 @@ def init_db():
         CREATE TABLE IF NOT EXISTS users (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             username TEXT UNIQUE NOT NULL,
+            name TEXT,
+            phone TEXT UNIQUE,
+            whatsapp TEXT,
             email TEXT,
             password_hash TEXT NOT NULL,
             salt TEXT NOT NULL,
@@ -39,6 +105,7 @@ def init_db():
             status TEXT DEFAULT 'active',
             plan TEXT DEFAULT 'free',
             free_sheets_used INTEGER DEFAULT 0,
+            free_bg_used INTEGER DEFAULT 0,
             pro_expires_at TEXT,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         );
@@ -54,7 +121,10 @@ def init_db():
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             user_id INTEGER NOT NULL,
             username TEXT NOT NULL,
+            user_name TEXT,
             phone TEXT NOT NULL,
+            whatsapp TEXT,
+            plan_selected TEXT DEFAULT 'bundle_pro',
             amount INTEGER DEFAULT 300,
             trx_id TEXT NOT NULL,
             screenshot_path TEXT,
@@ -66,63 +136,97 @@ def init_db():
         );
         """)
 
+        _migrate_db(conn)
+
         # Ensure default admin exists
         cur = conn.cursor()
-        cur.execute("SELECT id FROM users WHERE username = 'admin'")
+        cur.execute("SELECT id FROM users WHERE username = 'admin' OR phone = ?", (BKASH_NUMBER,))
         if not cur.fetchone():
             salt = secrets.token_hex(16)
             pwd_hash = _hash_password("admin123", salt)
             cur.execute("""
-            INSERT INTO users (username, email, password_hash, salt, role, status, plan, pro_expires_at)
-            VALUES (?, ?, ?, ?, 'admin', 'active', 'pro', ?)
-            """, ("admin", "admin@linework.ai", pwd_hash, salt, "2099-12-31 23:59:59"))
+            INSERT INTO users (username, name, phone, whatsapp, email, password_hash, salt, role, status, plan, pro_expires_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, 'admin', 'active', 'bundle_pro', ?)
+            """, ("admin", "Super Admin", BKASH_NUMBER, BKASH_NUMBER, "admin@linework.ai", pwd_hash, salt, "2099-12-31 23:59:59"))
             conn.commit()
-
-
-def get_default_admin():
-    with get_db() as conn:
-        cur = conn.cursor()
-        cur.execute("SELECT * FROM users WHERE username = 'admin'")
-        u = cur.fetchone()
-        if u:
-            return dict(u)
-        return dict(id=1, username="admin", email="admin@linework.ai", role="admin", status="active", plan="pro", free_sheets_used=0)
 
 
 def _hash_password(password: str, salt: str) -> str:
     return hashlib.pbkdf2_hmac("sha256", password.encode("utf-8"), bytes.fromhex(salt), 100000).hex()
 
 
-def create_user(username, password, email=None, role="user"):
-    salt = secrets.token_hex(16)
-    pwd_hash = _hash_password(password, salt)
-    with get_db() as conn:
-        try:
-            cur = conn.cursor()
-            cur.execute("""
-            INSERT INTO users (username, email, password_hash, salt, role, status, plan, free_sheets_used)
-            VALUES (?, ?, ?, ?, ?, 'active', 'free', 0)
-            """, (username, email, pwd_hash, salt, role))
-            conn.commit()
-            return cur.lastrowid
-        except sqlite3.IntegrityError:
-            return None
+def normalize_phone(phone: str) -> str:
+    if not phone:
+        return ""
+    digits = "".join(c for c in phone if c.isdigit())
+    if digits.startswith("880") and len(digits) == 13:
+        digits = digits[2:]
+    return digits
 
 
-def verify_user(username, password):
+def register_user(name: str, phone: str, whatsapp: str, password: str):
+    """Register a new user with 3 free redraw icon sets & 10 free backgrounds."""
+    name = (name or "").strip()
+    phone_norm = normalize_phone(phone)
+    wp_norm = normalize_phone(whatsapp) or phone_norm
+    password = (password or "").strip()
+
+    if not name:
+        return None, "Please provide your full name."
+    if len(phone_norm) < 11:
+        return None, "Please provide a valid 11-digit phone number."
+    if len(password) < 4:
+        return None, "Password must be at least 4 characters."
+
     with get_db() as conn:
         cur = conn.cursor()
-        cur.execute("SELECT * FROM users WHERE username = ? OR email = ?", (username, username))
+        cur.execute("SELECT id FROM users WHERE phone = ? OR username = ?", (phone_norm, phone_norm))
+        if cur.fetchone():
+            return None, "An account with this phone number already exists. Please sign in."
+
+        salt = secrets.token_hex(16)
+        pwd_hash = _hash_password(password, salt)
+        cur.execute("""
+        INSERT INTO users (username, name, phone, whatsapp, password_hash, salt, role, status, plan, free_sheets_used, free_bg_used)
+        VALUES (?, ?, ?, ?, ?, ?, 'user', 'active', 'free', 0, 0)
+        """, (phone_norm, name, phone_norm, wp_norm, pwd_hash, salt))
+        conn.commit()
+        user_id = cur.lastrowid
+        cur.execute("SELECT * FROM users WHERE id = ?", (user_id,))
+        user_row = dict(cur.fetchone())
+        return user_row, None
+
+
+def authenticate_user(identifier: str, password: str):
+    """Authenticate user using Phone or Username."""
+    raw_ident = (identifier or "").strip()
+    phone_norm = normalize_phone(raw_ident)
+    password = (password or "").strip()
+
+    with get_db() as conn:
+        cur = conn.cursor()
+        cur.execute("""
+        SELECT * FROM users 
+        WHERE phone = ? OR username = ? OR email = ?
+        """, (phone_norm or raw_ident, raw_ident, raw_ident))
         user = cur.fetchone()
         if not user:
-            return None
-        pwd_hash = _hash_password(password, user["salt"])
-        if pwd_hash == user["password_hash"]:
-            return dict(user)
-        return None
+            return None, "User not found with this phone number or username."
+
+        u_dict = dict(user)
+        if u_dict["status"] == "banned":
+            return None, "Your account has been suspended. Please contact support at 01794590310."
+
+        pwd_hash = _hash_password(password, u_dict["salt"])
+        if pwd_hash != u_dict["password_hash"]:
+            return None, "Incorrect password."
+
+        # Check and handle expiration
+        _check_pro_expiration(u_dict, conn)
+        return u_dict, None
 
 
-def create_session(user_id):
+def create_session(user_id: int) -> str:
     token = secrets.token_hex(32)
     with get_db() as conn:
         conn.execute("INSERT INTO sessions (token, user_id) VALUES (?, ?)", (token, user_id))
@@ -130,7 +234,7 @@ def create_session(user_id):
     return token
 
 
-def get_user_from_token(token):
+def get_user_from_token(token: str):
     if not token:
         return None
     with get_db() as conn:
@@ -143,55 +247,159 @@ def get_user_from_token(token):
         user = cur.fetchone()
         if not user:
             return None
-        d = dict(user)
-        # Check pro expiration
-        if d["plan"] == "pro" and d["pro_expires_at"]:
-            try:
-                exp = datetime.fromisoformat(d["pro_expires_at"])
-                if datetime.now() > exp and d["role"] != "admin":
-                    d["plan"] = "free"
-                    conn.execute("UPDATE users SET plan = 'free' WHERE id = ?", (d["id"],))
-                    conn.commit()
-            except Exception:
-                pass
-        return d
+        u_dict = dict(user)
+        _check_pro_expiration(u_dict, conn)
+        return u_dict
 
 
-def delete_session(token):
+def delete_session(token: str):
     with get_db() as conn:
         conn.execute("DELETE FROM sessions WHERE token = ?", (token,))
         conn.commit()
 
 
-def can_user_process_sheet(user_id):
-    """Check if user has Pro or has remaining free trial sheets."""
+def _check_pro_expiration(u_dict: dict, conn):
+    """Automatically downgrade plan to 'free' if pro expired and not admin."""
+    if u_dict.get("role") == "admin":
+        return
+    plan = u_dict.get("plan", "free")
+    exp_str = u_dict.get("pro_expires_at")
+    if plan in ("redraw_pro", "bg_pro", "bundle_pro", "pro") and exp_str:
+        try:
+            exp_dt = datetime.fromisoformat(exp_str)
+            if datetime.now() > exp_dt:
+                conn.execute("UPDATE users SET plan = 'free' WHERE id = ?", (u_dict["id"],))
+                conn.commit()
+                u_dict["plan"] = "free"
+        except Exception:
+            pass
+
+
+def get_user_quota_info(user_dict: dict) -> dict:
+    """Format user quota status for frontend indicators and gatekeeping."""
+    plan = user_dict.get("plan", "free")
+    role = user_dict.get("role", "user")
+    is_admin = (role == "admin")
+
+    sheets_used = int(user_dict.get("free_sheets_used") or 0)
+    bg_used = int(user_dict.get("free_bg_used") or 0)
+
+    # Redraw capability
+    if is_admin or plan in ("bundle_pro", "redraw_pro", "pro"):
+        can_redraw = True
+        sheets_left = "Unlimited"
+    else:
+        can_redraw = (sheets_used < 3)
+        sheets_left = max(0, 3 - sheets_used)
+
+    # BG Studio capability
+    if is_admin or plan in ("bundle_pro", "bg_pro", "pro"):
+        can_bg = True
+        bg_left = "Unlimited"
+    else:
+        can_bg = (bg_used < 10)
+        bg_left = max(0, 10 - bg_used)
+
+    return {
+        "id": user_dict["id"],
+        "name": user_dict.get("name") or user_dict.get("username"),
+        "phone": user_dict.get("phone") or "",
+        "whatsapp": user_dict.get("whatsapp") or user_dict.get("phone") or "",
+        "role": role,
+        "status": user_dict.get("status", "active"),
+        "plan": plan,
+        "plan_name": PLANS.get(plan, {}).get("name", "Free Trial"),
+        "pro_expires_at": user_dict.get("pro_expires_at"),
+        "sheets_used": sheets_used,
+        "sheets_limit": 3,
+        "sheets_left": sheets_left,
+        "can_redraw": can_redraw,
+        "bg_used": bg_used,
+        "bg_limit": 10,
+        "bg_left": bg_left,
+        "can_bg": can_bg,
+        "bkash_number": BKASH_NUMBER,
+        "support_phone": SUPPORT_PHONE,
+    }
+
+
+def can_user_process_sheet(user_id: int):
+    """Check Redraw permission: Free limit 3 icon sets, or Redraw/Bundle Pro."""
     with get_db() as conn:
         cur = conn.cursor()
         cur.execute("SELECT * FROM users WHERE id = ?", (user_id,))
         u = cur.fetchone()
         if not u:
             return False, "User not found"
-        if u["status"] != "active":
-            return False, "Account is pending admin approval or suspended."
-        if u["role"] == "admin" or u["plan"] == "pro":
-            return True, "PRO"
-        if u["free_sheets_used"] < 2:
-            left = 2 - u["free_sheets_used"]
+        u_dict = dict(u)
+        _check_pro_expiration(u_dict, conn)
+
+        if u_dict["status"] != "active":
+            return False, "Account suspended. Contact support at 01794590310."
+
+        if u_dict["role"] == "admin" or u_dict["plan"] in ("bundle_pro", "redraw_pro", "pro"):
+            return True, "PRO (Unlimited Redraw)"
+
+        used = int(u_dict.get("free_sheets_used") or 0)
+        if used < 3:
+            left = 3 - used
             return True, f"FREE ({left} trial sheet{'s' if left > 1 else ''} left)"
-        return False, "Free trial limit reached (2 sheets used). Please upgrade to PRO (300 Tk/mo) to continue."
+
+        return False, "Free trial limit reached (3 icon sets used). Upgrade to Icon Redraw Pro (300 Tk/mo) or All-In-One Bundle (500 Tk/mo) to continue."
 
 
-def increment_sheet_usage(user_id):
+def increment_sheet_usage(user_id: int):
     with get_db() as conn:
-        conn.execute("""
-        UPDATE users 
-        SET free_sheets_used = free_sheets_used + 1 
-        WHERE id = ? AND plan != 'pro' AND role != 'admin'
-        """, (user_id,))
+        cur = conn.cursor()
+        cur.execute("SELECT role, plan FROM users WHERE id = ?", (user_id,))
+        u = cur.fetchone()
+        if not u:
+            return
+        if u["role"] == "admin" or u["plan"] in ("bundle_pro", "redraw_pro", "pro"):
+            return
+        conn.execute("UPDATE users SET free_sheets_used = free_sheets_used + 1 WHERE id = ?", (user_id,))
         conn.commit()
 
 
-def submit_payment_request(user_id, username, phone, trx_id, screenshot_bytes=None, ext=".png"):
+def can_user_process_bg(user_id: int):
+    """Check BG Studio permission: Free limit 10 backgrounds, or BG/Bundle Pro."""
+    with get_db() as conn:
+        cur = conn.cursor()
+        cur.execute("SELECT * FROM users WHERE id = ?", (user_id,))
+        u = cur.fetchone()
+        if not u:
+            return False, "User not found"
+        u_dict = dict(u)
+        _check_pro_expiration(u_dict, conn)
+
+        if u_dict["status"] != "active":
+            return False, "Account suspended. Contact support at 01794590310."
+
+        if u_dict["role"] == "admin" or u_dict["plan"] in ("bundle_pro", "bg_pro", "pro"):
+            return True, "PRO (Unlimited BG Studio)"
+
+        used = int(u_dict.get("free_bg_used") or 0)
+        if used < 10:
+            left = 10 - used
+            return True, f"FREE ({left} trial background{'s' if left > 1 else ''} left)"
+
+        return False, "Free trial limit reached (10 backgrounds used). Upgrade to BG Studio Pro (200 Tk/mo) or All-In-One Bundle (500 Tk/mo) to continue."
+
+
+def increment_bg_usage(user_id: int):
+    with get_db() as conn:
+        cur = conn.cursor()
+        cur.execute("SELECT role, plan FROM users WHERE id = ?", (user_id,))
+        u = cur.fetchone()
+        if not u:
+            return
+        if u["role"] == "admin" or u["plan"] in ("bundle_pro", "bg_pro", "pro"):
+            return
+        conn.execute("UPDATE users SET free_bg_used = free_bg_used + 1 WHERE id = ?", (user_id,))
+        conn.commit()
+
+
+def submit_payment_request(user_id: int, plan_selected: str, amount: int, phone: str, trx_id: str, screenshot_bytes=None, ext=".png"):
     filename = None
     if screenshot_bytes:
         filename = f"pay_{user_id}_{int(datetime.now().timestamp())}{ext}"
@@ -200,103 +408,95 @@ def submit_payment_request(user_id, username, phone, trx_id, screenshot_bytes=No
 
     with get_db() as conn:
         cur = conn.cursor()
+        cur.execute("SELECT username, name, whatsapp FROM users WHERE id = ?", (user_id,))
+        u = cur.fetchone()
+        uname = u["username"] if u else "user"
+        fullname = (u["name"] if u and u["name"] else uname)
+        u_wp = (u["whatsapp"] if u and u["whatsapp"] else phone)
+
         cur.execute("""
-        INSERT INTO payments (user_id, username, phone, amount, trx_id, screenshot_path, status)
-        VALUES (?, ?, ?, 300, ?, ?, 'pending')
-        """, (user_id, username, phone, trx_id, filename))
+        INSERT INTO payments (user_id, username, user_name, phone, whatsapp, plan_selected, amount, trx_id, screenshot_path, status)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending')
+        """, (user_id, uname, fullname, phone, u_wp, plan_selected, amount, trx_id.strip().upper(), filename))
         conn.commit()
         return cur.lastrowid
 
 
-def list_users():
+def list_users(search: str = None):
     with get_db() as conn:
         cur = conn.cursor()
-        cur.execute("SELECT id, username, email, role, status, plan, free_sheets_used, pro_expires_at, created_at FROM users ORDER BY id DESC")
+        if search:
+            s = f"%{search.strip()}%"
+            cur.execute("""
+            SELECT id, username, name, phone, whatsapp, email, role, status, plan, free_sheets_used, free_bg_used, pro_expires_at, created_at 
+            FROM users 
+            WHERE username LIKE ? OR name LIKE ? OR phone LIKE ? OR whatsapp LIKE ?
+            ORDER BY id DESC
+            """, (s, s, s, s))
+        else:
+            cur.execute("""
+            SELECT id, username, name, phone, whatsapp, email, role, status, plan, free_sheets_used, free_bg_used, pro_expires_at, created_at 
+            FROM users 
+            ORDER BY id DESC
+            """)
         return [dict(r) for r in cur.fetchall()]
 
 
-def update_user_status(user_id, status=None, plan=None, pro_days=30):
+def update_user_plan(user_id: int, plan: str, pro_days: int = 30, reset_quota: bool = False):
     with get_db() as conn:
         cur = conn.cursor()
-        if status:
-            cur.execute("UPDATE users SET status = ? WHERE id = ?", (status, user_id))
-        if plan:
-            exp_date = (datetime.now() + timedelta(days=pro_days)).strftime("%Y-%m-%d %H:%M:%S") if plan == "pro" else None
-            cur.execute("UPDATE users SET plan = ?, pro_expires_at = ? WHERE id = ?", (plan, exp_date, user_id))
+        if plan in ("bundle_pro", "redraw_pro", "bg_pro", "pro"):
+            exp_date = (datetime.now() + timedelta(days=pro_days)).strftime("%Y-%m-%d %H:%M:%S")
+            cur.execute("UPDATE users SET plan = ?, pro_expires_at = ?, status = 'active' WHERE id = ?", (plan, exp_date, user_id))
+        else:
+            cur.execute("UPDATE users SET plan = 'free', pro_expires_at = NULL WHERE id = ?", (user_id,))
+        
+        if reset_quota:
+            cur.execute("UPDATE users SET free_sheets_used = 0, free_bg_used = 0 WHERE id = ?", (user_id,))
         conn.commit()
 
 
-def list_payments(status_filter=None):
+def update_user_status(user_id: int, status: str):
     with get_db() as conn:
         cur = conn.cursor()
-        if status_filter:
+        cur.execute("UPDATE users SET status = ? WHERE id = ?", (status, user_id))
+        conn.commit()
+
+
+def list_payments(status_filter: str = None):
+    with get_db() as conn:
+        cur = conn.cursor()
+        if status_filter and status_filter != "all":
             cur.execute("SELECT * FROM payments WHERE status = ? ORDER BY id DESC", (status_filter,))
         else:
             cur.execute("SELECT * FROM payments ORDER BY id DESC")
         return [dict(r) for r in cur.fetchall()]
 
 
-def review_payment(payment_id, approve=True, notes=""):
+def review_payment(payment_id: int, approve: bool = True, notes: str = ""):
     with get_db() as conn:
         cur = conn.cursor()
         cur.execute("SELECT * FROM payments WHERE id = ?", (payment_id,))
         pay = cur.fetchone()
         if not pay:
             return False, "Payment request not found"
+
         new_status = "approved" if approve else "declined"
         cur.execute("""
         UPDATE payments SET status = ?, admin_notes = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?
         """, (new_status, notes, payment_id))
 
         if approve:
-            # Grant 30 days Pro
+            user_id = pay["user_id"]
+            plan = pay["plan_selected"] or "bundle_pro"
+            # Grant 30 days subscription
             exp_date = (datetime.now() + timedelta(days=30)).strftime("%Y-%m-%d %H:%M:%S")
             cur.execute("""
-            UPDATE users SET plan = 'pro', status = 'active', pro_expires_at = ? WHERE id = ?
-            """, (exp_date, pay["user_id"]))
+            UPDATE users SET plan = ?, status = 'active', pro_expires_at = ? WHERE id = ?
+            """, (plan, exp_date, user_id))
 
         conn.commit()
         return True, new_status
-
-
-
-TAMPER_LOCK_FILE = DB_DIR / ".tamper_lock"
-
-
-def is_system_tampered():
-    return TAMPER_LOCK_FILE.exists()
-
-
-def set_tamper_lock(reason="Integrity violation detected"):
-    try:
-        TAMPER_LOCK_FILE.write_text(f"TAMPER_LOCKED: {reason} at {datetime.now().isoformat()}", encoding="utf-8")
-        with get_db() as conn:
-            conn.execute("UPDATE users SET status = 'tamper_locked'")
-            conn.commit()
-    except Exception:
-        pass
-
-
-def delete_user(user_id):
-    with get_db() as conn:
-        cur = conn.cursor()
-        cur.execute("DELETE FROM sessions WHERE user_id = ?", (user_id,))
-        cur.execute("DELETE FROM payments WHERE user_id = ?", (user_id,))
-        cur.execute("DELETE FROM users WHERE id = ?", (user_id,))
-        conn.commit()
-        return True
-
-
-def change_password(user_id, new_password):
-    if len(new_password) < 4:
-        return False, "Password must be at least 4 characters."
-    salt = secrets.token_hex(16)
-    pwd_hash = _hash_password(new_password, salt)
-    with get_db() as conn:
-        cur = conn.cursor()
-        cur.execute("UPDATE users SET password_hash = ?, salt = ? WHERE id = ?", (pwd_hash, salt, user_id))
-        conn.commit()
-        return True, "Password updated successfully."
 
 
 def get_admin_stats():
@@ -307,24 +507,51 @@ def get_admin_stats():
         cur.execute("SELECT COUNT(*) FROM users WHERE status = 'active'")
         active_users = cur.fetchone()[0]
         cur.execute("SELECT COUNT(*) FROM users WHERE status = 'banned'")
-        blocked_users = cur.fetchone()[0]
-        cur.execute("SELECT COUNT(*) FROM users WHERE plan = 'pro'")
-        pro_users = cur.fetchone()[0]
+        banned_users = cur.fetchone()[0]
+        cur.execute("SELECT COUNT(*) FROM users WHERE plan = 'free'")
+        free_users = cur.fetchone()[0]
+        cur.execute("SELECT COUNT(*) FROM users WHERE plan = 'redraw_pro'")
+        redraw_pro_users = cur.fetchone()[0]
+        cur.execute("SELECT COUNT(*) FROM users WHERE plan = 'bg_pro'")
+        bg_pro_users = cur.fetchone()[0]
+        cur.execute("SELECT COUNT(*) FROM users WHERE plan IN ('bundle_pro', 'pro')")
+        bundle_pro_users = cur.fetchone()[0]
         cur.execute("SELECT COUNT(*) FROM payments WHERE status = 'pending'")
         pending_payments = cur.fetchone()[0]
         cur.execute("SELECT COALESCE(SUM(amount), 0) FROM payments WHERE status = 'approved'")
         total_revenue = cur.fetchone()[0]
         cur.execute("SELECT COALESCE(SUM(free_sheets_used), 0) FROM users")
-        total_sheets = cur.fetchone()[0]
+        total_sheets_used = cur.fetchone()[0]
+        cur.execute("SELECT COALESCE(SUM(free_bg_used), 0) FROM users")
+        total_bg_used = cur.fetchone()[0]
+
         return {
             "total_users": total_users,
             "active_users": active_users,
-            "blocked_users": blocked_users,
-            "pro_users": pro_users,
+            "banned_users": banned_users,
+            "free_users": free_users,
+            "redraw_pro_users": redraw_pro_users,
+            "bg_pro_users": bg_pro_users,
+            "bundle_pro_users": bundle_pro_users,
+            "pro_users": redraw_pro_users + bg_pro_users + bundle_pro_users,
             "pending_payments": pending_payments,
             "total_revenue": total_revenue,
-            "total_sheets": total_sheets,
+            "total_sheets_used": total_sheets_used,
+            "total_bg_used": total_bg_used,
+            "bkash_number": BKASH_NUMBER,
+            "support_phone": SUPPORT_PHONE,
         }
+
+
+def delete_user(user_id: int):
+    with get_db() as conn:
+        cur = conn.cursor()
+        cur.execute("DELETE FROM sessions WHERE user_id = ?", (user_id,))
+        cur.execute("DELETE FROM payments WHERE user_id = ?", (user_id,))
+        cur.execute("DELETE FROM users WHERE id = ?", (user_id,))
+        conn.commit()
+        return True
+
 
 # Auto initialize DB upon import
 init_db()

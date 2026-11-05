@@ -17,3 +17,4 @@ build_staging/
 venv/
 .venv/
 test_output.txt
+*.bat

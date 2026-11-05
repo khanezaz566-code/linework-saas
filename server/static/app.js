@@ -30,14 +30,24 @@
     toast.t = setTimeout(() => t.className = 'toast', 3400);
   };
 
-  const api = (p, o) => fetch(p, o).then(async r => {
-    if (!r.ok) {
-      let m = r.statusText;
-      try { m = (await r.json()).detail || m; } catch {}
-      throw new Error(m);
+  const api = (p, o = {}) => {
+    o.headers = o.headers || {};
+    const tok = localStorage.getItem('lw_token');
+    if (tok && !o.headers['Authorization']) {
+      o.headers['Authorization'] = 'Bearer ' + tok;
     }
-    return r;
-  });
+    return fetch(p, o).then(async r => {
+      if (r.status === 401) {
+        if (window.LineworkAuth) window.LineworkAuth.requireLogin();
+      }
+      if (!r.ok) {
+        let m = r.statusText;
+        try { m = (await r.json()).detail || m; } catch {}
+        throw new Error(m);
+      }
+      return r;
+    });
+  };
 
   const fmt = n => (n != null ? (n * 100).toFixed(1) + '%' : '--');
 
@@ -115,6 +125,15 @@
   });
 
   $$('[data-sample]').forEach(b => b.addEventListener('click', async () => {
+    if (!window.LineworkAuth || !window.LineworkAuth.user) {
+      if (window.LineworkAuth) window.LineworkAuth.requireLogin();
+      return;
+    }
+    if (!window.LineworkAuth.canProcessSheet()) {
+      window.LineworkAuth.showPricing('redraw_pro');
+      toast('Free trial limit reached (3 icon sets used). Upgrade to continue.', 1);
+      return;
+    }
     try {
       const isFresh = $('#freshRun') && $('#freshRun').checked ? '&fresh=true' : '';
       const r = await api(`/api/samples/${b.dataset.sample}?quality=${S.quality}${isFresh}`, { method: 'POST' });
@@ -125,6 +144,15 @@
   }));
 
   async function upload(f) {
+    if (!window.LineworkAuth || !window.LineworkAuth.user) {
+      if (window.LineworkAuth) window.LineworkAuth.requireLogin(() => upload(f));
+      return;
+    }
+    if (!window.LineworkAuth.canProcessSheet()) {
+      window.LineworkAuth.showPricing('redraw_pro');
+      toast('Free trial limit reached (3 icon sets used). Upgrade to continue.', 1);
+      return;
+    }
     const fd = new FormData();
     fd.append('file', f);
     fd.append('quality', S.quality);
@@ -1728,6 +1756,432 @@
   window.addEventListener('popstate', handleRoute);
 
   // Export app instance
+  
+  // =========================================================================
+  // Linework AI SaaS Authentication, Quota, Payment & Support Engine
+  // =========================================================================
+  const LineworkAuth = {
+    token: localStorage.getItem('lw_token') || '',
+    user: null,
+    pendingAction: null,
+
+    async init() {
+      this.bindEvents();
+      if (this.token) {
+        try {
+          const res = await fetch('/api/auth/me', {
+            headers: { 'Authorization': 'Bearer ' + this.token }
+          });
+          const data = await res.json();
+          if (data.logged_in && data.user) {
+            this.setLoggedInUser(data.user);
+          } else {
+            this.setLoggedOut();
+          }
+        } catch {
+          this.setLoggedOut();
+        }
+      } else {
+        this.setLoggedOut();
+      }
+    },
+
+    bindEvents() {
+      // Tab switcher
+      const tabReg = $('#tabRegister');
+      const tabLog = $('#tabLogin');
+      const fReg = $('#registerForm');
+      const fLog = $('#loginForm');
+      if (tabReg && tabLog) {
+        tabReg.addEventListener('click', () => {
+          tabReg.classList.add('active');
+          tabLog.classList.remove('active');
+          if (fReg) fReg.style.display = 'flex';
+          if (fLog) fLog.style.display = 'none';
+        });
+        tabLog.addEventListener('click', () => {
+          tabLog.classList.add('active');
+          tabReg.classList.remove('active');
+          if (fLog) fLog.style.display = 'flex';
+          if (fReg) fReg.style.display = 'none';
+        });
+      }
+
+      // Modals close buttons
+      const closeAuth = $('#closeAuthModal');
+      if (closeAuth) closeAuth.addEventListener('click', () => this.hideAuth());
+
+      const closePricing = $('#closePricingModal');
+      if (closePricing) closePricing.addEventListener('click', () => this.hidePricing());
+
+      const closePayment = $('#closePaymentModal');
+      if (closePayment) closePayment.addEventListener('click', () => this.hidePayment());
+
+      const closeSupport = $('#closeSupportModal');
+      if (closeSupport) closeSupport.addEventListener('click', () => this.hideSupport());
+
+      const closeProfile = $('#closeProfileModal');
+      if (closeProfile) closeProfile.addEventListener('click', () => this.hideProfile());
+
+      // Header buttons
+      const btnHUpgrade = $('#btnHeaderUpgrade');
+      if (btnHUpgrade) btnHUpgrade.addEventListener('click', () => this.showPricing());
+
+      const btnHSupport = $('#btnHeaderSupport');
+      if (btnHSupport) btnHSupport.addEventListener('click', () => this.showSupport());
+
+      const navP = $('#navPricing');
+      if (navP) navP.addEventListener('click', (e) => { e.preventDefault(); this.showPricing(); });
+
+      const navS = $('#navSupport');
+      if (navS) navS.addEventListener('click', (e) => { e.preventDefault(); this.showSupport(); });
+
+      const avatarBtn = $('#userAvatarBtn');
+      if (avatarBtn) {
+        avatarBtn.addEventListener('click', () => {
+          if (this.user) {
+            this.showProfile();
+          } else {
+            this.requireLogin();
+          }
+        });
+      }
+
+      // Registration Form Submission
+      if (fReg) {
+        fReg.addEventListener('submit', async (e) => {
+          e.preventDefault();
+          const name = $('#regName').value.trim();
+          const phone = $('#regPhone').value.trim();
+          const whatsapp = $('#regWhatsapp').value.trim() || phone;
+          const password = $('#regPass').value.trim();
+
+          const btn = $('#btnSubmitRegister');
+          const oldTxt = btn.textContent;
+          btn.textContent = 'Creating account...';
+          btn.disabled = true;
+
+          try {
+            const r = await fetch('/api/auth/register', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ name, phone, whatsapp, password })
+            });
+            const data = await r.json();
+            if (!r.ok) throw new Error(data.detail || 'Registration failed');
+
+            this.token = data.token;
+            localStorage.setItem('lw_token', data.token);
+            this.setLoggedInUser(data.user);
+            this.hideAuth();
+            toast('Account created! 3 Free Icon Sets and 10 BG activated.');
+
+            if (this.pendingAction) {
+              const act = this.pendingAction;
+              this.pendingAction = null;
+              act();
+            }
+          } catch (err) {
+            toast(err.message, 1);
+          } finally {
+            btn.textContent = oldTxt;
+            btn.disabled = false;
+          }
+        });
+      }
+
+      // Login Form Submission
+      if (fLog) {
+        fLog.addEventListener('submit', async (e) => {
+          e.preventDefault();
+          const ident = $('#loginIdent').value.trim();
+          const password = $('#loginPass').value.trim();
+
+          const btn = $('#btnSubmitLogin');
+          const oldTxt = btn.textContent;
+          btn.textContent = 'Signing in...';
+          btn.disabled = true;
+
+          try {
+            const r = await fetch('/api/auth/login', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ phone: ident, password: password })
+            });
+            const data = await r.json();
+            if (!r.ok) throw new Error(data.detail || 'Login failed');
+
+            this.token = data.token;
+            localStorage.setItem('lw_token', data.token);
+            this.setLoggedInUser(data.user);
+            this.hideAuth();
+            toast('Welcome back, ' + (data.user.name || 'User') + '!');
+
+            if (this.pendingAction) {
+              const act = this.pendingAction;
+              this.pendingAction = null;
+              act();
+            }
+          } catch (err) {
+            toast(err.message, 1);
+          } finally {
+            btn.textContent = oldTxt;
+            btn.disabled = false;
+          }
+        });
+      }
+
+      // Payment Form Submission
+      const fPay = $('#paymentSubmitForm');
+      if (fPay) {
+        fPay.addEventListener('submit', async (e) => {
+          e.preventDefault();
+          if (!this.user) {
+            this.requireLogin();
+            return;
+          }
+
+          const plan = $('#paySelectedPlan').value;
+          const amount = $('#paySelectedAmount').value;
+          const phone = $('#paySenderPhone').value.trim();
+          const trxId = $('#payTrxId').value.trim().toUpperCase();
+          const screenshotInput = $('#payScreenshot');
+
+          const fd = new FormData();
+          fd.append('plan_selected', plan);
+          fd.append('amount', amount);
+          fd.append('phone', phone);
+          fd.append('trx_id', trxId);
+          if (screenshotInput && screenshotInput.files[0]) {
+            fd.append('screenshot', screenshotInput.files[0]);
+          }
+
+          const btn = $('#btnSubmitPayment');
+          const oldTxt = btn.textContent;
+          btn.textContent = 'Submitting...';
+          btn.disabled = true;
+
+          try {
+            const r = await fetch('/api/payments/submit', {
+              method: 'POST',
+              headers: { 'Authorization': 'Bearer ' + this.token },
+              body: fd
+            });
+            const data = await r.json();
+            if (!r.ok) throw new Error(data.detail || 'Payment submission failed');
+
+            this.hidePayment();
+            alert('🎉 পেমেন্ট রিকোয়েস্ট সাবমিট হয়েছে!\n\nএডমিন খুব দ্রুত আপনার TrxID ভেরিফাই করে একাউন্ট আপগ্রেড করে দিবে।\nজরুরী প্রয়োজনে সরাসরি কল বা হোয়াটসঅ্যাপ করুন: 01794590310');
+            toast('Payment submitted for admin approval!');
+          } catch (err) {
+            toast(err.message, 1);
+          } finally {
+            btn.textContent = oldTxt;
+            btn.disabled = false;
+          }
+        });
+      }
+    },
+
+    setLoggedInUser(user) {
+      this.user = user;
+      this.updateUserData(user);
+    },
+
+    updateUserData(user) {
+      this.user = user;
+      const qPill = $('#userQuotaPill');
+      const qTxt = $('#userQuotaText');
+      const pBadge = $('#userPlanBadge');
+      const avBtn = $('#userAvatarBtn');
+      const admBtn = $('#btnHeaderAdmin');
+      const admNav = $('#navAdminSide');
+
+      if (qPill) qPill.style.display = 'inline-flex';
+      if (pBadge) {
+        pBadge.style.display = 'inline-block';
+        pBadge.textContent = user.plan_name || 'Free Trial';
+      }
+
+      const isUnlimitedRedraw = (user.role === 'admin' || ['bundle_pro', 'redraw_pro', 'pro'].includes(user.plan));
+      const isUnlimitedBg = (user.role === 'admin' || ['bundle_pro', 'bg_pro', 'pro'].includes(user.plan));
+
+      const rTxt = isUnlimitedRedraw ? 'Icons: Unlimited' : `Icons: ${user.sheets_used}/3`;
+      const bgTxt = isUnlimitedBg ? 'BG: Unlimited' : `BG: ${user.bg_used}/10`;
+      if (qTxt) qTxt.textContent = `${rTxt} · ${bgTxt}`;
+
+      if (avBtn) {
+        const initials = (user.name || user.phone || 'U').slice(0, 2).toUpperCase();
+        avBtn.textContent = initials;
+        avBtn.title = `${user.name || 'User'} (${user.plan_name})`;
+      }
+
+      if (user.role === 'admin') {
+        if (admBtn) admBtn.style.display = 'inline-flex';
+        if (admNav) admNav.style.display = 'flex';
+      } else {
+        if (admBtn) admBtn.style.display = 'none';
+        if (admNav) admNav.style.display = 'none';
+      }
+    },
+
+    setLoggedOut() {
+      this.user = null;
+      this.token = '';
+      localStorage.removeItem('lw_token');
+
+      const qPill = $('#userQuotaPill');
+      const pBadge = $('#userPlanBadge');
+      const avBtn = $('#userAvatarBtn');
+      const admBtn = $('#btnHeaderAdmin');
+      const admNav = $('#navAdminSide');
+
+      if (qPill) qPill.style.display = 'none';
+      if (pBadge) pBadge.style.display = 'none';
+      if (avBtn) {
+        avBtn.textContent = 'Sign In';
+        avBtn.title = 'Click to Sign In or Create Free Account';
+      }
+      if (admBtn) admBtn.style.display = 'none';
+      if (admNav) admNav.style.display = 'none';
+    },
+
+    requireLogin(actionCallback) {
+      this.pendingAction = actionCallback || null;
+      const m = $('#authModal');
+      if (m) m.style.display = 'flex';
+    },
+
+    hideAuth() {
+      const m = $('#authModal');
+      if (m) m.style.display = 'none';
+    },
+
+    showPricing(recommendedPlan) {
+      const m = $('#pricingModal');
+      if (m) {
+        m.style.display = 'flex';
+        $$('.saas-plan-card').forEach(c => c.classList.remove('highlight'));
+        if (recommendedPlan === 'redraw_pro') {
+          const c = $('#cardPlanRedraw'); if (c) c.classList.add('highlight');
+        } else if (recommendedPlan === 'bg_pro') {
+          const c = $('#cardPlanBg'); if (c) c.classList.add('highlight');
+        } else {
+          const c = $('#cardPlanBundle'); if (c) c.classList.add('highlight');
+        }
+      }
+    },
+
+    hidePricing() {
+      const m = $('#pricingModal');
+      if (m) m.style.display = 'none';
+    },
+
+    openPaymentModal(plan, amount) {
+      if (!this.user) {
+        this.requireLogin(() => this.openPaymentModal(plan, amount));
+        return;
+      }
+      this.hidePricing();
+      const m = $('#paymentModal');
+      if (m) {
+        $('#paySelectedPlan').value = plan;
+        $('#paySelectedAmount').value = amount;
+        const planName = plan === 'redraw_pro' ? 'Icon Redraw Pro' :
+                         plan === 'bg_pro' ? 'BG Studio Pro' : 'All-In-One Bundle Pro';
+        $('#payPlanName').textContent = planName;
+        $('#payPlanAmount').textContent = `৳ ${amount}`;
+        const phoneInp = $('#paySenderPhone');
+        if (phoneInp && this.user.phone) {
+          phoneInp.value = this.user.phone;
+        }
+        m.style.display = 'flex';
+      }
+    },
+
+    hidePayment() {
+      const m = $('#paymentModal');
+      if (m) m.style.display = 'none';
+    },
+
+    showSupport() {
+      const m = $('#supportModal');
+      if (m) m.style.display = 'flex';
+    },
+
+    hideSupport() {
+      const m = $('#supportModal');
+      if (m) m.style.display = 'none';
+    },
+
+    showProfile() {
+      if (!this.user) {
+        this.requireLogin();
+        return;
+      }
+      const m = $('#profileModal');
+      if (m) {
+        $('#profileName').textContent = this.user.name || 'User';
+        $('#profilePhone').textContent = this.user.phone || '';
+        $('#profileAvatarBig').textContent = (this.user.name || 'U').slice(0, 1).toUpperCase();
+        $('#profilePlanBadge').textContent = this.user.plan_name || 'Free Trial';
+
+        const isUnlimitedRedraw = (this.user.role === 'admin' || ['bundle_pro', 'redraw_pro', 'pro'].includes(this.user.plan));
+        const isUnlimitedBg = (this.user.role === 'admin' || ['bundle_pro', 'bg_pro', 'pro'].includes(this.user.plan));
+
+        $('#profileQuotaRedraw').textContent = isUnlimitedRedraw ? 'Unlimited PRO' : `${this.user.sheets_used} / 3 Sets Used`;
+        $('#profileQuotaBg').textContent = isUnlimitedBg ? 'Unlimited PRO' : `${this.user.bg_used} / 10 Used`;
+
+        const expRow = $('#profileExpiryRow');
+        const expTxt = $('#profileExpiryDate');
+        if (this.user.pro_expires_at) {
+          if (expRow) expRow.style.display = 'flex';
+          if (expTxt) expTxt.textContent = this.user.pro_expires_at.slice(0, 10);
+        } else {
+          if (expRow) expRow.style.display = 'none';
+        }
+
+        m.style.display = 'flex';
+      }
+    },
+
+    hideProfile() {
+      const m = $('#profileModal');
+      if (m) m.style.display = 'none';
+    },
+
+    async logout() {
+      try {
+        await fetch('/api/auth/logout', {
+          method: 'POST',
+          headers: { 'Authorization': 'Bearer ' + this.token }
+        });
+      } catch {}
+      this.hideProfile();
+      this.setLoggedOut();
+      toast('Signed out successfully.');
+    },
+
+    canProcessSheet() {
+      if (!this.user) return false;
+      if (this.user.role === 'admin' || ['bundle_pro', 'redraw_pro', 'pro'].includes(this.user.plan)) {
+        return true;
+      }
+      return (this.user.sheets_used < 3);
+    },
+
+    canProcessBg() {
+      if (!this.user) return false;
+      if (this.user.role === 'admin' || ['bundle_pro', 'bg_pro', 'pro'].includes(this.user.plan)) {
+        return true;
+      }
+      return (this.user.bg_used < 10);
+    }
+  };
+
+  window.LineworkAuth = LineworkAuth;
+  LineworkAuth.init();
+
   window.LineworkApp = {
     get job() { return S.job; },
     get S() { return S; },

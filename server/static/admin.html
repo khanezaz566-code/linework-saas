@@ -1,0 +1,944 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Admin Controller — Linework AI SaaS</title>
+  <link rel="icon" type="image/x-icon" href="/static/vectorcraft.ico">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #090b10;
+      --card-bg: #11141c;
+      --card-border: #1e2433;
+      --accent: #00f5a0;
+      --accent-dim: rgba(0, 245, 160, 0.12);
+      --accent-hover: #00d98e;
+      --text: #e2e8f0;
+      --text-muted: #8492a6;
+      --text-dim: #4e5d78;
+      --danger: #ff5252;
+      --danger-dim: rgba(255, 82, 82, 0.12);
+      --warning: #ffb300;
+      --warning-dim: rgba(255, 179, 0, 0.12);
+      --info: #00b4d8;
+      --info-dim: rgba(0, 180, 216, 0.12);
+      --radius: 12px;
+      --font: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+      --mono: 'JetBrains Mono', monospace;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--font);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    header {
+      background: rgba(17, 20, 28, 0.85);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--card-border);
+      padding: 14px 28px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+
+    .brand-group {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .brand-logo {
+      width: 36px;
+      height: 36px;
+      background: linear-gradient(135deg, #00f5a0, #00b4d8);
+      border-radius: 9px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #050508;
+      font-weight: 800;
+      font-size: 17px;
+    }
+    .brand-text h1 {
+      font-size: 17px;
+      font-weight: 700;
+      letter-spacing: -0.3px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .brand-text p {
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 3px 8px;
+      border-radius: 6px;
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .badge.admin {
+      background: rgba(0, 245, 160, 0.15);
+      color: var(--accent);
+      border: 1px solid rgba(0, 245, 160, 0.3);
+    }
+    .badge.pro {
+      background: rgba(0, 180, 216, 0.15);
+      color: var(--info);
+      border: 1px solid rgba(0, 180, 216, 0.3);
+    }
+    .badge.free {
+      background: rgba(255, 255, 255, 0.08);
+      color: var(--text-muted);
+      border: 1px solid var(--card-border);
+    }
+    .badge.pending {
+      background: var(--warning-dim);
+      color: var(--warning);
+      border: 1px solid rgba(255, 179, 0, 0.3);
+    }
+    .badge.approved {
+      background: var(--accent-dim);
+      color: var(--accent);
+      border: 1px solid rgba(0, 245, 160, 0.3);
+    }
+    .badge.declined {
+      background: var(--danger-dim);
+      color: var(--danger);
+      border: 1px solid rgba(255, 82, 82, 0.3);
+    }
+
+    .nav-actions {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      padding: 8px 14px;
+      font-size: 13px;
+      font-weight: 600;
+      border-radius: 8px;
+      cursor: pointer;
+      border: 1px solid transparent;
+      transition: all 0.2s;
+      font-family: inherit;
+      text-decoration: none;
+    }
+    .btn-primary {
+      background: var(--accent);
+      color: #050508;
+    }
+    .btn-primary:hover {
+      background: var(--accent-hover);
+      box-shadow: 0 0 16px rgba(0, 245, 160, 0.3);
+    }
+    .btn-outline {
+      background: transparent;
+      border-color: var(--card-border);
+      color: var(--text);
+    }
+    .btn-outline:hover {
+      border-color: var(--text-muted);
+      background: rgba(255,255,255,0.03);
+    }
+    .btn-danger {
+      background: var(--danger-dim);
+      border-color: rgba(255, 82, 82, 0.3);
+      color: var(--danger);
+    }
+    .btn-danger:hover {
+      background: rgba(255, 82, 82, 0.2);
+    }
+    .btn-success {
+      background: var(--accent-dim);
+      border-color: rgba(0, 245, 160, 0.3);
+      color: var(--accent);
+    }
+    .btn-success:hover {
+      background: rgba(0, 245, 160, 0.22);
+    }
+    .btn-sm {
+      padding: 5px 10px;
+      font-size: 12px;
+      border-radius: 6px;
+    }
+
+    main {
+      flex: 1;
+      max-width: 1380px;
+      width: 100%;
+      margin: 0 auto;
+      padding: 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 24px;
+    }
+
+    /* Stats Grid */
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 16px;
+    }
+    .stat-card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: var(--radius);
+      padding: 18px 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      transition: transform 0.2s, border-color 0.2s;
+    }
+    .stat-card:hover {
+      border-color: #2b3548;
+      transform: translateY(-2px);
+    }
+    .stat-card .label {
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--text-muted);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .stat-card .val {
+      font-size: 26px;
+      font-weight: 800;
+      letter-spacing: -0.5px;
+      font-family: var(--mono);
+      color: #fff;
+    }
+    .stat-card.glow-amber {
+      border-color: rgba(255, 179, 0, 0.4);
+      background: linear-gradient(180deg, rgba(255, 179, 0, 0.08) 0%, var(--card-bg) 100%);
+    }
+    .stat-card.glow-green {
+      border-color: rgba(0, 245, 160, 0.4);
+      background: linear-gradient(180deg, rgba(0, 245, 160, 0.08) 0%, var(--card-bg) 100%);
+    }
+
+    /* Panels & Tables */
+    .panel {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: var(--radius);
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+    .panel-head {
+      padding: 16px 20px;
+      border-bottom: 1px solid var(--card-border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+    .panel-title {
+      font-size: 16px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .table-responsive {
+      overflow-x: auto;
+      width: 100%;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      text-align: left;
+      font-size: 13px;
+    }
+    th {
+      background: rgba(255, 255, 255, 0.02);
+      color: var(--text-muted);
+      padding: 12px 18px;
+      font-weight: 600;
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      border-bottom: 1px solid var(--card-border);
+      white-space: nowrap;
+    }
+    td {
+      padding: 14px 18px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+      vertical-align: middle;
+      white-space: nowrap;
+    }
+    tr:hover td {
+      background: rgba(255, 255, 255, 0.015);
+    }
+
+    .user-info-cell {
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+    }
+    .user-info-name {
+      font-weight: 600;
+      color: #fff;
+    }
+    .user-info-meta {
+      font-size: 12px;
+      color: var(--text-muted);
+      font-family: var(--mono);
+    }
+
+    .wa-link {
+      color: #25d366;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 12px;
+      font-family: var(--mono);
+    }
+    .wa-link:hover {
+      text-decoration: underline;
+    }
+
+    .trx-code {
+      font-family: var(--mono);
+      background: rgba(0, 245, 160, 0.08);
+      color: var(--accent);
+      padding: 3px 6px;
+      border-radius: 4px;
+      font-size: 12px;
+      font-weight: 600;
+      letter-spacing: 0.5px;
+    }
+
+    .search-box {
+      background: #090b10;
+      border: 1px solid var(--card-border);
+      border-radius: 8px;
+      padding: 7px 12px;
+      color: #fff;
+      font-size: 13px;
+      font-family: inherit;
+      min-width: 260px;
+    }
+    .search-box:focus {
+      outline: none;
+      border-color: var(--accent);
+    }
+
+    /* Modal */
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.75);
+      backdrop-filter: blur(6px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+      padding: 20px;
+    }
+    .modal-box {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 16px;
+      max-width: 480px;
+      width: 100%;
+      padding: 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      box-shadow: 0 20px 40px rgba(0,0,0,0.5);
+    }
+    .modal-box h3 {
+      font-size: 18px;
+      font-weight: 700;
+    }
+    .form-group {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .form-group label {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-muted);
+    }
+    .form-control {
+      background: #090b10;
+      border: 1px solid var(--card-border);
+      border-radius: 8px;
+      padding: 10px 14px;
+      color: #fff;
+      font-size: 14px;
+      font-family: inherit;
+    }
+    .form-control:focus {
+      outline: none;
+      border-color: var(--accent);
+    }
+
+    /* Login gate overlay */
+    #adminAuthScreen {
+      position: fixed;
+      inset: 0;
+      background: var(--bg);
+      z-index: 9999;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+    .auth-card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 16px;
+      max-width: 400px;
+      width: 100%;
+      padding: 32px 28px;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+      text-align: center;
+    }
+    .auth-card h2 {
+      font-size: 22px;
+      font-weight: 700;
+      letter-spacing: -0.5px;
+    }
+    .auth-card p {
+      font-size: 13px;
+      color: var(--text-muted);
+      line-height: 1.5;
+    }
+
+    .toast {
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      background: #181d29;
+      border: 1px solid var(--accent);
+      color: #fff;
+      padding: 12px 20px;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 500;
+      display: none;
+      z-index: 10000;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ================= Admin Login Gate ================= -->
+  <div id="adminAuthScreen" style="display:none;">
+    <div class="auth-card">
+      <div style="margin:0 auto; width:52px; height:52px; background:linear-gradient(135deg, #00f5a0, #00b4d8); border-radius:14px; display:flex; align-items:center; justify-content:center; color:#050508; font-size:24px; font-weight:800;">
+        ⚡
+      </div>
+      <div>
+        <h2>Admin Controller</h2>
+        <p>Enter administrator credentials to access the Linework control sub-app.</p>
+      </div>
+
+      <form id="adminLoginForm" style="display:flex; flex-direction:column; gap:14px; text-align:left;">
+        <div class="form-group">
+          <label>Admin Phone or Username</label>
+          <input type="text" id="adminIdent" class="form-control" value="01794590310" required>
+        </div>
+        <div class="form-group">
+          <label>Password</label>
+          <input type="password" id="adminPass" class="form-control" placeholder="••••••••" required>
+        </div>
+        <button type="submit" class="btn btn-primary" style="justify-content:center; padding:11px; margin-top:6px;">
+          Access Controller Dashboard
+        </button>
+      </form>
+      <a href="/" style="font-size:12px; color:var(--text-muted); text-decoration:none;">← Return to Main SaaS App</a>
+    </div>
+  </div>
+
+  <!-- ================= Main Admin Dashboard ================= -->
+  <div id="adminApp" style="display:flex; flex-direction:column; min-height:100vh;">
+    <header>
+      <div class="brand-group">
+        <div class="brand-logo">L</div>
+        <div class="brand-text">
+          <h1>Linework AI <span class="badge admin">Controller Sub-App</span></h1>
+          <p>System Controller & Revenue Management</p>
+        </div>
+      </div>
+
+      <div class="nav-actions">
+        <span class="badge" style="background:rgba(255,255,255,0.05); color:var(--text-muted); font-family:var(--mono);">
+          Support & bKash: <b style="color:#00f5a0; margin-left:4px;">01794590310</b>
+        </span>
+        <a href="/" class="btn btn-outline btn-sm">Launch App ↗</a>
+        <button id="btnAdminLogout" class="btn btn-danger btn-sm">Logout</button>
+      </div>
+    </header>
+
+    <main>
+      <!-- Metric Highlights -->
+      <section class="stats-grid">
+        <div class="stat-card">
+          <div class="label">Total Users</div>
+          <div class="val" id="statTotalUsers">--</div>
+        </div>
+        <div class="stat-card">
+          <div class="label">Free Trial Users</div>
+          <div class="val" id="statFreeUsers">--</div>
+        </div>
+        <div class="stat-card">
+          <div class="label">Redraw Pro (৳300)</div>
+          <div class="val" id="statRedrawUsers" style="color:#00f5a0;">--</div>
+        </div>
+        <div class="stat-card">
+          <div class="label">BG Studio Pro (৳200)</div>
+          <div class="val" id="statBgUsers" style="color:#00b4d8;">--</div>
+        </div>
+        <div class="stat-card">
+          <div class="label">Bundle Pro (৳500)</div>
+          <div class="val" id="statBundleUsers" style="color:#b388ff;">--</div>
+        </div>
+        <div class="stat-card glow-amber" id="cardPendingPayments">
+          <div class="label">Pending bKash Approvals</div>
+          <div class="val" id="statPendingPayments" style="color:#ffb300;">0</div>
+        </div>
+        <div class="stat-card glow-green">
+          <div class="label">Total Revenue (BDT)</div>
+          <div class="val" id="statRevenue">৳0</div>
+        </div>
+      </section>
+
+      <!-- Panel 1: Pending bKash Approvals -->
+      <section class="panel" id="panelPayments">
+        <div class="panel-head">
+          <div class="panel-title">
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="#ffb300" stroke-width="2.2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+            Pending bKash Submissions
+            <span class="badge pending" id="badgePendingCount">0 Pending</span>
+          </div>
+          <div style="display:flex; gap:8px;">
+            <button class="btn btn-outline btn-sm" onclick="loadAdminData()">↻ Refresh</button>
+          </div>
+        </div>
+
+        <div class="table-responsive">
+          <table>
+            <thead>
+              <tr>
+                <th>User / Phone</th>
+                <th>Plan Requested</th>
+                <th>bKash Sender</th>
+                <th>Transaction ID</th>
+                <th>Proof</th>
+                <th>Submitted</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="pendingPaymentsTableBody">
+              <tr>
+                <td colspan="7" style="text-align:center; padding:30px; color:var(--text-dim);">
+                  Loading pending payments...
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- Panel 2: User Accounts & Plan Controller -->
+      <section class="panel">
+        <div class="panel-head">
+          <div class="panel-title">
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="#00f5a0" stroke-width="2.2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+            Registered Users & Quota Controller
+          </div>
+          <div style="display:flex; gap:10px;">
+            <input type="text" id="userSearchInput" class="search-box" placeholder="Search by name, phone or whatsapp..." oninput="handleUserSearch()">
+          </div>
+        </div>
+
+        <div class="table-responsive">
+          <table>
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>User Info</th>
+                <th>WhatsApp</th>
+                <th>Role / Status</th>
+                <th>Current Plan</th>
+                <th>Quota Used</th>
+                <th>Pro Expiry</th>
+                <th>Quick Actions</th>
+              </tr>
+            </thead>
+            <tbody id="usersTableBody">
+              <tr>
+                <td colspan="8" style="text-align:center; padding:30px; color:var(--text-dim);">
+                  Loading registered users...
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <!-- Proof Modal -->
+  <div id="proofModal" class="modal-overlay" style="display:none;">
+    <div class="modal-box" style="max-width:600px;">
+      <div style="display:flex; justify-content:space-between; align-items:center;">
+        <h3>Payment Proof Screenshot</h3>
+        <button class="btn btn-outline btn-sm" onclick="closeProofModal()">✕</button>
+      </div>
+      <div style="text-align:center; max-height:480px; overflow-y:auto; border-radius:8px; background:#000;">
+        <img id="proofModalImg" src="" alt="Proof" style="max-width:100%; height:auto; display:block; margin:0 auto;">
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast -->
+  <div id="toast" class="toast"></div>
+
+  <script>
+    const state = {
+      token: localStorage.getItem('lw_admin_token') || localStorage.getItem('lw_token') || '',
+      currentUser: null,
+      allUsers: [],
+      stats: null
+    };
+
+    function showToast(msg) {
+      const t = document.getElementById('toast');
+      t.textContent = msg;
+      t.style.display = 'block';
+      setTimeout(() => { t.style.display = 'none'; }, 3200);
+    }
+
+    async function apiCall(endpoint, options = {}) {
+      options.headers = options.headers || {};
+      if (state.token) {
+        options.headers['Authorization'] = 'Bearer ' + state.token;
+      }
+      const res = await fetch(endpoint, options);
+      if (res.status === 401 || res.status === 403) {
+        showAuthScreen();
+        throw new Error('Unauthorized');
+      }
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.detail || 'API error: ' + res.status);
+      }
+      return res.json();
+    }
+
+    function showAuthScreen() {
+      document.getElementById('adminAuthScreen').style.display = 'flex';
+      document.getElementById('adminApp').style.display = 'none';
+    }
+
+    function hideAuthScreen() {
+      document.getElementById('adminAuthScreen').style.display = 'none';
+      document.getElementById('adminApp').style.display = 'flex';
+    }
+
+    document.getElementById('adminLoginForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const ident = document.getElementById('adminIdent').value.trim();
+      const pass = document.getElementById('adminPass').value.trim();
+      try {
+        const res = await fetch('/api/auth/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ phone: ident, password: pass })
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.detail || 'Login failed');
+        if (data.user.role !== 'admin') {
+          throw new Error('Access denied. Administrator privileges required.');
+        }
+        state.token = data.token;
+        localStorage.setItem('lw_admin_token', data.token);
+        localStorage.setItem('lw_token', data.token);
+        hideAuthScreen();
+        loadAdminData();
+        showToast('Welcome to Linework Controller!');
+      } catch (err) {
+        alert(err.message);
+      }
+    });
+
+    document.getElementById('btnAdminLogout').addEventListener('click', () => {
+      localStorage.removeItem('lw_admin_token');
+      state.token = '';
+      showAuthScreen();
+    });
+
+    async function checkAuth() {
+      if (!state.token) {
+        showAuthScreen();
+        return;
+      }
+      try {
+        const data = await apiCall('/api/auth/me');
+        if (!data.logged_in || data.user.role !== 'admin') {
+          showAuthScreen();
+          return;
+        }
+        state.currentUser = data.user;
+        hideAuthScreen();
+        loadAdminData();
+      } catch {
+        showAuthScreen();
+      }
+    }
+
+    async function loadAdminData() {
+      try {
+        // Load stats
+        const stats = await apiCall('/api/admin/stats');
+        state.stats = stats;
+        document.getElementById('statTotalUsers').textContent = stats.total_users;
+        document.getElementById('statFreeUsers').textContent = stats.free_users;
+        document.getElementById('statRedrawUsers').textContent = stats.redraw_pro_users;
+        document.getElementById('statBgUsers').textContent = stats.bg_pro_users;
+        document.getElementById('statBundleUsers').textContent = stats.bundle_pro_users;
+        document.getElementById('statPendingPayments').textContent = stats.pending_payments;
+        document.getElementById('badgePendingCount').textContent = stats.pending_payments + ' Pending';
+        document.getElementById('statRevenue').textContent = '৳' + Number(stats.total_revenue).toLocaleString();
+
+        // Load payments
+        const payments = await apiCall('/api/admin/payments?status=pending');
+        renderPendingPayments(payments);
+
+        // Load users
+        const users = await apiCall('/api/admin/users');
+        state.allUsers = users;
+        renderUsers(users);
+      } catch (err) {
+        console.error(err);
+      }
+    }
+
+    function renderPendingPayments(payments) {
+      const tbody = document.getElementById('pendingPaymentsTableBody');
+      if (!payments || payments.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; padding:30px; color:var(--text-muted);">🎉 No pending payments right now! All caught up.</td></tr>';
+        return;
+      }
+
+      tbody.innerHTML = payments.map(p => {
+        const planName = p.plan_selected === 'redraw_pro' ? 'Icon Redraw Pro (৳300)' :
+                         p.plan_selected === 'bg_pro' ? 'BG Studio Pro (৳200)' : 'All-In-One Bundle (৳500)';
+        const waLink = p.whatsapp ? `https://wa.me/88${p.whatsapp.replace(/^88/, '')}` : null;
+
+        return `
+          <tr>
+            <td>
+              <div class="user-info-cell">
+                <span class="user-info-name">${escapeHtml(p.user_name || p.username)}</span>
+                <span class="user-info-meta">${escapeHtml(p.phone)}</span>
+              </div>
+            </td>
+            <td>
+              <span class="badge pro">${escapeHtml(planName)}</span>
+              <div style="font-size:11px; color:var(--accent); margin-top:2px;">৳${p.amount}</div>
+            </td>
+            <td>
+              <span class="user-info-meta">${escapeHtml(p.phone)}</span>
+              ${waLink ? `<br><a href="${waLink}" target="_blank" class="wa-link">💬 WhatsApp</a>` : ''}
+            </td>
+            <td>
+              <span class="trx-code">${escapeHtml(p.trx_id)}</span>
+            </td>
+            <td>
+              ${p.screenshot_path ? `<button class="btn btn-outline btn-sm" onclick="viewProof(${p.id})">📷 View</button>` : '<span style="color:var(--text-dim);">None</span>'}
+            </td>
+            <td>
+              <span style="font-size:12px; color:var(--text-muted);">${p.created_at || 'Just now'}</span>
+            </td>
+            <td>
+              <div style="display:flex; gap:6px;">
+                <button class="btn btn-success btn-sm" onclick="reviewPayment(${p.id}, true)">✓ Approve (+30D)</button>
+                <button class="btn btn-danger btn-sm" onclick="reviewPayment(${p.id}, false)">✕ Decline</button>
+              </div>
+            </td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    function renderUsers(users) {
+      const tbody = document.getElementById('usersTableBody');
+      if (!users || users.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="8" style="text-align:center; padding:30px; color:var(--text-muted);">No users found.</td></tr>';
+        return;
+      }
+
+      tbody.innerHTML = users.map(u => {
+        const waClean = (u.whatsapp || u.phone || '').replace(/[^0-9]/g, '');
+        const waLink = waClean ? `https://wa.me/88${waClean.replace(/^88/, '')}` : null;
+        const planBadge = u.plan === 'free' ? '<span class="badge free">Free Trial</span>' :
+                          u.plan === 'redraw_pro' ? '<span class="badge pro">Redraw Pro (৳300)</span>' :
+                          u.plan === 'bg_pro' ? '<span class="badge pro">BG Pro (৳200)</span>' :
+                          '<span class="badge admin">Bundle Pro (৳500)</span>';
+
+        return `
+          <tr>
+            <td style="font-family:var(--mono); color:var(--text-dim);">#${u.id}</td>
+            <td>
+              <div class="user-info-cell">
+                <span class="user-info-name">${escapeHtml(u.name || u.username)}</span>
+                <span class="user-info-meta">${escapeHtml(u.phone || 'No phone')}</span>
+              </div>
+            </td>
+            <td>
+              ${waLink ? `<a href="${waLink}" target="_blank" class="wa-link">💬 ${escapeHtml(u.whatsapp || u.phone)}</a>` : '<span style="color:var(--text-dim);">--</span>'}
+            </td>
+            <td>
+              <span class="badge ${u.role === 'admin' ? 'admin' : (u.status === 'active' ? 'approved' : 'declined')}">
+                ${u.role === 'admin' ? 'ADMIN' : u.status.toUpperCase()}
+              </span>
+            </td>
+            <td>${planBadge}</td>
+            <td>
+              <div style="font-size:12px; font-family:var(--mono);">
+                Icons: <b style="color:${u.free_sheets_used >= 3 ? '#ff5252' : '#00f5a0'}">${u.free_sheets_used}/3</b><br>
+                BG: <b style="color:${u.free_bg_used >= 10 ? '#ff5252' : '#00b4d8'}">${u.free_bg_used}/10</b>
+              </div>
+            </td>
+            <td style="font-size:12px; font-family:var(--mono); color:var(--text-muted);">
+              ${u.pro_expires_at ? u.pro_expires_at.slice(0, 10) : 'None'}
+            </td>
+            <td>
+              <div style="display:flex; align-items:center; gap:6px;">
+                <select id="planSelect_${u.id}" class="form-control" style="padding:4px 8px; font-size:12px; height:auto;">
+                  <option value="bundle_pro" ${u.plan === 'bundle_pro' ? 'selected' : ''}>Bundle Pro (+30D)</option>
+                  <option value="redraw_pro" ${u.plan === 'redraw_pro' ? 'selected' : ''}>Redraw Pro (+30D)</option>
+                  <option value="bg_pro" ${u.plan === 'bg_pro' ? 'selected' : ''}>BG Pro (+30D)</option>
+                  <option value="free" ${u.plan === 'free' ? 'selected' : ''}>Reset to Free</option>
+                </select>
+                <button class="btn btn-outline btn-sm" onclick="changeUserPlan(${u.id})">Set</button>
+                <button class="btn btn-danger btn-sm" onclick="toggleUserStatus(${u.id}, '${u.status === 'active' ? 'banned' : 'active'}')">
+                  ${u.status === 'active' ? 'Ban' : 'Unban'}
+                </button>
+              </div>
+            </td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    async function reviewPayment(paymentId, approve) {
+      if (!confirm(approve ? 'Approve this bKash payment and activate 30 days subscription?' : 'Decline this payment request?')) return;
+      try {
+        await apiCall(`/api/admin/payments/${paymentId}/review`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ approve, notes: approve ? 'Approved via Admin Controller' : 'Declined' })
+        });
+        showToast(approve ? 'Payment approved and user subscription activated!' : 'Payment declined.');
+        loadAdminData();
+      } catch (err) {
+        alert(err.message);
+      }
+    }
+
+    async function changeUserPlan(userId) {
+      const sel = document.getElementById(`planSelect_${userId}`);
+      const plan = sel.value;
+      const resetQuota = (plan === 'free');
+      try {
+        await apiCall(`/api/admin/users/${userId}/plan`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ plan, days: 30, reset_quota: resetQuota })
+        });
+        showToast(`User #${userId} plan updated to ${plan}!`);
+        loadAdminData();
+      } catch (err) {
+        alert(err.message);
+      }
+    }
+
+    async function toggleUserStatus(userId, newStatus) {
+      if (!confirm(`Are you sure you want to mark user #${userId} as ${newStatus}?`)) return;
+      try {
+        await apiCall(`/api/admin/users/${userId}/status`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ status: newStatus })
+        });
+        showToast(`User status updated to ${newStatus}`);
+        loadAdminData();
+      } catch (err) {
+        alert(err.message);
+      }
+    }
+
+    function handleUserSearch() {
+      const q = document.getElementById('userSearchInput').value.toLowerCase().trim();
+      if (!q) {
+        renderUsers(state.allUsers);
+        return;
+      }
+      const filtered = state.allUsers.filter(u => 
+        (u.name && u.name.toLowerCase().includes(q)) ||
+        (u.phone && u.phone.includes(q)) ||
+        (u.whatsapp && u.whatsapp.includes(q)) ||
+        (u.username && u.username.toLowerCase().includes(q))
+      );
+      renderUsers(filtered);
+    }
+
+    function viewProof(paymentId) {
+      const img = document.getElementById('proofModalImg');
+      img.src = `/api/admin/payments/${paymentId}/proof?token=${encodeURIComponent(state.token)}`;
+      document.getElementById('proofModal').style.display = 'flex';
+    }
+
+    function closeProofModal() {
+      document.getElementById('proofModal').style.display = 'none';
+      document.getElementById('proofModalImg').src = '';
+    }
+
+    function escapeHtml(str) {
+      if (!str) return '';
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+    }
+
+    // Auto init
+    checkAuth();
+  </script>
+</body>
+</html>

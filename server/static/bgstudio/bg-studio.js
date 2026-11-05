@@ -597,6 +597,42 @@
     }
 
     /* ---------- downloads ---------- */
+
+    /* ---------- Quota Check Hook ---------- */
+    async function checkBgQuotaAndConsume() {
+      if (!window.LineworkAuth || !window.LineworkAuth.user) {
+        if (window.LineworkAuth) window.LineworkAuth.requireLogin();
+        return false;
+      }
+      var u = window.LineworkAuth.user;
+      var isUnlimited = (u.role === 'admin' || ['bundle_pro', 'bg_pro', 'pro'].indexOf(u.plan) !== -1);
+      if (!isUnlimited && u.bg_used >= 10) {
+        toast('Free trial limit reached (10 backgrounds used). Please upgrade to continue.', true);
+        if (window.LineworkAuth) window.LineworkAuth.showPricing('bg_pro');
+        return false;
+      }
+      try {
+        var tok = localStorage.getItem('lw_token');
+        var res = await fetch('/api/bgstudio/use', {
+          method: 'POST',
+          headers: { 'Authorization': 'Bearer ' + tok }
+        });
+        if (!res.ok) {
+          var err = await res.json().catch(function(){return {};});
+          toast(err.detail || 'Limit reached', true);
+          if (window.LineworkAuth) window.LineworkAuth.showPricing('bg_pro');
+          return false;
+        }
+        var data = await res.json();
+        if (window.LineworkAuth && data.quota) {
+          window.LineworkAuth.updateUserData(data.quota);
+        }
+        return true;
+      } catch (e) {
+        return true;
+      }
+    }
+
     function baseName() {
       var s = SIZES[state.size];
       return 'bg-' + state.id + (state.design ? '-d' + pad(state.design) : '-custom') + '-v' + state.vIdx + '-' + s.w + 'x' + s.h;
@@ -607,7 +643,8 @@
       document.body.appendChild(a); a.click();
       setTimeout(function () { URL.revokeObjectURL(u); a.remove(); }, 2000);
     }
-    function exportPNG() {
+    async function exportPNG() {
+      if (!await checkBgQuotaAndConsume()) return;
       var s = SIZES[state.size], name = baseName();
       var u = URL.createObjectURL(new Blob([current.svg], { type: 'image/svg+xml' })), img = new Image();
       img.onload = function () {
@@ -834,6 +871,7 @@
 
     async function downloadPackZip() {
       if (pack.length === 0) return;
+      if (!await checkBgQuotaAndConsume()) return;
       var btn = $('#btn-pack-dl-all');
       var quickBtn = $('#btn-quick-dl');
       var prevText = btn ? btn.textContent : '';
@@ -929,8 +967,8 @@
     $('#btn-file').onclick = function () { $('#file').click(); };
     $('#file').onchange = function (e) { handleFile(e.target.files[0]); e.target.value = ''; };
 
-    $('#btn-svg').onclick = function () { saveBlob(baseName() + '.svg', new Blob([G.toFile(current.svg)], { type: 'image/svg+xml' })); toast('Saved the SVG. Open it in Illustrator, Figma or Inkscape.'); };
-    $('#btn-eps').onclick = function () {
+    $('#btn-svg').onclick = async function () { if (!await checkBgQuotaAndConsume()) return; saveBlob(baseName() + '.svg', new Blob([G.toFile(current.svg)], { type: 'image/svg+xml' })); toast('Saved the SVG. Open it in Illustrator, Figma or Inkscape.'); };
+    $('#btn-eps').onclick = async function () { if (!await checkBgQuotaAndConsume()) return;
       var name = baseName();
       saveBlob(name + '.eps', new Blob([G.toEPS(current.svg, name)], { type: 'application/postscript' })); toast('Saved the EPS.');
     };

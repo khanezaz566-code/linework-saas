@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Linework AI - Client-Side Browser Vectorizer (Zero Server Cost)</title>
+  <script src="https://cdn.jsdelivr.net/pyodide/v0.26.2/full/pyodide.js"></script>
+  <style>
+    :root {
+      --bg: #050b0d;
+      --card: #0a131b;
+      --border: #142230;
+      --accent: #00f5a0;
+      --fg: #e6edf3;
+      --muted: #8b949e;
+    }
+    body {
+      margin: 0;
+      padding: 24px;
+      background: var(--bg);
+      color: var(--fg);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    }
+    .header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 24px;
+      padding-bottom: 16px;
+      border-bottom: 1px solid var(--border);
+    }
+    .badge {
+      background: rgba(0, 245, 160, 0.15);
+      color: var(--accent);
+      padding: 4px 10px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 700;
+      border: 1px solid var(--accent);
+    }
+    .container {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+    }
+    .panel {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+    .dropzone {
+      border: 2px dashed #1d334a;
+      border-radius: 8px;
+      padding: 30px;
+      text-align: center;
+      cursor: pointer;
+      transition: all .2s;
+    }
+    .dropzone:hover {
+      border-color: var(--accent);
+      background: rgba(0, 245, 160, 0.03);
+    }
+    .status {
+      font-family: monospace;
+      font-size: 13px;
+      color: var(--accent);
+      background: #03080c;
+      padding: 12px;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+      min-height: 48px;
+      white-space: pre-wrap;
+    }
+    .svg-preview {
+      width: 100%;
+      height: 380px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: #03070a;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      overflow: hidden;
+    }
+    .svg-preview svg {
+      max-width: 90%;
+      max-height: 90%;
+    }
+    .btn {
+      background: var(--accent);
+      color: #050b0d;
+      border: none;
+      padding: 10px 18px;
+      border-radius: 6px;
+      font-weight: 700;
+      font-size: 13px;
+      cursor: pointer;
+    }
+    .btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <div>
+      <h2 style="margin:0 0 4px 0;">Linework AI — 100% In-Browser Engine</h2>
+      <p style="margin:0;color:var(--muted);font-size:13px;">Zero Server Cost · Client-Side WebAssembly · 100% Mathematical Precision</p>
+    </div>
+    <span class="badge">Local-First AI SaaS</span>
+  </div>
+
+  <div class="status" id="status">Initializing WebAssembly Engine...</div>
+
+  <div class="container" style="margin-top:20px;">
+    <div class="panel">
+      <h3>Input Raster Image</h3>
+      <div class="dropzone" id="dropzone">
+        <p>Drop an icon or line-art PNG here</p>
+        <input type="file" id="fileInput" accept="image/*" style="display:none">
+        <button class="btn" type="button" onclick="document.getElementById('fileInput').click()">Choose File</button>
+      </div>
+      <div id="imgPreviewBox" style="text-align:center;display:none;">
+        <img id="imgPreview" style="max-width:200px;max-height:200px;border-radius:6px;border:1px solid var(--border);">
+      </div>
+    </div>
+
+    <div class="panel">
+      <div style="display:flex;justify-content:space-between;align-items:center;">
+        <h3 style="margin:0;">Vector Output (SVG)</h3>
+        <button class="btn" id="dlBtn" disabled onclick="downloadSVG()">Download SVG</button>
+      </div>
+      <div class="svg-preview" id="svgBox">
+        <span style="color:var(--muted);font-size:13px;">Vector output will appear here</span>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let pyodide = null;
+    let isReady = false;
+    let lastSvg = "";
+
+    function log(msg) {
+      const el = document.getElementById("status");
+      el.textContent = msg;
+      console.log("[Engine]", msg);
+    }
+
+    async function initEngine() {
+      try {
+        log("1/3 Loading WebAssembly Python runtime (Pyodide)...");
+        pyodide = await loadPyodide({
+          indexURL: "https://cdn.jsdelivr.net/pyodide/v0.26.2/full/"
+        });
+
+        log("2/3 Loading NumPy, SciPy & OpenCV into browser WASM...");
+        await pyodide.loadPackage(["numpy", "scipy", "scikit-image", "opencv-python"]);
+
+        log("3/3 Loading Linework Vector Mathematics Engine...");
+        const resp = await fetch("/static/linework_bundle.zip");
+        const buf = await resp.arrayBuffer();
+        pyodide.FS.writeFile("linework_bundle.zip", new Uint8Array(buf));
+
+        await pyodide.runPythonAsync(`
+import zipfile, sys, os
+with zipfile.ZipFile('linework_bundle.zip', 'r') as zf:
+    zf.extractall('/app')
+if '/app' not in sys.path:
+    sys.path.insert(0, '/app')
+
+import linework.pipeline as pipe
+import numpy as np
+import cv2
+print("SUCCESS: Linework loaded inside Pyodide WebAssembly!")
+        `);
+
+        isReady = true;
+        log("✅ Engine Ready! 100% In-Browser · 0 Server RAM Used · Drop any image to vectorize");
+      } catch (err) {
+        log("❌ Initialization Error: " + err.message);
+        console.error(err);
+      }
+    }
+
+    async function vectorizeImage(file) {
+      if (!isReady) {
+        alert("Engine is still initializing. Please wait a few seconds...");
+        return;
+      }
+      log("Processing image in browser memory...");
+      const t0 = performance.now();
+
+      const reader = new FileReader();
+      reader.onload = async (e) => {
+        const u8 = new Uint8Array(e.target.result);
+        document.getElementById("imgPreview").src = URL.createObjectURL(file);
+        document.getElementById("imgPreviewBox").style.display = "block";
+
+        pyodide.FS.writeFile("/app/input_image.png", u8);
+
+        try {
+          const svgCode = await pyodide.runPythonAsync(`
+import cv2
+import linework.pipeline as pipe
+
+img = cv2.imread('/app/input_image.png')
+if len(img.shape) == 3:
+    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+else:
+    gray = img
+
+opts = pipe.Options()
+res = pipe.process_icon(gray, opts=opts)
+svg_out = res.get('svg', '')
+svg_out
+          `);
+
+          const t1 = performance.now();
+          const dur = ((t1 - t0) / 1000).toFixed(2);
+          lastSvg = svgCode;
+
+          document.getElementById("svgBox").innerHTML = svgCode;
+          document.getElementById("dlBtn").disabled = false;
+          log("✅ Vectorization Complete in " + dur + "s! (0 Server Cost · Generated in Browser)");
+        } catch (err) {
+          log("❌ Vectorization Error: " + err.message);
+          console.error(err);
+        }
+      };
+      reader.readAsArrayBuffer(file);
+    }
+
+    function downloadSVG() {
+      if (!lastSvg) return;
+      const blob = new Blob([lastSvg], { type: "image/svg+xml" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "vector_linework_browser.svg";
+      a.click();
+      URL.revokeObjectURL(url);
+    }
+
+    const drop = document.getElementById("dropzone");
+    const fi = document.getElementById("fileInput");
+    drop.ondragover = (e) => { e.preventDefault(); drop.style.borderColor = "#00f5a0"; };
+    drop.ondragleave = () => { drop.style.borderColor = "#1d334a"; };
+    drop.ondrop = (e) => {
+      e.preventDefault();
+      drop.style.borderColor = "#1d334a";
+      if (e.dataTransfer.files[0]) vectorizeImage(e.dataTransfer.files[0]);
+    };
+    fi.onchange = (e) => {
+      if (e.target.files[0]) vectorizeImage(e.target.files[0]);
+    };
+
+    initEngine();
+  </script>
+</body>
+</html>

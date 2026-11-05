@@ -10,7 +10,7 @@ from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor, as_compl
 from pathlib import Path as FsPath
 
 import cv2, numpy as np
-from fastapi import FastAPI, UploadFile, File, Form, HTTPException, Query, Body
+from fastapi import FastAPI, UploadFile, File, Form, HTTPException, Query, Body, Request
 from fastapi.responses import FileResponse, Response, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 
@@ -22,6 +22,7 @@ from linework.render import render_gray, backend_name  # noqa: E402
 from linework.trace import ink_map  # noqa: E402
 from linework.audit import audit as audit_paths  # noqa: E402
 from server import worker  # noqa: E402
+from server import db  # noqa: E402
 
 DATA = FsPath(os.environ.get("LINEWORK_DATA", ROOT / "data"))
 DATA.mkdir(parents=True, exist_ok=True)
@@ -36,6 +37,35 @@ _LOCK = threading.Lock()
 _CTX = mp.get_context("fork") if hasattr(os, "fork") else mp.get_context("spawn")
 _Q = _CTX.Queue()
 _POOL = None
+
+def get_current_user(request: Request):
+    """Extract authenticated user from Bearer Authorization header, cookie, or query param."""
+    token = None
+    auth_header = request.headers.get("Authorization")
+    if auth_header and auth_header.startswith("Bearer "):
+        token = auth_header[7:].strip()
+    if not token:
+        token = request.cookies.get("lw_token")
+    if not token:
+        token = request.query_params.get("token")
+    if not token:
+        return None
+    return db.get_user_from_token(token)
+
+
+def require_user(request: Request):
+    user = get_current_user(request)
+    if not user:
+        raise HTTPException(401, "Authentication required. Please create an account or sign in.")
+    return user
+
+
+def require_admin(request: Request):
+    user = require_user(request)
+    if user.get("role") != "admin":
+        raise HTTPException(403, "Administrator access required.")
+    return user
+
 
 
 def pool():
@@ -473,12 +503,18 @@ def health():
 
 @app.post("/api/jobs")
 async def create_job(
+    request: Request,
     file: UploadFile = File(...),
     quality: str = Form("standard"),
     clean: float = Form(0.5),          # 0 = pixel match first, 1 = cleanest paths first
     target: float = Form(99.5),
     fresh: bool = Form(True),
 ):
+    user = require_user(request)
+    can_proc, reason = db.can_user_process_sheet(user["id"])
+    if not can_proc:
+        raise HTTPException(403, reason)
+    db.increment_sheet_usage(user["id"])
     data = await file.read()
     if len(data) > MAX_BYTES:
         raise HTTPException(413, "File too large (15 MB max)")
@@ -507,7 +543,12 @@ def _start(gray, name, quality, clean, target, fresh: bool = True):
 
 
 @app.post("/api/samples/{name}")
-def sample(name: str, quality: str = "standard", fresh: bool = True):
+def sample(name: str, request: Request, quality: str = "standard", fresh: bool = True):
+    user = require_user(request)
+    can_proc, reason = db.can_user_process_sheet(user["id"])
+    if not can_proc:
+        raise HTTPException(403, reason)
+    db.increment_sheet_usage(user["id"])
     fn = ROOT / "samples" / f"{name}.png"
     if not fn.exists() or not name.replace("-", "").isalnum():
         raise HTTPException(404)
@@ -849,6 +890,237 @@ def download_zip(job_id: str, stroke: str = "#000000", scale: float = 1.0):
 @app.get("/bgstudio")
 def bg_studio_redirect():
     return RedirectResponse(url="/#bgstudio")
+
+
+
+# ===========================================================================
+# Auth & User Management Endpoints
+# ===========================================================================
+
+@app.post("/api/auth/register")
+async def api_register(request: Request):
+    try:
+        body = await request.json()
+    except Exception:
+        raise HTTPException(400, "Invalid JSON payload")
+    name = body.get("name")
+    phone = body.get("phone")
+    whatsapp = body.get("whatsapp") or phone
+    password = body.get("password")
+    
+    user, err = db.register_user(name, phone, whatsapp, password)
+    if err:
+        raise HTTPException(400, err)
+    
+    token = db.create_session(user["id"])
+    response = JSONResponse({
+        "ok": True,
+        "token": token,
+        "user": db.get_user_quota_info(user),
+        "message": "Account created successfully! 3 Free Icon Sets and 10 Backgrounds activated."
+    })
+    response.set_cookie("lw_token", token, max_age=30*86400, httponly=False, samesite="lax")
+    return response
+
+
+@app.post("/api/auth/login")
+async def api_login(request: Request):
+    try:
+        body = await request.json()
+    except Exception:
+        raise HTTPException(400, "Invalid JSON payload")
+    identifier = body.get("phone") or body.get("identifier") or body.get("username")
+    password = body.get("password")
+    
+    user, err = db.authenticate_user(identifier, password)
+    if err:
+        raise HTTPException(401, err)
+    
+    token = db.create_session(user["id"])
+    response = JSONResponse({
+        "ok": True,
+        "token": token,
+        "user": db.get_user_quota_info(user)
+    })
+    response.set_cookie("lw_token", token, max_age=30*86400, httponly=False, samesite="lax")
+    return response
+
+
+@app.get("/api/auth/me")
+def api_me(request: Request):
+    user = get_current_user(request)
+    if not user:
+        return {"logged_in": False, "user": None}
+    return {
+        "logged_in": True,
+        "user": db.get_user_quota_info(user)
+    }
+
+
+@app.post("/api/auth/logout")
+def api_logout(request: Request):
+    token = None
+    auth_header = request.headers.get("Authorization")
+    if auth_header and auth_header.startswith("Bearer "):
+        token = auth_header[7:].strip()
+    if not token:
+        token = request.cookies.get("lw_token")
+    if token:
+        db.delete_session(token)
+    response = JSONResponse({"ok": True, "message": "Logged out successfully"})
+    response.delete_cookie("lw_token")
+    return response
+
+
+@app.get("/api/user/quota")
+def api_user_quota(request: Request):
+    user = require_user(request)
+    return db.get_user_quota_info(user)
+
+
+@app.post("/api/bgstudio/use")
+def api_bgstudio_use(request: Request):
+    user = require_user(request)
+    can_process, reason = db.can_user_process_bg(user["id"])
+    if not can_process:
+        raise HTTPException(403, reason)
+    db.increment_bg_usage(user["id"])
+    # Fetch updated user object
+    token = request.headers.get("Authorization", "").replace("Bearer ", "").strip() or request.cookies.get("lw_token")
+    updated = db.get_user_from_token(token)
+    return {
+        "ok": True,
+        "quota": db.get_user_quota_info(updated or user)
+    }
+
+
+# ===========================================================================
+# Payment Endpoints (bKash Send Money)
+# ===========================================================================
+
+@app.post("/api/payments/submit")
+async def api_payment_submit(
+    request: Request,
+    plan_selected: str = Form(...),
+    amount: int = Form(...),
+    phone: str = Form(...),
+    trx_id: str = Form(...),
+    screenshot: UploadFile = File(None)
+):
+    user = require_user(request)
+    screenshot_bytes = None
+    ext = ".png"
+    if screenshot and screenshot.filename:
+        screenshot_bytes = await screenshot.read()
+        if len(screenshot_bytes) > 10 * 1024 * 1024:
+            raise HTTPException(400, "Screenshot file size too large (max 10MB)")
+        ext = FsPath(screenshot.filename).suffix or ".png"
+    
+    pay_id = db.submit_payment_request(
+        user_id=user["id"],
+        plan_selected=plan_selected,
+        amount=amount,
+        phone=phone,
+        trx_id=trx_id,
+        screenshot_bytes=screenshot_bytes,
+        ext=ext
+    )
+    return {
+        "ok": True,
+        "payment_id": pay_id,
+        "message": "Payment submission received! Your subscription will be activated upon admin verification. Emergency support: 01794590310."
+    }
+
+
+@app.get("/api/payments/my")
+def api_my_payments(request: Request):
+    user = require_user(request)
+    with db.get_db() as conn:
+        cur = conn.cursor()
+        cur.execute("SELECT * FROM payments WHERE user_id = ? ORDER BY id DESC", (user["id"],))
+        return [dict(r) for r in cur.fetchall()]
+
+
+# ===========================================================================
+# Admin Portal & Controller Endpoints
+# ===========================================================================
+
+@app.get("/api/admin/stats")
+def api_admin_stats(request: Request):
+    require_admin(request)
+    return db.get_admin_stats()
+
+
+@app.get("/api/admin/users")
+def api_admin_users(request: Request, q: str = Query(None)):
+    require_admin(request)
+    return db.list_users(search=q)
+
+
+@app.post("/api/admin/users/{user_id}/plan")
+async def api_admin_update_plan(user_id: int, request: Request):
+    require_admin(request)
+    body = await request.json()
+    plan = body.get("plan", "free")
+    days = int(body.get("days", 30))
+    reset_quota = bool(body.get("reset_quota", False))
+    db.update_user_plan(user_id, plan=plan, pro_days=days, reset_quota=reset_quota)
+    return {"ok": True, "message": f"User #{user_id} plan updated to {plan}"}
+
+
+@app.post("/api/admin/users/{user_id}/status")
+async def api_admin_update_status(user_id: int, request: Request):
+    require_admin(request)
+    body = await request.json()
+    status = body.get("status", "active")
+    db.update_user_status(user_id, status=status)
+    return {"ok": True, "message": f"User #{user_id} status updated to {status}"}
+
+
+@app.delete("/api/admin/users/{user_id}")
+def api_admin_delete_user(user_id: int, request: Request):
+    require_admin(request)
+    db.delete_user(user_id)
+    return {"ok": True, "message": f"User #{user_id} deleted"}
+
+
+@app.get("/api/admin/payments")
+def api_admin_payments(request: Request, status: str = Query("all")):
+    require_admin(request)
+    return db.list_payments(status_filter=status)
+
+
+@app.post("/api/admin/payments/{payment_id}/review")
+async def api_admin_review_payment(payment_id: int, request: Request):
+    require_admin(request)
+    body = await request.json()
+    approve = bool(body.get("approve", True))
+    notes = body.get("notes", "")
+    ok, res = db.review_payment(payment_id, approve=approve, notes=notes)
+    if not ok:
+        raise HTTPException(404, res)
+    return {"ok": True, "status": res}
+
+
+@app.get("/api/admin/payments/{payment_id}/proof")
+def api_admin_proof(payment_id: int, request: Request):
+    require_admin(request)
+    with db.get_db() as conn:
+        cur = conn.cursor()
+        cur.execute("SELECT screenshot_path FROM payments WHERE id = ?", (payment_id,))
+        row = cur.fetchone()
+        if not row or not row["screenshot_path"]:
+            raise HTTPException(404, "No screenshot found")
+        img_path = db.UPLOAD_DIR / row["screenshot_path"]
+        if not img_path.exists():
+            raise HTTPException(404, "Image file not found on disk")
+        return FileResponse(img_path)
+
+
+@app.get("/admin")
+@app.get("/admin.html")
+def admin_portal():
+    return FileResponse(ROOT / "server" / "static" / "admin.html")
 
 
 app.mount("/static", StaticFiles(directory=ROOT / "server" / "static"), name="static")
