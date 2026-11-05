@@ -1056,17 +1056,23 @@ def api_my_payments(request: Request):
 # Admin Portal & Controller Endpoints
 # ===========================================================================
 
+NO_CACHE_HEADERS = {
+    "Cache-Control": "no-cache, no-store, must-revalidate, max-age=0",
+    "Pragma": "no-cache",
+    "Expires": "0"
+}
+
 @app.get("/api/admin/stats")
 def api_admin_stats(request: Request):
     require_admin(request)
-    return db.get_admin_stats()
+    return JSONResponse(db.get_admin_stats(), headers=NO_CACHE_HEADERS)
 
 
 
 @app.get("/api/admin/users")
 def api_admin_users(request: Request, q: str = Query(None), filter: str = Query(None)):
     require_admin(request)
-    return db.list_users(search=q, filter_type=filter)
+    return JSONResponse(db.list_users(search=q, filter_type=filter), headers=NO_CACHE_HEADERS)
 
 
 @app.post("/api/admin/users/{user_id}/access")
@@ -1158,7 +1164,7 @@ def api_admin_proof(payment_id: int, request: Request):
 @app.get("/admin")
 @app.get("/admin.html")
 def admin_portal():
-    return FileResponse(ROOT / "server" / "static" / "admin.html")
+    return FileResponse(ROOT / "server" / "static" / "admin.html", headers=NO_CACHE_HEADERS)
 
 
 app.mount("/static", StaticFiles(directory=ROOT / "server" / "static"), name="static")
@@ -1166,4 +1172,4 @@ app.mount("/static", StaticFiles(directory=ROOT / "server" / "static"), name="st
 
 @app.get("/")
 def index():
-    return FileResponse(ROOT / "server" / "static" / "index.html")
+    return FileResponse(ROOT / "server" / "static" / "index.html", headers=NO_CACHE_HEADERS)

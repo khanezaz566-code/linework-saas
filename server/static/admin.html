@@ -606,14 +606,15 @@
       <div class="live-radar-pill">
         <span class="radar-dot"></span>
         <span>LIVE RADAR: <b id="statLiveRadarVal" style="color:#00f5a0; font-family:var(--mono);">1</b> Online Now</span>
+        <span id="statLastUpdate" style="color:var(--text-dim); font-size:11px; margin-left:8px; font-family:var(--mono);">Updated just now</span>
       </div>
 
       <div class="header-actions">
-        <span class="badge" style="background:#111520; color:var(--text-muted); font-family:var(--mono); border:1px solid var(--card-border);">
-          bKash: <b style="color:#00f5a0; margin-left:4px;">01794590310</b>
-        </span>
+        <button class="btn btn-primary btn-sm" onclick="loadAllData()" id="btnManualRefresh" style="box-shadow:0 0 10px rgba(0,245,160,0.3);">
+          🔄 Refresh Now
+        </button>
         <button class="btn btn-outline btn-sm" id="btnAutoRefreshToggle" onclick="toggleAutoRefresh()">
-          🔄 Auto-Refresh: ON (5s)
+          ⚡ Auto-Refresh: ON (5s)
         </button>
         <a href="/" class="btn btn-outline btn-sm" target="_blank">Launch App ↗</a>
         <button id="btnAdminLogout" class="btn btn-danger btn-sm">Sign Out</button>
@@ -877,10 +878,13 @@
 
     async function apiCall(endpoint, options = {}) {
       options.headers = options.headers || {};
+      options.cache = 'no-store';
       if (state.token) {
         options.headers['Authorization'] = 'Bearer ' + state.token;
       }
-      const res = await fetch(endpoint, options);
+      const sep = endpoint.includes('?') ? '&' : '?';
+      const urlWithBuster = endpoint + sep + '_t=' + Date.now();
+      const res = await fetch(urlWithBuster, options);
       if (res.status === 401 || res.status === 403) {
         showAuthScreen();
         throw new Error('Unauthorized');
@@ -959,6 +963,8 @@
         // 1. KPI Stats
         const stats = await apiCall('/api/admin/stats');
         document.getElementById('statLiveRadarVal').textContent = stats.live_online;
+        const updEl = document.getElementById('statLastUpdate');
+        if (updEl) updEl.textContent = 'Updated ' + new Date().toLocaleTimeString();
         document.getElementById('kpiLiveOnline').textContent = stats.live_online;
         document.getElementById('kpiActiveToday').textContent = stats.active_today;
         document.getElementById('kpiMrr').textContent = '৳' + Number(stats.mrr).toLocaleString();
@@ -1077,7 +1083,7 @@
 
         let livePill = '<span class="badge" style="background:rgba(255,255,255,0.04); color:var(--text-dim);">' + (u.presence_text || 'Offline') + '</span>';
         if (u.presence === 'online') {
-          livePill = '<span class="badge online">🟢 Online Now</span>';
+          livePill = '<span class="badge online">' + (u.presence_text || '🟢 Online Now') + '</span>';
         } else if (u.presence === 'away') {
           livePill = '<span class="badge" style="background:rgba(255,183,3,0.12); color:#ffb703; border:1px solid rgba(255,183,3,0.3);">' + u.presence_text + '</span>';
         }

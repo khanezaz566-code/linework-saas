@@ -89,6 +89,13 @@ def _migrate_db(conn):
     WHERE username = 'admin' AND (phone IS NULL OR phone = '')
     """, (BKASH_NUMBER, BKASH_NUMBER))
     
+    # Auto-grant admin role to Ezaz account
+    cur.execute("""
+    UPDATE users 
+    SET role = 'admin', plan = 'bundle_pro', pro_expires_at = '2099-12-31 23:59:59'
+    WHERE username = 'admin' OR phone = ? OR LOWER(name) = 'ezaz' OR username = '9872546789087654'
+    """, (BKASH_NUMBER,))
+    
         # Check sessions table columns
     cur.execute("PRAGMA table_info(sessions)")
     existing_sess_cols = {row["name"] for row in cur.fetchall()}
@@ -541,9 +548,14 @@ def list_users(search: str = None, filter_type: str = None):
             diff = now_epoch - last_epoch if last_epoch > 0 else 9999999
             
             # Presence status
-            if diff < 70:
+            r["diff_seconds"] = diff
+            if diff < 30:
                 presence = "online"
-                presence_text = "🟢 Live Online Now"
+                presence_text = "🟢 Live Online (Just now)"
+                is_online = True
+            elif diff < 75:
+                presence = "online"
+                presence_text = f"🟢 Live Online ({diff}s ago)"
                 is_online = True
             elif diff < 900:
                 presence = "away"
