@@ -477,13 +477,20 @@ def submit_payment_request(user_id: int, plan_selected: str, amount: int, phone:
 
 
 
-def grant_user_access(user_id: int, plan: str, days: int = 30, role: str = "user", status: str = "active", reset_quota: bool = False, sheets_used: int = None, bg_used: int = None):
+def grant_user_access(user_id: int, plan: str = None, days: int = 30, role: str = None, status: str = None, reset_quota: bool = False, sheets_used: int = None, bg_used: int = None):
     with get_db() as conn:
         cur = conn.cursor()
-        now = datetime.now()
+        cur.execute("SELECT plan, role, status FROM users WHERE id = ?", (user_id,))
+        curr = cur.fetchone()
+        if not curr:
+            return False
         
-        # Expiry date computation
-        if plan in ("bundle_pro", "redraw_pro", "bg_pro", "pro"):
+        target_plan = plan if plan is not None else curr["plan"]
+        target_role = role if role is not None else curr["role"]
+        target_status = status if status is not None else curr["status"]
+        
+        now = datetime.now()
+        if target_plan in ("bundle_pro", "redraw_pro", "bg_pro", "pro"):
             if days >= 3650 or days == -1:
                 exp_date = "2099-12-31 23:59:59"
             else:
@@ -492,10 +499,10 @@ def grant_user_access(user_id: int, plan: str, days: int = 30, role: str = "user
             exp_date = None
             
         cur.execute("""
-        UPDATE users 
+        UPDATE users
         SET plan = ?, pro_expires_at = ?, role = ?, status = ?
         WHERE id = ?
-        """, (plan, exp_date, role, status, user_id))
+        """, (target_plan, exp_date, target_role, target_status, user_id))
         
         if reset_quota:
             cur.execute("UPDATE users SET free_sheets_used = 0, free_bg_used = 0 WHERE id = ?", (user_id,))
@@ -505,6 +512,9 @@ def grant_user_access(user_id: int, plan: str, days: int = 30, role: str = "user
             if bg_used is not None:
                 cur.execute("UPDATE users SET free_bg_used = ? WHERE id = ?", (int(bg_used), user_id))
                 
+        if target_status == "banned":
+            cur.execute("DELETE FROM sessions WHERE user_id = ?", (user_id,))
+            
         conn.commit()
         return True
 
@@ -724,7 +734,7 @@ def update_user_plan(user_id: int, plan: str, pro_days: int = 30, reset_quota: b
 
 
 def update_user_status(user_id: int, status: str = "active"):
-    grant_user_access(user_id, status=status)
+    return grant_user_access(user_id, status=status)
 
 
 def delete_user(user_id: int):
