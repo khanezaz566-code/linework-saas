@@ -391,27 +391,30 @@ def _set_pass(job_id, d, jobs, order):
     mets = {k: job["icons"][k]["metrics"] for k in ok}
     offs = {k: off for k, _, off in jobs}
     crops = {k: c for k, c, _ in jobs}
-    weak = SL.weak_icons([mets[k] for k in ok])
-    weak = [ok[i] for i in weak]
-    if weak:
-        job["events"].append(dict(engine="doctor", msg=f"Set check: {len(weak)} icon(s) need escalation / second pass", t=0, n=len(job["events"])))
-        base_opts = Options(**job["options"])
-        sheet_budget = max(90.0, len(jobs) * 20.0)
-        deadline = time.time() + sheet_budget
-        for k in weak:
-            if time.time() > deadline or job.get("cancelled"):
-                break
-            cur_m = Model.from_json((d / f"icon_local_{k}.json").read_text())
-            cur_met = mets[k]
-            m_esc, met_esc = SL.escalate_weak_icon(
-                crops[k], offs[k], base_opts, cur_m, cur_met,
-                emit=lambda **kw: job["events"].append(dict(kw, job=job_id, k=k, t=0, n=len(job["events"]))),
-                name=f"icon{k+1}",
-                sheet_deadline=deadline
-            )
-            if SL.result_key(m_esc, met_esc) < SL.result_key(cur_m, cur_met):
-                _store_icon(job, d, k, m_esc.to_json(), offs[k], met_esc)
-                mets[k] = met_esc
+    is_precise = job.get("options", {}).get("quality") == "precise"
+    weak = []
+    if is_precise:
+        weak = SL.weak_icons([mets[k] for k in ok])
+        weak = [ok[i] for i in weak]
+        if weak:
+            job["events"].append(dict(engine="doctor", msg=f"Set check: {len(weak)} icon(s) need escalation / second pass", t=0, n=len(job["events"])))
+            base_opts = Options(**job["options"])
+            sheet_budget = min(40.0, len(weak) * 15.0)
+            deadline = time.time() + sheet_budget
+            for k in weak:
+                if time.time() > deadline or job.get("cancelled"):
+                    break
+                cur_m = Model.from_json((d / f"icon_local_{k}.json").read_text())
+                cur_met = mets[k]
+                m_esc, met_esc = SL.escalate_weak_icon(
+                    crops[k], offs[k], base_opts, cur_m, cur_met,
+                    emit=lambda **kw: job["events"].append(dict(kw, job=job_id, k=k, t=0, n=len(job["events"]))),
+                    name=f"icon{k+1}",
+                    sheet_deadline=deadline
+                )
+                if SL.result_key(m_esc, met_esc) < SL.result_key(cur_m, cur_met):
+                    _store_icon(job, d, k, m_esc.to_json(), offs[k], met_esc)
+                    mets[k] = met_esc
     models = [Model.from_json((d / f"icon_local_{k}.json").read_text()) for k in ok]
     new, rep = SL.harmonize_widths(models, [crops[k] for k in ok])
     for k, m0, m1 in zip(ok, models, new):
@@ -450,10 +453,12 @@ def _run_job(job_id):
         p = pool()
         pending = list(order)
         in_flight = {}
-        MAX_PER_JOB = 2
 
         while (pending or in_flight) and not is_job_cancelled(job_id):
-            while pending and len(in_flight) < MAX_PER_JOB and not is_job_cancelled(job_id):
+            active_cnt = sum(1 for j in JOBS.values() if j.get("status") in ("queued", "splitting", "running") and not is_job_cancelled(j.get("id", "")))
+            max_in_flight = 4 if active_cnt <= 1 else 2
+
+            while pending and len(in_flight) < max_in_flight and not is_job_cancelled(job_id):
                 k, crop, off = pending.pop(0)
                 job["icons"][k]["status"] = "running"
                 try:
@@ -495,15 +500,15 @@ def _run_job(job_id):
             job["status"] = "cancelled"
             return
 
-        # Complete composite once for the full sheet to save RAM
-        _finish_composite(job_id)
         if is_job_cancelled(job_id):
             job["status"] = "cancelled"
             return
-        try:  # set-level pass
+
+        try:  # set-level pass & composite
             _set_pass(job_id, d, jobs, order)
         except Exception as e:
             job["events"].append(dict(engine="doctor", msg=f"Set-level pass skipped: {e}", t=0, n=len(job["events"])))
+            _finish_composite(job_id)
         if is_job_cancelled(job_id):
             job["status"] = "cancelled"
             return

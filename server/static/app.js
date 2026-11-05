@@ -11,7 +11,7 @@
     H: 0,
     tf: { x: 0, y: 0, k: 1 },
     timer: null,
-    quality: 'standard',
+    quality: 'fast',
     icons: [],
     done: false,
     logN: 0,
