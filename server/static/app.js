@@ -1780,24 +1780,85 @@
 
     async init() {
       this.bindEvents();
-      if (!this.token) {
-        this.token = sessionStorage.getItem('lw_token') || localStorage.getItem('lw_token') || '';
-      }
-      if (this.token) {
-        sessionStorage.setItem('lw_token', this.token);
+      let token = this.token || sessionStorage.getItem('lw_token') || localStorage.getItem('lw_token') || '';
+
+      if (token) {
         try {
           const res = await fetch('/api/auth/me', {
-            headers: { 'Authorization': 'Bearer ' + this.token }
+            headers: { 'Authorization': 'Bearer ' + token },
+            cache: 'no-store'
           });
           const data = await res.json();
           if (data.logged_in && data.user) {
+            this.token = token;
+            sessionStorage.setItem('lw_token', token);
+            localStorage.setItem('lw_token', token);
             this.setLoggedInUser(data.user);
             const m = $('#authModal');
             if (m) m.style.display = 'none';
             return;
           }
+        } catch (e) {
+          const cachedProfile = localStorage.getItem('lw_user_profile');
+          if (cachedProfile) {
+            try {
+              this.setLoggedInUser(JSON.parse(cachedProfile));
+              const m = $('#authModal');
+              if (m) m.style.display = 'none';
+              return;
+            } catch {}
+          }
+        }
+      }
+
+      // Auto-login fallback if tab was closed or server restarted
+      const savedIdent = localStorage.getItem('lw_saved_ident');
+      const savedPass = localStorage.getItem('lw_saved_pass');
+      if (savedIdent && savedPass) {
+        try {
+          const res = await fetch('/api/auth/login', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ phone: savedIdent, password: savedPass })
+          });
+          const data = await res.json();
+          if (res.ok && data.token && data.user) {
+            this.token = data.token;
+            sessionStorage.setItem('lw_token', data.token);
+            localStorage.setItem('lw_token', data.token);
+            this.setLoggedInUser(data.user);
+            const m = $('#authModal');
+            if (m) m.style.display = 'none';
+            return;
+          }
+          // If server container was recreated, auto re-register using saved profile
+          const savedProfileStr = localStorage.getItem('lw_user_profile');
+          if (savedProfileStr) {
+            const prof = JSON.parse(savedProfileStr);
+            const rReg = await fetch('/api/auth/register', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                name: prof.name || 'User',
+                phone: prof.phone || savedIdent,
+                whatsapp: prof.whatsapp || savedIdent,
+                password: savedPass
+              })
+            });
+            const regData = await rReg.json();
+            if (rReg.ok && regData.token && regData.user) {
+              this.token = regData.token;
+              sessionStorage.setItem('lw_token', regData.token);
+              localStorage.setItem('lw_token', regData.token);
+              this.setLoggedInUser(regData.user);
+              const m = $('#authModal');
+              if (m) m.style.display = 'none';
+              return;
+            }
+          }
         } catch {}
       }
+
       this.setLoggedOut();
       this.requireLogin(null, true);
     },
@@ -1889,6 +1950,9 @@
             this.token = data.token;
             sessionStorage.setItem('lw_token', data.token);
             localStorage.setItem('lw_token', data.token);
+            localStorage.setItem('lw_saved_ident', phone);
+            localStorage.setItem('lw_saved_pass', password);
+            localStorage.setItem('lw_user_profile', JSON.stringify({ name, phone, whatsapp, password, ...data.user }));
             this.setLoggedInUser(data.user);
             this.hideAuth();
             toast('Account created! 3 Free Icon Sets and 10 BG activated.');
@@ -1931,6 +1995,9 @@
             this.token = data.token;
             sessionStorage.setItem('lw_token', data.token);
             localStorage.setItem('lw_token', data.token);
+            localStorage.setItem('lw_saved_ident', ident);
+            localStorage.setItem('lw_saved_pass', password);
+            localStorage.setItem('lw_user_profile', JSON.stringify(data.user));
             this.setLoggedInUser(data.user);
             this.hideAuth();
             toast('Welcome back, ' + (data.user.name || 'User') + '!');
@@ -2014,24 +2081,77 @@
       const avBtn = $('#userAvatarBtn');
       const admBtn = $('#btnHeaderAdmin');
       const admNav = $('#navAdminSide');
+      const btnHUpgrade = $('#btnHeaderUpgrade');
+      const navPricingSpan = $('#navPricing span');
 
       if (qPill) qPill.style.display = 'inline-flex';
-      if (pBadge) {
-        pBadge.style.display = 'inline-block';
-        pBadge.textContent = user.plan_name || 'Free Trial';
-      }
 
       const isUnlimitedRedraw = (user.role === 'admin' || ['bundle_pro', 'redraw_pro', 'pro'].includes(user.plan));
       const isUnlimitedBg = (user.role === 'admin' || ['bundle_pro', 'bg_pro', 'pro'].includes(user.plan));
+      const isAnyPro = (user.role === 'admin' || ['bundle_pro', 'redraw_pro', 'bg_pro', 'pro'].includes(user.plan));
 
-      const rTxt = isUnlimitedRedraw ? 'Icons: Unlimited' : `Icons: ${user.sheets_used}/3`;
-      const bgTxt = isUnlimitedBg ? 'BG: Unlimited' : `BG: ${user.bg_used}/10`;
-      if (qTxt) qTxt.textContent = `${rTxt} · ${bgTxt}`;
+      // Header Plan Badge
+      if (pBadge) {
+        pBadge.style.display = 'inline-block';
+        if (isAnyPro) {
+          pBadge.textContent = '👑 ' + (user.plan_name || 'PRO ACTIVE');
+          pBadge.style.background = 'rgba(0, 245, 160, 0.2)';
+          pBadge.style.borderColor = '#00f5a0';
+          pBadge.style.color = '#00f5a0';
+        } else {
+          pBadge.textContent = user.plan_name || 'Free Trial';
+          pBadge.style.background = 'rgba(255, 255, 255, 0.08)';
+          pBadge.style.borderColor = 'rgba(255, 255, 255, 0.2)';
+          pBadge.style.color = '#ccc';
+        }
+      }
+
+      // Quota indicator in header
+      if (qTxt) {
+        if (user.role === 'admin') {
+          qTxt.textContent = '⚡ Lifetime VIP Admin';
+        } else if (user.plan === 'bundle_pro') {
+          qTxt.textContent = '👑 Unlimited Bundle Pro';
+        } else if (user.plan === 'redraw_pro') {
+          qTxt.textContent = `👑 Redraw: Unlimited · BG: ${user.bg_used}/10`;
+        } else if (user.plan === 'bg_pro') {
+          qTxt.textContent = `Icons: ${user.sheets_used}/3 · 👑 BG: Unlimited`;
+        } else {
+          qTxt.textContent = `Icons: ${user.sheets_used}/3 · BG: ${user.bg_used}/10`;
+        }
+      }
+
+      // Header Upgrade Button state
+      if (btnHUpgrade) {
+        if (isAnyPro) {
+          let daysBadge = '';
+          if (user.pro_expires_at) {
+            const exp = new Date(user.pro_expires_at.replace(' ', 'T')).getTime();
+            const diffDays = Math.ceil((exp - Date.now()) / (1000 * 3600 * 24));
+            if (diffDays > 3650) daysBadge = ' (VIP)';
+            else if (diffDays > 0) daysBadge = ` (${diffDays}d left)`;
+          }
+          btnHUpgrade.innerHTML = `👑 Active${daysBadge}`;
+          btnHUpgrade.title = `Your ${user.plan_name} is active! Click to view details.`;
+          btnHUpgrade.style.background = 'linear-gradient(135deg, rgba(0,245,160,0.2), rgba(0,180,216,0.2))';
+          btnHUpgrade.style.border = '1px solid #00f5a0';
+          btnHUpgrade.style.color = '#00f5a0';
+        } else {
+          btnHUpgrade.innerHTML = '⚡ Upgrade';
+          btnHUpgrade.style.background = 'linear-gradient(135deg, #00f5a0, #00b4d8)';
+          btnHUpgrade.style.color = '#050508';
+          btnHUpgrade.style.border = 'none';
+        }
+      }
+
+      if (navPricingSpan) {
+        navPricingSpan.textContent = isAnyPro ? 'My Subscription' : 'Upgrade Pro';
+      }
 
       if (avBtn) {
         const initials = (user.name || user.phone || 'U').slice(0, 2).toUpperCase();
         avBtn.textContent = initials;
-        avBtn.title = `${user.name || 'User'} (${user.plan_name})`;
+        avBtn.title = `${user.name || 'User'} (${user.plan_name || 'Free Trial'})`;
       }
 
       if (user.role === 'admin') {
@@ -2048,6 +2168,9 @@
       this.token = '';
       sessionStorage.removeItem('lw_token');
       localStorage.removeItem('lw_token');
+      localStorage.removeItem('lw_saved_ident');
+      localStorage.removeItem('lw_saved_pass');
+      localStorage.removeItem('lw_user_profile');
 
       const qPill = $('#userQuotaPill');
       const pBadge = $('#userPlanBadge');
@@ -2151,19 +2274,29 @@
         $('#profileName').textContent = this.user.name || 'User';
         $('#profilePhone').textContent = this.user.phone || '';
         $('#profileAvatarBig').textContent = (this.user.name || 'U').slice(0, 1).toUpperCase();
-        $('#profilePlanBadge').textContent = this.user.plan_name || 'Free Trial';
-
         const isUnlimitedRedraw = (this.user.role === 'admin' || ['bundle_pro', 'redraw_pro', 'pro'].includes(this.user.plan));
         const isUnlimitedBg = (this.user.role === 'admin' || ['bundle_pro', 'bg_pro', 'pro'].includes(this.user.plan));
+        const isAnyPro = (this.user.role === 'admin' || ['bundle_pro', 'redraw_pro', 'bg_pro', 'pro'].includes(this.user.plan));
 
-        $('#profileQuotaRedraw').textContent = isUnlimitedRedraw ? 'Unlimited PRO' : `${this.user.sheets_used} / 3 Sets Used`;
-        $('#profileQuotaBg').textContent = isUnlimitedBg ? 'Unlimited PRO' : `${this.user.bg_used} / 10 Used`;
+        $('#profilePlanBadge').textContent = (isAnyPro ? '👑 ' : '') + (this.user.plan_name || 'Free Trial');
+        $('#profileQuotaRedraw').textContent = isUnlimitedRedraw ? 'Unlimited Pro Access' : `${this.user.sheets_used} / 3 Sets Used`;
+        $('#profileQuotaBg').textContent = isUnlimitedBg ? 'Unlimited Pro Access' : `${this.user.bg_used} / 10 Used`;
 
         const expRow = $('#profileExpiryRow');
         const expTxt = $('#profileExpiryDate');
         if (this.user.pro_expires_at) {
           if (expRow) expRow.style.display = 'flex';
-          if (expTxt) expTxt.textContent = this.user.pro_expires_at.slice(0, 10);
+          const exp = new Date(this.user.pro_expires_at.replace(' ', 'T')).getTime();
+          const diffDays = Math.ceil((exp - Date.now()) / (1000 * 3600 * 24));
+          let daysBadge = '';
+          if (diffDays > 3650) {
+            daysBadge = 'Permanent Lifetime VIP';
+          } else if (diffDays > 0) {
+            daysBadge = `${this.user.pro_expires_at.slice(0, 10)} (${diffDays} Days Left)`;
+          } else {
+            daysBadge = `${this.user.pro_expires_at.slice(0, 10)} (Expired)`;
+          }
+          if (expTxt) expTxt.textContent = daysBadge;
         } else {
           if (expRow) expRow.style.display = 'none';
         }
@@ -2208,23 +2341,37 @@
 
   window.LineworkAuth = LineworkAuth;
 
-  // Live Presence Heartbeat (pings server immediately, every 20s, and on user activity)
-  function sendLivePing() {
+  // Live Presence & Real-time Plan Sync (every 15s, on focus, and on user activity)
+  async function sendLivePing() {
     const token = getStoredToken();
-    if (token) {
-      fetch('/api/auth/ping', {
-        headers: { 'Authorization': 'Bearer ' + token }
-      }).catch(() => {});
-    }
+    if (!token) return;
+    try {
+      const res = await fetch('/api/auth/ping', {
+        headers: { 'Authorization': 'Bearer ' + token },
+        cache: 'no-store'
+      });
+      const data = await res.json();
+      if (data && data.logged_in && data.user && window.LineworkAuth) {
+        const oldPlan = window.LineworkAuth.user ? window.LineworkAuth.user.plan : null;
+        window.LineworkAuth.updateUserData(data.user);
+        if (oldPlan && oldPlan === 'free' && data.user.plan !== 'free') {
+          toast(`🎉 Congratulations! Your plan was upgraded to ${data.user.plan_name}! Enjoy Unlimited Access!`);
+        }
+      }
+    } catch {}
   }
 
   sendLivePing();
-  setInterval(sendLivePing, 20000);
+  setInterval(sendLivePing, 15000);
+
+  window.addEventListener('focus', () => {
+    sendLivePing();
+  });
 
   ['click', 'keydown', 'touchstart'].forEach(evt => {
     window.addEventListener(evt, () => {
       const now = Date.now();
-      if (!window._lastPing || (now - window._lastPing > 25000)) {
+      if (!window._lastPing || (now - window._lastPing > 20000)) {
         window._lastPing = now;
         sendLivePing();
       }

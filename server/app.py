@@ -1008,7 +1008,12 @@ def api_auth_ping(request: Request):
         return {"ok": False, "logged_in": False}
     token = request.headers.get("Authorization", "").replace("Bearer ", "").strip() or request.cookies.get("lw_token")
     db.update_user_heartbeat(user["id"], token=token)
-    return {"ok": True, "logged_in": True, "user_id": user["id"]}
+    return {
+        "ok": True,
+        "logged_in": True,
+        "user_id": user["id"],
+        "user": db.get_user_quota_info(user)
+    }
 
 @app.get("/api/auth/me")
 def api_me(request: Request):

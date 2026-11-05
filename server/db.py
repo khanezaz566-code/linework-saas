@@ -362,6 +362,16 @@ def get_user_quota_info(user_dict: dict) -> dict:
         can_bg = (bg_used < 10)
         bg_left = max(0, 10 - bg_used)
 
+    exp_str = user_dict.get("pro_expires_at")
+    days_left = None
+    if exp_str:
+        try:
+            exp_clean = exp_str.replace(" ", "T") if " " in exp_str else exp_str
+            exp_dt = datetime.fromisoformat(exp_clean)
+            days_left = max(0, (exp_dt - datetime.now()).days)
+        except Exception:
+            days_left = None
+
     return {
         "id": user_dict["id"],
         "name": user_dict.get("name") or user_dict.get("username"),
@@ -371,7 +381,8 @@ def get_user_quota_info(user_dict: dict) -> dict:
         "status": user_dict.get("status", "active"),
         "plan": plan,
         "plan_name": PLANS.get(plan, {}).get("name", "Free Trial"),
-        "pro_expires_at": user_dict.get("pro_expires_at"),
+        "pro_expires_at": exp_str,
+        "days_left": days_left,
         "sheets_used": sheets_used,
         "sheets_limit": 3,
         "sheets_left": sheets_left,

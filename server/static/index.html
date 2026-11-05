@@ -1116,7 +1116,7 @@
 <script>
   (function() {
     try {
-      if (!localStorage.getItem('lw_token')) {
+      if (!localStorage.getItem('lw_token') && !localStorage.getItem('lw_saved_ident')) {
         var m = document.getElementById('authModal');
         if (m) {
           m.style.display = 'flex';
