@@ -16,10 +16,12 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy application files
 COPY . .
 
-# Production optimizations
+# Production optimizations (Single-process shared memory to stay within 512MB RAM without crashes)
 ENV PYTHONUNBUFFERED=1
 ENV RELOAD=0
-ENV PORT=7860
-EXPOSE 7860
+ENV LINEWORK_INLINE=1
+ENV LINEWORK_WORKERS=1
+ENV PORT=8000
+EXPOSE 8000
 
 CMD ["python", "run.py"]

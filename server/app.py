@@ -5,7 +5,8 @@ import io, json, os, sys, time, uuid, shutil, threading, zipfile, re, urllib.par
 # One math thread per worker process: N workers x N BLAS threads oversubscribes the CPU and makes every icon slower.
 for _v in ("OMP_NUM_THREADS", "OPENBLAS_NUM_THREADS", "MKL_NUM_THREADS", "NUMEXPR_NUM_THREADS", "VECLIB_MAXIMUM_THREADS"):
     os.environ.setdefault(_v, "1")
-from concurrent.futures import ProcessPoolExecutor, as_completed
+import gc
+from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor, as_completed
 from pathlib import Path as FsPath
 
 import cv2, numpy as np
@@ -43,9 +44,12 @@ def pool():
         if getattr(_POOL, "_broken", False) or getattr(_POOL, "_shutdown_thread", False):
             reset_pool()
     if _POOL is None:
-        default_w = min(6, max(2, (os.cpu_count() or 4) // 2))
+        is_cloud = bool(os.environ.get("RENDER") or os.environ.get("PORT"))
+        inline_env = os.environ.get("LINEWORK_INLINE", "1" if is_cloud else "0")
+        use_inline = inline_env.lower() in ("1", "true", "yes")
+        default_w = 1 if is_cloud else min(4, max(1, (os.cpu_count() or 2) // 2))
         n = max(1, int(os.environ.get("LINEWORK_WORKERS", default_w)))
-        if os.environ.get("LINEWORK_INLINE"):
+        if use_inline:
             worker.init(_Q)
             _POOL = ThreadPoolExecutor(max_workers=n)
         else:
@@ -424,6 +428,7 @@ def _run_job(job_id):
             job["status"] = "cancelled"
             return
         job["status"] = "done"
+        gc.collect()
         job["seconds"] = round(time.time() - job["created"], 1)
         (d / "job.json").write_text(json.dumps({k: v for k, v in job.items() if k != "events"}))
     except Exception as e:
