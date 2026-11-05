@@ -6,7 +6,7 @@ import io, json, os, sys, time, uuid, shutil, threading, zipfile, re, urllib.par
 for _v in ("OMP_NUM_THREADS", "OPENBLAS_NUM_THREADS", "MKL_NUM_THREADS", "NUMEXPR_NUM_THREADS", "VECLIB_MAXIMUM_THREADS"):
     os.environ.setdefault(_v, "1")
 import gc
-from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor, as_completed
+from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor, as_completed, wait, FIRST_COMPLETED
 from pathlib import Path as FsPath
 
 import cv2, numpy as np
@@ -69,6 +69,19 @@ def require_admin(request: Request):
 
 
 
+CANCELLED_JOBS: set[str] = set()
+
+
+def is_job_cancelled(job_id: str) -> bool:
+    if job_id in CANCELLED_JOBS:
+        return True
+    j = JOBS.get(job_id)
+    if j is not None and (j.get("cancelled") or j.get("status") == "cancelled"):
+        CANCELLED_JOBS.add(job_id)
+        return True
+    return False
+
+
 def pool():
     global _POOL
     if _POOL is not None:
@@ -78,7 +91,7 @@ def pool():
         is_cloud = bool(os.environ.get("RENDER") or os.environ.get("PORT"))
         inline_env = os.environ.get("LINEWORK_INLINE", "1" if is_cloud else "0")
         use_inline = inline_env.lower() in ("1", "true", "yes")
-        default_w = 4 if is_cloud else min(4, max(2, (os.cpu_count() or 2)))
+        default_w = 4
         n = max(2, int(os.environ.get("LINEWORK_WORKERS", default_w)))
         if use_inline:
             worker.init(_Q)
@@ -115,6 +128,7 @@ def reset_pool():
 def cancel_all_jobs():
     with _LOCK:
         for jid, j in list(JOBS.items()):
+            CANCELLED_JOBS.add(jid)
             if j.get("status") in ("queued", "splitting", "running"):
                 j["status"] = "cancelled"
                 j["cancelled"] = True
@@ -127,6 +141,7 @@ def cancel_user_jobs(user_id: int):
     with _LOCK:
         for jid, j in list(JOBS.items()):
             if j.get("user_id") == user_id and j.get("status") in ("queued", "splitting", "running"):
+                CANCELLED_JOBS.add(jid)
                 j["status"] = "cancelled"
                 j["cancelled"] = True
                 j.setdefault("events", []).append(dict(engine="doctor", msg="Replaced by new upload", t=0, n=len(j.get("events", []))))
@@ -134,6 +149,7 @@ def cancel_user_jobs(user_id: int):
 
 def cancel_job_by_id(job_id: str):
     with _LOCK:
+        CANCELLED_JOBS.add(job_id)
         j = JOBS.get(job_id)
         if j and j.get("status") in ("queued", "splitting", "running"):
             j["status"] = "cancelled"
@@ -150,8 +166,11 @@ def _drain():
             ev = _Q.get()
         except Exception:
             return
-        job = JOBS.get(ev.get("job"))
-        if job is None or job.get("cancelled") or job.get("status") == "cancelled":
+        jid = ev.get("job")
+        if not jid or is_job_cancelled(jid):
+            continue
+        job = JOBS.get(jid)
+        if job is None:
             continue
         ev.pop("job", None)
         ev["n"] = len(job["events"])
@@ -366,7 +385,7 @@ def _set_pass(job_id, d, jobs, order):
     from linework import setlevel as SL
     from linework.pipeline import Options
     job = JOBS.get(job_id)
-    if job is None or job.get("cancelled") or job.get("status") == "cancelled":
+    if job is None or is_job_cancelled(job_id):
         return
     ok = [k for k, _, _ in jobs if job["icons"][k].get("metrics")]
     mets = {k: job["icons"][k]["metrics"] for k in ok}
@@ -404,7 +423,7 @@ def _set_pass(job_id, d, jobs, order):
 
 def _run_job(job_id):
     job = JOBS.get(job_id)
-    if job is None or job.get("cancelled") or job.get("status") == "cancelled":
+    if job is None or is_job_cancelled(job_id):
         return
     d = _jobdir(job_id)
     try:
@@ -412,7 +431,7 @@ def _run_job(job_id):
         gray = cv2.imread(str(d / "original.png"), 0)
         opts = Options(**job["options"])
         W, H, jobs = process_sheet(gray, opts)
-        if job.get("cancelled") or job.get("status") == "cancelled":
+        if is_job_cancelled(job_id):
             job["status"] = "cancelled"
             return
         if len(jobs) > MAX_ICONS:
@@ -427,53 +446,65 @@ def _run_job(job_id):
         order = sorted(jobs, key=lambda j: -j[1].size)
         crop_map = {k: c for k, c, off in jobs}
         off_map = {k: off for k, c, off in jobs}
-        futs = {}
+
         p = pool()
-        for k, crop, off in order:
-            if job.get("cancelled") or job.get("status") == "cancelled":
-                break
-            job["icons"][k]["status"] = "running"
-            try:
-                futs[p.submit(worker.run_icon, (job_id, k, crop, off, job["options"]))] = k
-            except Exception:
-                reset_pool()
-                p = pool()
+        pending = list(order)
+        in_flight = {}
+        MAX_PER_JOB = 2
+
+        while (pending or in_flight) and not is_job_cancelled(job_id):
+            while pending and len(in_flight) < MAX_PER_JOB and not is_job_cancelled(job_id):
+                k, crop, off = pending.pop(0)
+                job["icons"][k]["status"] = "running"
                 try:
-                    futs[p.submit(worker.run_icon, (job_id, k, crop, off, job["options"]))] = k
+                    fut = p.submit(worker.run_icon, (job_id, k, crop, off, job["options"]))
+                    in_flight[fut] = (k, crop, off)
                 except Exception:
-                    # Fallback directly to worker
-                    k_r, off_r, mj_r, met_r = worker.run_icon((job_id, k, crop, off, job["options"]))
-                    _store_icon(job, d, k_r, mj_r, off_r, met_r)
-                    job["done"] += 1
-        for fut in as_completed(futs):
-            if job.get("cancelled") or job.get("status") == "cancelled":
+                    try:
+                        k_r, off_r, mj_r, met_r = worker.run_icon((job_id, k, crop, off, job["options"]))
+                        _store_icon(job, d, k_r, mj_r, off_r, met_r)
+                        job["done"] += 1
+                    except Exception as efb:
+                        job["icons"][k].update(status="error", error=str(efb))
+
+            if not in_flight:
                 break
-            k = futs[fut]
-            ic = job["icons"][k]
-            try:
-                _, off, mj, met = fut.result()
-                _store_icon(job, d, k, mj, off, met)
-                job["done"] += 1
-            except Exception as e:
+
+            done_futs, _ = wait(list(in_flight.keys()), return_when=FIRST_COMPLETED)
+            for fut in done_futs:
+                k, crop, off = in_flight.pop(fut)
+                ic = job["icons"][k]
+                if is_job_cancelled(job_id):
+                    break
                 try:
-                    k_r, off_r, mj_r, met_r = worker.run_icon((job_id, k, crop_map[k], off_map[k], job["options"]))
-                    _store_icon(job, d, k_r, mj_r, off_r, met_r)
+                    _, off_r, mj_r, met_r = fut.result()
+                    _store_icon(job, d, k, mj_r, off_r, met_r)
                     job["done"] += 1
-                except Exception as e2:
-                    ic.update(status="error", error=str(e2))
-                    continue
-        
-        # Complete composite once for the full sheet to save RAM
-        if not (job.get("cancelled") or job.get("status") == "cancelled"):
-            _finish_composite(job_id)
-        if job.get("cancelled") or job.get("status") == "cancelled":
+                except Exception as e:
+                    if is_job_cancelled(job_id) or str(e) == "Cancelled":
+                        break
+                    try:
+                        k_r, off_r, mj_r, met_r = worker.run_icon((job_id, k, crop_map[k], off_map[k], job["options"]))
+                        _store_icon(job, d, k_r, mj_r, off_r, met_r)
+                        job["done"] += 1
+                    except Exception as e2:
+                        ic.update(status="error", error=str(e2))
+                        continue
+
+        if is_job_cancelled(job_id):
             job["status"] = "cancelled"
             return
-        try:  # set-level pass: make the icons one set (shared stroke widths) and give clearly weaker icons a longer second try
+
+        # Complete composite once for the full sheet to save RAM
+        _finish_composite(job_id)
+        if is_job_cancelled(job_id):
+            job["status"] = "cancelled"
+            return
+        try:  # set-level pass
             _set_pass(job_id, d, jobs, order)
         except Exception as e:
             job["events"].append(dict(engine="doctor", msg=f"Set-level pass skipped: {e}", t=0, n=len(job["events"])))
-        if job.get("cancelled") or job.get("status") == "cancelled":
+        if is_job_cancelled(job_id):
             job["status"] = "cancelled"
             return
         job["status"] = "done"
@@ -481,7 +512,7 @@ def _run_job(job_id):
         job["seconds"] = round(time.time() - job["created"], 1)
         (d / "job.json").write_text(json.dumps({k: v for k, v in job.items() if k != "events"}))
     except Exception as e:
-        if not (job.get("cancelled") or job.get("status") == "cancelled"):
+        if not is_job_cancelled(job_id):
             job["status"] = "error"
             job["error"] = str(e)
 
@@ -498,9 +529,8 @@ def lessons():
 @app.post("/api/cache/clear")
 def clear_cache():
     from linework import lessons as LS
-    cancel_all_jobs()
     cleared = LS.clear()
-    return dict(ok=True, message="Cache cleared, all active jobs cancelled, and worker pool reset", cleared=cleared)
+    return dict(ok=True, message="Cache cleared and lessons reset", cleared=cleared)
 
 
 @app.post("/api/jobs/{job_id}/cancel")
@@ -543,8 +573,7 @@ async def create_job(
 
 def _start(gray, name, quality, clean, target, fresh: bool = True, user_id: int = None):
     _sweep_old()
-    if user_id is not None:
-        cancel_user_jobs(user_id)
+    # Concurrency safe: do not cancel active jobs on new upload; allow simultaneous multi-user and multi-tab workflows
     if quality not in PRESETS:
         quality = "standard"
     job_id = uuid.uuid4().hex[:12]

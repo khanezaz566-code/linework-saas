@@ -27,7 +27,23 @@ def run_icon(args):
     job_id, k, crop, off, opts = args
     name = f"icon{k + 1}"
 
+    # Fast cancellation check before doing heavy work
+    try:
+        from server import app as _app
+        if getattr(_app, "is_job_cancelled", None) and _app.is_job_cancelled(job_id):
+            raise RuntimeError("Cancelled")
+    except Exception as e:
+        if str(e) == "Cancelled":
+            raise
+
     def emit(**kw):
+        try:
+            from server import app as _app
+            if getattr(_app, "is_job_cancelled", None) and _app.is_job_cancelled(job_id):
+                raise RuntimeError("Cancelled")
+        except Exception as e:
+            if str(e) == "Cancelled":
+                raise
         if _Q is not None:
             kw.update(job=job_id, k=k)
             _Q.put(kw)

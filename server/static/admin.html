@@ -862,7 +862,7 @@
 
   <script>
     const state = {
-      token: localStorage.getItem('lw_admin_token') || localStorage.getItem('lw_token') || '',
+      token: sessionStorage.getItem('lw_admin_token') || localStorage.getItem('lw_admin_token') || '',
       allUsers: [],
       currentFilter: 'all',
       autoRefresh: true,
@@ -922,8 +922,8 @@
           throw new Error('Access denied. Administrator privileges required.');
         }
         state.token = data.token;
+        sessionStorage.setItem('lw_admin_token', data.token);
         localStorage.setItem('lw_admin_token', data.token);
-        localStorage.setItem('lw_token', data.token);
         hideAuthScreen();
         loadAllData();
         startAutoRefresh();
@@ -934,6 +934,7 @@
     });
 
     document.getElementById('btnAdminLogout').addEventListener('click', () => {
+      sessionStorage.removeItem('lw_admin_token');
       localStorage.removeItem('lw_admin_token');
       state.token = '';
       showAuthScreen();

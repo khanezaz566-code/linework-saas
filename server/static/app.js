@@ -30,9 +30,15 @@
     toast.t = setTimeout(() => t.className = 'toast', 3400);
   };
 
+  const getStoredToken = () => {
+    return (window.LineworkAuth && window.LineworkAuth.token) ||
+           sessionStorage.getItem('lw_token') ||
+           localStorage.getItem('lw_token') || '';
+  };
+
   const api = (p, o = {}) => {
     o.headers = o.headers || {};
-    const tok = localStorage.getItem('lw_token');
+    const tok = getStoredToken();
     if (tok && !o.headers['Authorization']) {
       o.headers['Authorization'] = 'Bearer ' + tok;
     }
@@ -1768,13 +1774,17 @@
   // Linework AI SaaS Authentication, Quota, Payment & Support Engine
   // =========================================================================
   const LineworkAuth = {
-    token: localStorage.getItem('lw_token') || '',
+    token: sessionStorage.getItem('lw_token') || localStorage.getItem('lw_token') || '',
     user: null,
     pendingAction: null,
 
     async init() {
       this.bindEvents();
+      if (!this.token) {
+        this.token = sessionStorage.getItem('lw_token') || localStorage.getItem('lw_token') || '';
+      }
       if (this.token) {
+        sessionStorage.setItem('lw_token', this.token);
         try {
           const res = await fetch('/api/auth/me', {
             headers: { 'Authorization': 'Bearer ' + this.token }
@@ -1877,6 +1887,7 @@
             if (!r.ok) throw new Error(data.detail || 'Registration failed');
 
             this.token = data.token;
+            sessionStorage.setItem('lw_token', data.token);
             localStorage.setItem('lw_token', data.token);
             this.setLoggedInUser(data.user);
             this.hideAuth();
@@ -1918,6 +1929,7 @@
             if (!r.ok) throw new Error(data.detail || 'Login failed');
 
             this.token = data.token;
+            sessionStorage.setItem('lw_token', data.token);
             localStorage.setItem('lw_token', data.token);
             this.setLoggedInUser(data.user);
             this.hideAuth();
@@ -2034,6 +2046,7 @@
     setLoggedOut() {
       this.user = null;
       this.token = '';
+      sessionStorage.removeItem('lw_token');
       localStorage.removeItem('lw_token');
 
       const qPill = $('#userQuotaPill');
@@ -2197,7 +2210,7 @@
 
   // Live Presence Heartbeat (pings server immediately, every 20s, and on user activity)
   function sendLivePing() {
-    const token = (window.LineworkAuth && window.LineworkAuth.token) || localStorage.getItem('lw_token');
+    const token = getStoredToken();
     if (token) {
       fetch('/api/auth/ping', {
         headers: { 'Authorization': 'Bearer ' + token }

@@ -16,11 +16,11 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy application files
 COPY . .
 
-# Production optimizations (Single-process shared memory to stay within 512MB RAM without crashes)
+# Production optimizations (Single-process shared memory with 4 worker threads)
 ENV PYTHONUNBUFFERED=1
 ENV RELOAD=0
 ENV LINEWORK_INLINE=1
-ENV LINEWORK_WORKERS=2
+ENV LINEWORK_WORKERS=4
 ENV PORT=8000
 EXPOSE 8000
 
