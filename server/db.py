@@ -11,7 +11,7 @@ import sys
 import sqlite3
 import hashlib
 import secrets
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, date
 from pathlib import Path
 
 try:
@@ -28,10 +28,54 @@ if DATABASE_URL and DATABASE_URL.startswith("postgres://"):
 IS_POSTGRES = bool(DATABASE_URL and PSYCOPG2_AVAILABLE)
 
 
+class PgRow(dict):
+    """Dictionary-like and tuple-like row wrapper for PostgreSQL cursor results.
+    Ensures datetime and Decimal fields serialize seamlessly to JSON without 500 errors.
+    """
+    def __init__(self, cur, row):
+        if row is None:
+            super().__init__()
+            self._vals = []
+            return
+        desc = getattr(cur, "description", None)
+        if desc:
+            cols = [d[0] for d in desc]
+        else:
+            cols = [f"col_{i}" for i in range(len(row))]
+        cleaned = []
+        for v in row:
+            if isinstance(v, (datetime, date)):
+                cleaned.append(v.strftime("%Y-%m-%d %H:%M:%S"))
+            elif hasattr(v, "as_tuple"):
+                cleaned.append(float(v))
+            else:
+                cleaned.append(v)
+        super().__init__(zip(cols, cleaned))
+        self._vals = cleaned
+
+    def __getitem__(self, key):
+        if isinstance(key, int):
+            return self._vals[key]
+        return super().__getitem__(key)
+
+
 class PostgresCursorWrapper:
     def __init__(self, cur):
         self.cur = cur
         self.lastrowid = None
+
+    @property
+    def description(self):
+        return self.cur.description
+
+    @property
+    def rowcount(self):
+        return self.cur.rowcount
+
+    def _wrap(self, row):
+        if row is None:
+            return None
+        return PgRow(self.cur, row)
 
     def execute(self, query, params=None):
         pg_query = query.replace("?", "%s")
@@ -57,13 +101,22 @@ class PostgresCursorWrapper:
         return self
 
     def fetchone(self):
-        return self.cur.fetchone()
+        row = self.cur.fetchone()
+        return self._wrap(row)
 
     def fetchall(self):
-        return self.cur.fetchall()
+        rows = self.cur.fetchall()
+        return [self._wrap(r) for r in rows]
+
+    def close(self):
+        try:
+            self.cur.close()
+        except Exception:
+            pass
 
     def __iter__(self):
-        return iter(self.cur)
+        for r in self.cur:
+            yield self._wrap(r)
 
 
 class PostgresConnectionWrapper:
@@ -71,7 +124,7 @@ class PostgresConnectionWrapper:
         self.raw_conn = raw_conn
 
     def cursor(self):
-        return PostgresCursorWrapper(self.raw_conn.cursor(cursor_factory=psycopg2.extras.DictCursor))
+        return PostgresCursorWrapper(self.raw_conn.cursor())
 
     def execute(self, query, params=None):
         cur = self.cursor()
