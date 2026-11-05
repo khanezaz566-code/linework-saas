@@ -98,6 +98,13 @@
   // ---------------------------------------------------------------- upload & samples
   const drop = $('#drop'), file = $('#file');
   if (drop && file) {
+    drop.addEventListener('click', e => {
+      if (!window.LineworkAuth || !window.LineworkAuth.user) {
+        e.preventDefault();
+        e.stopPropagation();
+        if (window.LineworkAuth) window.LineworkAuth.requireLogin(null, true);
+      }
+    }, true);
     drop.addEventListener('keydown', e => {
       if (e.key === 'Enter' || e.key === ' ') {
         e.preventDefault();
@@ -1589,8 +1596,8 @@
           };
           document.head.appendChild(s);
         }
-        addScript('/static/bgstudio/bg-generator.js?v=1.5.0', () => {
-          addScript('/static/bgstudio/bg-studio.js?v=1.5.0', () => {
+        addScript('/static/bgstudio/bg-generator.js?v=2.2.0', () => {
+          addScript('/static/bgstudio/bg-studio.js?v=2.2.0', () => {
             resolve();
           });
         });
@@ -1775,15 +1782,14 @@
           const data = await res.json();
           if (data.logged_in && data.user) {
             this.setLoggedInUser(data.user);
-          } else {
-            this.setLoggedOut();
+            const m = $('#authModal');
+            if (m) m.style.display = 'none';
+            return;
           }
-        } catch {
-          this.setLoggedOut();
-        }
-      } else {
-        this.setLoggedOut();
+        } catch {}
       }
+      this.setLoggedOut();
+      this.requireLogin(null, true);
     },
 
     bindEvents() {
@@ -2046,13 +2052,21 @@
       if (admNav) admNav.style.display = 'none';
     },
 
-    requireLogin(actionCallback) {
+    requireLogin(actionCallback, mandatory = false) {
       this.pendingAction = actionCallback || null;
       const m = $('#authModal');
+      const closeBtn = $('#closeAuthModal');
+      if (closeBtn) {
+        closeBtn.style.display = (mandatory || !this.user) ? 'none' : 'block';
+      }
       if (m) m.style.display = 'flex';
     },
 
     hideAuth() {
+      if (!this.user) {
+        toast('Please create a free account or sign in to continue.', 1);
+        return;
+      }
       const m = $('#authModal');
       if (m) m.style.display = 'none';
     },

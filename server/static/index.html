@@ -1112,6 +1112,22 @@
 
 <!-- 1. Mandatory Auth Modal -->
 <div class="modal-backdrop" id="authModal" style="display:none;">
+
+<script>
+  (function() {
+    try {
+      if (!localStorage.getItem('lw_token')) {
+        var m = document.getElementById('authModal');
+        if (m) {
+          m.style.display = 'flex';
+          var c = document.getElementById('closeAuthModal');
+          if (c) c.style.display = 'none';
+        }
+      }
+    } catch(e) {}
+  })();
+</script>
+
   <div class="saas-modal-card">
     <div class="saas-modal-head">
       <h3>
@@ -1438,6 +1454,6 @@
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
 <!-- Application Script -->
-<script src="/static/app.js?v=1.4.0"></script>
+<script src="/static/app.js?v=2.2.0"></script>
 </body>
 </html>
