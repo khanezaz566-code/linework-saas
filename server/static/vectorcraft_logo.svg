@@ -1,0 +1,77 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256">
+  <defs>
+    <!-- Background Radial Glow -->
+    <radialGradient id="vcGlow" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#00ffd5" stop-opacity="0.18"/>
+      <stop offset="60%" stop-color="#00a8ff" stop-opacity="0.06"/>
+      <stop offset="100%" stop-color="#05080c" stop-opacity="0"/>
+    </radialGradient>
+    
+    <!-- Vector Wing Gradients -->
+    <linearGradient id="vcLeftWing" x1="20%" y1="20%" x2="50%" y2="85%">
+      <stop offset="0%" stop-color="#00ffd5"/>
+      <stop offset="60%" stop-color="#00e599"/>
+      <stop offset="100%" stop-color="#00a8ff"/>
+    </linearGradient>
+
+    <linearGradient id="vcRightWing" x1="80%" y1="20%" x2="50%" y2="85%">
+      <stop offset="0%" stop-color="#38bdf8"/>
+      <stop offset="50%" stop-color="#00a8ff"/>
+      <stop offset="100%" stop-color="#00ffd5"/>
+    </linearGradient>
+
+    <!-- Pen / Apex Diamond Gradient -->
+    <linearGradient id="vcDiamond" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#ffffff"/>
+      <stop offset="40%" stop-color="#00ffd5"/>
+      <stop offset="100%" stop-color="#00a8ff"/>
+    </linearGradient>
+
+    <!-- Handle Line Glow -->
+    <filter id="neonBlur" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur stdDeviation="3" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+
+  <!-- Ambient Glow -->
+  <circle cx="128" cy="128" r="110" fill="url(#vcGlow)"/>
+
+  <!-- Tangent Construction Lines (Faint Technical Grid) -->
+  <line x1="42" y1="56" x2="88" y2="38" stroke="rgba(0, 255, 213, 0.35)" stroke-dasharray="3 3" stroke-width="1.5"/>
+  <line x1="214" y1="56" x2="168" y2="38" stroke="rgba(56, 189, 248, 0.35)" stroke-dasharray="3 3" stroke-width="1.5"/>
+
+  <!-- Left Precision Handle Point -->
+  <circle cx="88" cy="38" r="3.5" fill="#00ffd5"/>
+  <!-- Right Precision Handle Point -->
+  <circle cx="168" cy="38" r="3.5" fill="#38bdf8"/>
+
+  <!-- Main Vector V Ribs (Glow Layer) -->
+  <path d="M42 56 C74 116 98 168 128 206 C158 168 182 116 214 56 C190 92 168 126 128 144 C88 126 66 92 42 56 Z" 
+        fill="none" stroke="#00ffd5" stroke-width="10" stroke-linejoin="round" opacity="0.3" filter="url(#neonBlur)"/>
+
+  <!-- Left Sweeping Wing -->
+  <path d="M42 56 C76 116 100 168 128 206 C112 170 94 136 68 88 Z" fill="url(#vcLeftWing)"/>
+
+  <!-- Right Sweeping Wing -->
+  <path d="M214 56 C180 116 156 168 128 206 C144 170 162 136 188 88 Z" fill="url(#vcRightWing)"/>
+
+  <!-- Center Floating Vector Diamond (Pen Nib Node) -->
+  <polygon points="128,78 148,110 128,142 108,110" fill="url(#vcDiamond)" stroke="#05080c" stroke-width="2.5"/>
+  <circle cx="128" cy="110" r="3.5" fill="#05080c"/>
+
+  <!-- Vector Anchor Nodes (Square Anchors) -->
+  <!-- Top Left Anchor -->
+  <rect x="36" y="50" width="12" height="12" rx="2.5" fill="#05080c" stroke="#00ffd5" stroke-width="2.5"/>
+  <rect x="39" y="53" width="6" height="6" fill="#00ffd5"/>
+
+  <!-- Top Right Anchor -->
+  <rect x="208" y="50" width="12" height="12" rx="2.5" fill="#05080c" stroke="#38bdf8" stroke-width="2.5"/>
+  <rect x="211" y="53" width="6" height="6" fill="#38bdf8"/>
+
+  <!-- Bottom Apex Anchor -->
+  <polygon points="128,198 135,206 128,214 121,206" fill="#ffffff" stroke="#00ffd5" stroke-width="2"/>
+</svg>

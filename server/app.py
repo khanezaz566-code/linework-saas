@@ -281,13 +281,35 @@ def _store_icon(job, d, k, mj, off, met):
     (d / f"icon_{k}.svg").write_text(_tight_svg(m))
     m.translate(*off)
     (d / f"icon_{k}.json").write_text(m.to_json())
-    job["icons"][k].update(status="done", stage="done", metrics=met, iou=met["iou"])
+    drep = met.get("decision")
+    if drep:
+        try:
+            (d / f"icon_decision_{k}.json").write_text(json.dumps(drep))
+        except Exception:
+            pass
+    clean = bool(met.get("clean", True))
+    needs_review = bool(met.get("needs_review", not clean))
+    iou = float(met.get("iou", 0.0))
+    hard = int(met.get("hard", drep.get("after", {}).get("hard", 0) if drep else 0))
+    structural_match = float(met.get("structural_match", 1.0))
+    job["icons"][k].update(
+        status="done",
+        stage="done",
+        metrics=met,
+        iou=iou,
+        match=iou,
+        clean=clean,
+        needs_review=needs_review,
+        structural_match=structural_match,
+        hard=hard,
+        decision=drep
+    )
     job["version"] += 1
 
 
 def _set_pass(job_id, d, jobs, order):
     from linework import setlevel as SL
-    from linework.pipeline import second_pass_options
+    from linework.pipeline import Options
     job = JOBS.get(job_id)
     if job is None or job.get("cancelled") or job.get("status") == "cancelled":
         return
@@ -298,25 +320,24 @@ def _set_pass(job_id, d, jobs, order):
     weak = SL.weak_icons([mets[k] for k in ok])
     weak = [ok[i] for i in weak]
     if weak:
-        job["events"].append(dict(engine="doctor", msg=f"Set check: {len(weak)} icon(s) are weaker than the rest of the set, giving them a longer second pass", t=0, n=len(job["events"])))
-        o2 = second_pass_options(Options(**job["options"]))
-        futs = {pool().submit(worker.run_icon, (job_id, k, crops[k], offs[k], o2)): k for k in weak}
-        for fut in as_completed(futs):
-            k = futs[fut]
-            try:
-                _, off, mj, met = fut.result()
-            except Exception as e:
-                if "BrokenProcessPool" in type(e).__name__ or "Broken" in str(e):
-                    reset_pool()
-                    try:
-                        _, off, mj, met = worker.run_icon((job_id, k, crops[k], offs[k], o2))
-                    except Exception:
-                        continue
-                else:
-                    continue
-            if SL.better(mets[k], met):
-                _store_icon(job, d, k, mj, off, met)
-                mets[k] = met
+        job["events"].append(dict(engine="doctor", msg=f"Set check: {len(weak)} icon(s) need escalation / second pass", t=0, n=len(job["events"])))
+        base_opts = Options(**job["options"])
+        sheet_budget = max(90.0, len(jobs) * 20.0)
+        deadline = time.time() + sheet_budget
+        for k in weak:
+            if time.time() > deadline or job.get("cancelled"):
+                break
+            cur_m = Model.from_json((d / f"icon_local_{k}.json").read_text())
+            cur_met = mets[k]
+            m_esc, met_esc = SL.escalate_weak_icon(
+                crops[k], offs[k], base_opts, cur_m, cur_met,
+                emit=lambda **kw: job["events"].append(dict(kw, job=job_id, k=k, t=0, n=len(job["events"]))),
+                name=f"icon{k+1}",
+                sheet_deadline=deadline
+            )
+            if SL.result_key(m_esc, met_esc) < SL.result_key(cur_m, cur_met):
+                _store_icon(job, d, k, m_esc.to_json(), offs[k], met_esc)
+                mets[k] = met_esc
     models = [Model.from_json((d / f"icon_local_{k}.json").read_text()) for k in ok]
     new, rep = SL.harmonize_widths(models, [crops[k] for k in ok])
     for k, m0, m1 in zip(ok, models, new):
@@ -543,6 +564,49 @@ def icon_svg(job_id: str, k: int, stroke: str = "#000000", scale: float = 1.0, d
     svg = _tight_svg(m, stroke=stroke, scale=float(np.clip(scale, 0.2, 4)))
     headers = {"Content-Disposition": f'attachment; filename="icon-{int(k) + 1:02d}.svg"'} if download else {}
     return Response(svg, media_type="image/svg+xml", headers=headers)
+
+
+@app.get("/api/jobs/{job_id}/icons/{k}/decision")
+def icon_decision(job_id: str, k: int):
+    j = _get(job_id)
+    if k < 0 or k >= len(j["icons"]):
+        raise HTTPException(404, "Icon index out of range")
+    dec = j["icons"][k].get("decision")
+    if not dec:
+        fn = _jobdir(job_id) / f"icon_decision_{k}.json"
+        if fn.exists():
+            try:
+                dec = json.loads(fn.read_text())
+            except Exception:
+                pass
+    if not dec:
+        raise HTTPException(404, "Decision report not available for this icon")
+    return JSONResponse(dec)
+
+
+@app.get("/api/jobs/{job_id}/icons/{k}/diff.png")
+def icon_diff_png(job_id: str, k: int):
+    j = _get(job_id)
+    if k < 0 or k >= len(j["icons"]):
+        raise HTTPException(404, "Icon not found")
+    d = _jobdir(job_id)
+    local_fn = d / f"icon_local_{k}.json"
+    if not local_fn.exists():
+        raise HTTPException(404, "Icon vector not found")
+    m = Model.from_json(local_fn.read_text())
+    crop = _icon_crop(job_id, k)
+    if crop is None:
+        raise HTTPException(404, "Icon crop not found")
+    D = ink_map(crop)
+    S = D > 0.5
+    img = render_gray(m.svg(), m.width, m.height)
+    R = img < 128
+    dm = np.full(S.shape + (3,), 255, np.uint8)
+    dm[S & R] = (200, 200, 200)       # matching ink: grey
+    dm[S & ~R] = (60, 60, 235)        # source only (missing): red in BGR
+    dm[~S & R] = (40, 140, 255)       # render only (extra): orange in BGR
+    ok, buf = cv2.imencode(".png", dm)
+    return Response(buf.tobytes(), media_type="image/png", headers={"Cache-Control": "no-store"})
 
 
 

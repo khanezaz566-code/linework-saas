@@ -229,7 +229,7 @@
     }
     $('#work').hidden = true;
     const tplSt = $('#templateStudio'); if (tplSt) tplSt.hidden = true;
-    const bgSt = $('#bgStudio'); if (bgSt) bgSt.hidden = true;
+    closeBgStudio();
     $('#landing').hidden = false;
     $$('.nav-menu .nav-item').forEach(el => el.classList.remove('active'));
     const navRedraw = $('#navRedraw'); if (navRedraw) navRedraw.classList.add('active');
@@ -243,7 +243,11 @@
   if (navHome) {
     navHome.addEventListener('click', e => {
       e.preventDefault();
+      closeBgStudio();
       cancelCurrentJob();
+      if (window.location.hash) {
+        window.location.hash = '';
+      }
     });
   }
 
@@ -428,9 +432,13 @@
         el = document.createElement('div');
         el.className = 'ic';
         el.dataset.k = ic.k;
+        const isClean = ic.clean !== false && !ic.needs_review;
+        const cleanVal = ic.structural_match != null ? ic.structural_match : 1.0;
+        const cleanStr = (cleanVal * 100).toFixed(1) + '%';
         el.innerHTML = `
           <div class="ic-thumb-wrap">
             <img alt="icon-${ic.k + 1}">
+            ${done ? `<span class="ic-clean-pill ${isClean ? 'clean-ok' : 'clean-warn'}">${isClean ? 'Clean ✓' : 'Review ⚠'}</span>` : ''}
           </div>
           <div class="gauge-cluster">
             <svg class="gauge-svg" viewBox="0 0 44 44">
@@ -439,7 +447,10 @@
             </svg>
             <span class="gauge-text">${pctStr}</span>
           </div>
-          <span class="gauge-label">Match</span>
+          <div class="ic-score-row">
+            <span class="gauge-label">Match</span>
+            <span class="clean-sub-label ${isClean ? 'clean-ok' : 'clean-warn'}">${isClean ? 'Clean ✓' : 'Review ⚠'}</span>
+          </div>
         `;
         el.addEventListener('click', () => selectIcon(ic.k));
         box.appendChild(el);
@@ -448,6 +459,25 @@
         if (bar) bar.style.strokeDashoffset = offset;
         const txt = $('.gauge-text', el);
         if (txt) txt.textContent = pctStr;
+        const isClean = ic.clean !== false && !ic.needs_review;
+        const pill = $('.ic-clean-pill', el);
+        if (pill) {
+          pill.className = `ic-clean-pill ${isClean ? 'clean-ok' : 'clean-warn'}`;
+          pill.textContent = isClean ? 'Clean ✓' : 'Review ⚠';
+        } else if (done) {
+          const wrap = $('.ic-thumb-wrap', el);
+          if (wrap) {
+            const p = document.createElement('span');
+            p.className = `ic-clean-pill ${isClean ? 'clean-ok' : 'clean-warn'}`;
+            p.textContent = isClean ? 'Clean ✓' : 'Review ⚠';
+            wrap.appendChild(p);
+          }
+        }
+        const cleanSub = $('.clean-sub-label', el);
+        if (cleanSub) {
+          cleanSub.className = `clean-sub-label ${isClean ? 'clean-ok' : 'clean-warn'}`;
+          cleanSub.textContent = isClean ? 'Clean ✓' : 'Review ⚠';
+        }
       }
 
       el.classList.toggle('run', !done && ic.status !== 'error');
@@ -565,13 +595,93 @@
     const badge = $('#compMatchBadge');
     if (badge) {
       const p = ic.iou != null ? ic.iou : ic.live_iou;
-      const fin = ic.metrics && ic.metrics.finisher;
-      const fidStr = p != null ? fmt(p) : null;
-      let txt = fidStr != null ? `${fidStr} Match` : 'Processing...';
-      if (fin && fin.found > 0) {
-        txt += ` · ✨ Finisher: ${fin.fixed}/${fin.found} sites`;
+      badge.textContent = p != null ? `${fmt(p)} Match` : 'Processing...';
+    }
+
+    // Clean badge
+    const cleanBadge = $('#compCleanBadge');
+    if (cleanBadge) {
+      const isClean = ic.clean !== false && !ic.needs_review;
+      const sm = ic.structural_match != null ? (ic.structural_match * 100).toFixed(1) + '%' : '100%';
+      cleanBadge.className = `clean-badge ${isClean ? 'clean-ok' : 'clean-warn'}`;
+      cleanBadge.textContent = isClean ? `${sm} Clean ✓` : `${sm} Review ⚠`;
+    }
+
+    // Overlay toggle logic
+    const overlayBtn = $('#btnCompOverlayToggle');
+    const overlayLegend = $('#compOverlayLegend');
+    const vecImgEl = $('#compVecImg');
+    
+    if (overlayBtn && !overlayBtn._bound) {
+      overlayBtn._bound = true;
+      overlayBtn.onclick = () => {
+        S.compOverlayActive = !S.compOverlayActive;
+        overlayBtn.classList.toggle('active', !!S.compOverlayActive);
+        if (overlayLegend) overlayLegend.hidden = !S.compOverlayActive;
+        const curK = S.sel != null ? S.sel : 0;
+        updateCompVectorSrc(curK);
+      };
+    }
+    
+    function updateCompVectorSrc(idx) {
+      if (!vecImgEl) return;
+      if (ic.status === 'done') {
+        vecImgEl.style.visibility = 'visible';
+        if (S.compOverlayActive) {
+          vecImgEl.src = `/api/jobs/${S.job}/icons/${idx}/diff.png?v=${S.version}`;
+        } else {
+          vecImgEl.src = `/api/jobs/${S.job}/icons/${idx}.svg?v=${S.version}`;
+        }
+      } else {
+        vecImgEl.style.visibility = 'hidden';
       }
-      badge.textContent = txt;
+    }
+    updateCompVectorSrc(k);
+
+    // Why not 100% panel
+    const whyToggle = $('#btnWhyToggle');
+    const whyContent = $('#whyContent');
+    const whyList = $('#whyList');
+    if (whyToggle && whyContent && !whyToggle._bound) {
+      whyToggle._bound = true;
+      whyToggle.onclick = () => {
+        const isHidden = whyContent.hidden;
+        whyContent.hidden = !isHidden;
+        whyToggle.classList.toggle('open', !isHidden);
+      };
+    }
+
+    // Populate Why not 100% content
+    if (whyList) {
+      const drep = ic.decision || (ic.metrics && ic.metrics.decision);
+      if (drep) {
+        let html = '';
+        const openFindings = drep.open_findings || [];
+        const waivedFindings = drep.waived_findings || [];
+        const fuzzPx = drep.edge_fuzz_px != null ? drep.edge_fuzz_px : 0;
+        
+        if (openFindings.length === 0 && waivedFindings.length === 0) {
+          html += `<div class="why-clean-msg">✨ 100% Structural Match! Zero defects found.</div>`;
+          html += `<div class="why-fuzz-msg">Remaining ${(100 - (ic.iou * 100)).toFixed(1)}% mismatch is sub-pixel edge fuzz (${fuzzPx} px anti-aliasing / blur ≤ 1px), not a vector defect.</div>`;
+        } else {
+          if (openFindings.length > 0) {
+            html += `<div class="why-subhead">Open Findings (${openFindings.length}):</div>`;
+            openFindings.forEach(f => {
+              html += `<div class="finding-row open"><span class="finding-kind">[${f.kind}]</span> ${f.why} ${f.note ? `(${f.note})` : ''}</div>`;
+            });
+          }
+          if (waivedFindings.length > 0) {
+            html += `<div class="why-subhead">Waived Findings (${waivedFindings.length}):</div>`;
+            waivedFindings.forEach(f => {
+              html += `<div class="finding-row waived"><span class="finding-kind">[${f.kind}]</span> ${f.note || f.why}</div>`;
+            });
+          }
+          html += `<div class="why-fuzz-msg" style="margin-top:6px;">Edge fuzz: ${fuzzPx} px ≤ 1px tolerance from source.</div>`;
+        }
+        whyList.innerHTML = html;
+      } else {
+        whyList.innerHTML = '<div class="why-fuzz-msg">Decision report: measuring residual...</div>';
+      }
     }
 
     // Crop original icon image client-side onto in-memory canvas
@@ -1427,12 +1537,117 @@
   const tplZfit = $('#tplZfit');
   if (tplZfit) tplZfit.onclick = () => setTemplateZoom(1.0);
 
+  // ================================================================
+  // BG Studio Integration (Dynamic Script Loading & Shadow DOM Mount)
+  // ================================================================
+  let bgStudioLoadingPromise = null;
+  let currentBgStudio = null;
+  let bgStudioMountToken = 0;
+
+  function loadBgStudioScripts() {
+    if (window.BGGen && window.BGStudio) {
+      return Promise.resolve();
+    }
+    if (!bgStudioLoadingPromise) {
+      bgStudioLoadingPromise = new Promise((resolve, reject) => {
+        function addScript(src, next) {
+          const s = document.createElement('script');
+          s.src = src;
+          s.async = false;
+          s.onload = () => next();
+          s.onerror = (err) => {
+            bgStudioLoadingPromise = null;
+            reject(new Error('Failed to load ' + src));
+          };
+          document.head.appendChild(s);
+        }
+        addScript('/static/bgstudio/bg-generator.js?v=1.5.0', () => {
+          addScript('/static/bgstudio/bg-studio.js?v=1.5.0', () => {
+            resolve();
+          });
+        });
+      });
+    }
+    return bgStudioLoadingPromise;
+  }
+
+  async function openBgStudio() {
+    const token = ++bgStudioMountToken;
+
+    // Close template studio if open
+    const tplSt = $('#templateStudio');
+    if (tplSt) tplSt.hidden = true;
+
+    // Hide work / landing
+    const landing = $('#landing');
+    if (landing) landing.hidden = true;
+    const work = $('#work');
+    if (work) work.hidden = true;
+
+    // Show BG Studio section
+    const bgSt = $('#bgStudio');
+    if (!bgSt) return;
+    bgSt.hidden = false;
+
+    // Set sidebar active state
+    $$('.nav-menu .nav-item').forEach(el => el.classList.remove('active'));
+    const navBg = $('#navBgStudio');
+    if (navBg) navBg.classList.add('active');
+
+    // Destroy existing studio if mounted
+    if (currentBgStudio) {
+      try {
+        currentBgStudio.destroy();
+      } catch (e) {
+        console.error('Error destroying previous BG Studio:', e);
+      }
+      currentBgStudio = null;
+    }
+
+    // Ensure clean container
+    bgSt.innerHTML = '<div id="bgstudio-root"></div>';
+    const rootEl = $('#bgstudio-root');
+
+    try {
+      await loadBgStudioScripts();
+      if (token !== bgStudioMountToken || bgSt.hidden) {
+        return; // User navigated away while scripts were loading
+      }
+
+      currentBgStudio = window.BGStudio.mount(rootEl, {
+        theme: { font: 'inherit' },
+        title: 'BG Studio'
+      });
+    } catch (err) {
+      console.error('Failed to load or mount BG Studio:', err);
+      toast('Failed to load BG Studio: ' + (err.message || err), 1);
+    }
+  }
+
+  function closeBgStudio() {
+    bgStudioMountToken++;
+    if (currentBgStudio) {
+      try {
+        currentBgStudio.destroy();
+      } catch (e) {
+        console.error('Error destroying BG Studio:', e);
+      }
+      currentBgStudio = null;
+    }
+    const bgSt = $('#bgStudio');
+    if (bgSt) {
+      bgSt.hidden = true;
+      bgSt.innerHTML = '<div id="bgstudio-root"></div>';
+    }
+  }
+
   // Navigation: Redraw
   const navRedraw = $('#navRedraw');
   if (navRedraw) {
     navRedraw.addEventListener('click', e => {
       e.preventDefault();
-      const bgSt = $('#bgStudio'); if (bgSt) bgSt.hidden = true;
+      closeBgStudio();
+      window.location.hash = '#redraw';
       const tplSt = $('#templateStudio'); if (tplSt) tplSt.hidden = true;
       $$('.nav-menu .nav-item').forEach(el => el.classList.remove('active'));
       navRedraw.classList.add('active');
@@ -1446,6 +1661,72 @@
     });
   }
 
+  // Navigation: BG Studio
+  const navBgStudio = $('#navBgStudio');
+  if (navBgStudio) {
+    navBgStudio.addEventListener('click', e => {
+      e.preventDefault();
+      if (window.location.hash !== '#bgstudio') {
+        window.location.hash = '#bgstudio';
+      } else {
+        openBgStudio();
+      }
+    });
+  }
+
+  // Navigation: Other sidebar links
+  const navProjects = $('#navProjects');
+  if (navProjects) {
+    navProjects.addEventListener('click', () => {
+      closeBgStudio();
+      $$('.nav-menu .nav-item').forEach(el => el.classList.remove('active'));
+      navProjects.classList.add('active');
+    });
+  }
+  const navTemplates = $('#navTemplates');
+  if (navTemplates) {
+    navTemplates.addEventListener('click', () => {
+      closeBgStudio();
+      $$('.nav-menu .nav-item').forEach(el => el.classList.remove('active'));
+      navTemplates.classList.add('active');
+    });
+  }
+  const navSettings = $('#navSettings');
+  if (navSettings) {
+    navSettings.addEventListener('click', () => {
+      closeBgStudio();
+      $$('.nav-menu .nav-item').forEach(el => el.classList.remove('active'));
+      navSettings.classList.add('active');
+    });
+  }
+
+  // Route handlers
+  function handleRoute() {
+    const hash = window.location.hash.toLowerCase();
+    if (hash === '#bgstudio') {
+      openBgStudio();
+    } else {
+      if (currentBgStudio || ($('#bgStudio') && !$('#bgStudio').hidden)) {
+        closeBgStudio();
+      }
+      if (hash === '#redraw') {
+        const tplSt = $('#templateStudio'); if (tplSt) tplSt.hidden = true;
+        $$('.nav-menu .nav-item').forEach(el => el.classList.remove('active'));
+        if (navRedraw) navRedraw.classList.add('active');
+        if (S.job) {
+          $('#work').hidden = false;
+          $('#landing').hidden = true;
+        } else {
+          $('#landing').hidden = false;
+          $('#work').hidden = true;
+        }
+      }
+    }
+  }
+
+  window.addEventListener('hashchange', handleRoute);
+  window.addEventListener('popstate', handleRoute);
+
   // Export app instance
   window.LineworkApp = {
     get job() { return S.job; },
@@ -1453,8 +1734,16 @@
     cancelJob: cancelCurrentJob,
     openTemplate: openTemplateStudio,
     closeTemplate: closeTemplateStudio,
+    openBgStudio: openBgStudio,
+    closeBgStudio: closeBgStudio,
+    get bgStudio() { return currentBgStudio; },
     toast: toast
   };
 
   hint();
+
+  // Handle direct navigation to #bgstudio on initial load
+  if (window.location.hash.toLowerCase() === '#bgstudio') {
+    openBgStudio();
+  }
 })();

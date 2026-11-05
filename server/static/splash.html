@@ -1,0 +1,186 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>VectorCraft AI — Starting Studio...</title>
+<style>
+  * {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+  }
+  body {
+    background-color: #05080c;
+    color: #f1f5f9;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    user-select: none;
+    transition: opacity 0.35s ease;
+  }
+  body.fade-out {
+    opacity: 0;
+  }
+  .splash-container {
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    max-width: 440px;
+    padding: 30px;
+    position: relative;
+  }
+  .ambient-glow {
+    position: absolute;
+    width: 320px;
+    height: 320px;
+    background: radial-gradient(circle, rgba(0, 255, 213, 0.14) 0%, rgba(0, 168, 255, 0.05) 50%, transparent 70%);
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    pointer-events: none;
+    z-index: 0;
+    animation: pulseGlow 3s ease-in-out infinite alternate;
+  }
+  @keyframes pulseGlow {
+    0% { transform: translate(-50%, -50%) scale(0.9); opacity: 0.6; }
+    100% { transform: translate(-50%, -50%) scale(1.15); opacity: 1; }
+  }
+  .logo-wrap {
+    position: relative;
+    z-index: 1;
+    margin-bottom: 24px;
+    animation: floatLogo 3.5s ease-in-out infinite alternate;
+  }
+  @keyframes floatLogo {
+    0% { transform: translateY(0); }
+    100% { transform: translateY(-7px); }
+  }
+  .logo-img {
+    width: 104px;
+    height: 104px;
+    filter: drop-shadow(0 0 25px rgba(0, 255, 213, 0.45));
+  }
+  .brand-title {
+    position: relative;
+    z-index: 1;
+    font-size: 28px;
+    font-weight: 800;
+    letter-spacing: -0.5px;
+    background: linear-gradient(135deg, #ffffff 0%, #00ffd5 55%, #38bdf8 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    margin-bottom: 6px;
+  }
+  .brand-subtitle {
+    position: relative;
+    z-index: 1;
+    font-size: 13px;
+    font-weight: 500;
+    color: #94a3b8;
+    margin-bottom: 28px;
+    letter-spacing: 0.2px;
+  }
+  .progress-bar-wrap {
+    position: relative;
+    z-index: 1;
+    width: 260px;
+    height: 5px;
+    background: rgba(255, 255, 255, 0.08);
+    border-radius: 999px;
+    overflow: hidden;
+    margin-bottom: 14px;
+  }
+  .progress-bar-fill {
+    height: 100%;
+    width: 45%;
+    background: linear-gradient(90deg, #00ffd5, #38bdf8, #00ffd5);
+    background-size: 200% 100%;
+    border-radius: 999px;
+    animation: progressSlide 1.5s ease-in-out infinite;
+    box-shadow: 0 0 12px rgba(0, 255, 213, 0.6);
+  }
+  @keyframes progressSlide {
+    0% { transform: translateX(-100%); }
+    50% { transform: translateX(120%); }
+    100% { transform: translateX(300%); }
+  }
+  .status-text {
+    position: relative;
+    z-index: 1;
+    font-size: 12px;
+    font-weight: 500;
+    color: #64748b;
+    font-family: monospace;
+    transition: color 0.2s ease;
+  }
+</style>
+</head>
+<body>
+<div class="ambient-glow"></div>
+<div class="splash-container">
+  <div class="logo-wrap">
+    <img src="vectorcraft_logo.svg" alt="VectorCraft AI" class="logo-img" onerror="this.src='/static/vectorcraft_logo.svg'">
+  </div>
+  <h1 class="brand-title">VectorCraft</h1>
+  <p class="brand-subtitle">AI Vector Redraw Studio • Precision Curves & Clean Paths</p>
+  
+  <div class="progress-bar-wrap">
+    <div class="progress-bar-fill"></div>
+  </div>
+  <div class="status-text" id="statusText">Initializing Neural Vector Core...</div>
+</div>
+
+<script>
+  const statusEl = document.getElementById("statusText");
+  let attempts = 0;
+
+  async function checkServer() {
+    attempts++;
+    if (attempts === 12) {
+      statusEl.textContent = "Loading Vector Geometry Models...";
+    } else if (attempts === 25) {
+      statusEl.textContent = "Warming up Python Runtime & Resvg...";
+    } else if (attempts > 40) {
+      statusEl.textContent = "Connecting to Studio Service...";
+    }
+
+    if (attempts >= 15) {
+      // Fail-safe: Navigate directly to studio interface
+      statusEl.textContent = "VectorCraft Ready. Launching...";
+      document.body.classList.add("fade-out");
+      setTimeout(() => {
+        window.location.replace("http://127.0.0.1:8000");
+      }, 100);
+      return;
+    }
+    try {
+      const res = await fetch("http://127.0.0.1:8000/api/health", { cache: "no-store", mode: "cors" });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.status === "ok" || data.ok === true) {
+          statusEl.textContent = "VectorCraft Ready. Launching...";
+          statusEl.style.color = "#00ffd5";
+          document.body.classList.add("fade-out");
+          setTimeout(() => {
+            window.location.replace("http://127.0.0.1:8000");
+          }, 150);
+          return;
+        }
+      }
+    } catch (e) {
+      // Waiting for backend
+    }
+    setTimeout(checkServer, 100);
+  }
+
+  // Start polling immediately
+  setTimeout(checkServer, 80);
+</script>
+</body>
+</html>

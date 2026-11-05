@@ -9,7 +9,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/static/style.css">
+<link rel="stylesheet" href="/static/style.css?v=1.4.0">
 </head>
 <body class="luxury-theme">
 <div class="app-layout">
@@ -45,7 +45,7 @@
         <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/><path d="M16 21h5v-5"/></svg>
         <span>Redraw</span>
       </a>
-      <a href="#bgstudio" class="nav-item" id="navBgStudio" title="Vector BG Studio">
+      <a href="#bgstudio" class="nav-item" id="navBgStudio" title="BG Studio">
         <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="m4.93 4.93 4.24 4.24M14.83 9.17l4.24-4.24M14.83 14.83l4.24 4.24M9.17 14.83l-4.24 4.24"/></svg>
         <span>BG Studio</span>
       </a>
@@ -611,10 +611,35 @@
             </div>
 
             <div class="comp-box active-vector-box">
-              <div class="comp-label">Vector</div>
-              <span class="match-badge" id="compMatchBadge">98.1% Match</span>
+              <div class="comp-header-row">
+                <div class="comp-label">Vector</div>
+                <div class="comp-badges">
+                  <span class="match-badge" id="compMatchBadge" title="Pixel IoU (blurry raster match)">98.1% Match</span>
+                  <span class="clean-badge clean-ok" id="compCleanBadge" title="Structural Match (1 - hard/ink_area)">100% Clean ✓</span>
+                </div>
+              </div>
               <div class="comp-preview-frame" id="compVecFrame">
                 <img id="compVecImg" alt="Vector icon preview" src="">
+              </div>
+              <div class="comp-overlay-bar">
+                <button type="button" class="comp-overlay-btn" id="btnCompOverlayToggle" title="Toggle Decision Residual Overlay">
+                  <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                  <span id="compOverlayBtnLabel">Residual Overlay</span>
+                </button>
+                <div class="comp-overlay-legend" id="compOverlayLegend" hidden>
+                  <span class="leg-item"><span class="leg-dot dot-grey"></span>Match</span>
+                  <span class="leg-item"><span class="leg-dot dot-red"></span>Missing</span>
+                  <span class="leg-item"><span class="leg-dot dot-orange"></span>Extra</span>
+                </div>
+              </div>
+              <div class="why-panel" id="whyPanel">
+                <button type="button" class="why-toggle-btn" id="btnWhyToggle">
+                  <span>Why not 100%?</span>
+                  <svg class="why-arrow" viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
+                </button>
+                <div class="why-content" id="whyContent" hidden>
+                  <div class="why-list" id="whyList"></div>
+                </div>
               </div>
             </div>
           </div>
@@ -786,205 +811,15 @@
 
       </section>
 
-      <!-- ============ Vector BG Studio View ============ -->
-      <!-- ============ Vector BG Studio View (Claude-style Complete Suite) ============ -->
+      <!-- ============ BG Studio View ============ -->
       <section id="bgStudio" class="bg-studio-view" hidden>
-
-        <!-- 1. Header Area -->
-        <div class="vbg-header">
-          <div class="vbg-header-left">
-            <button type="button" class="icon-btn back-btn" id="btnBackFromBgStudio" title="Back to Redraw" aria-label="Back to Redraw">
-              <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
-            </button>
-            <div>
-              <h1 class="vbg-main-title">Vector BG Studio</h1>
-              <p class="vbg-main-desc">510 ready designs, each with endless unique variations. Paste a reference or browse the library, then change shape and colour. Output is plain SVG vector shapes that stay fully editable.</p>
-            </div>
-          </div>
-        </div>
-
-        <!-- 2. Hero Meta & Action Bar -->
-        <div class="vbg-hero-meta-bar">
-          <div class="vbg-meta-text" id="vbgMetaText">
-            Custom design · variation 0 · 1920 × 1080 px · 138 separate shapes, no overlaps
-          </div>
-          <div class="vbg-hero-btns">
-            <button type="button" class="btn vbg-btn-cyan" id="btnVbgNewVar">New variation</button>
-            <button type="button" class="btn vbg-btn-dark" id="btnVbgShuffle">Shuffle everything</button>
-          </div>
-        </div>
-
-        <!-- 3. Hero Viewport Stage -->
-        <div class="vbg-hero-stage-frame">
-          <div class="vbg-hero-stage" id="vbgHeroStage">
-            <!-- Live SVG rendered here -->
-          </div>
-        </div>
-
-        <!-- 4. Hero Action Strip & Note -->
-        <div class="vbg-hero-action-strip">
-          <div class="vbg-action-left">
-            <button type="button" class="btn vbg-btn-cyan" id="btnVbgCopySvg">Copy SVG code</button>
-            <button type="button" class="btn vbg-btn-dark" id="btnVbgShowCode">Show code</button>
-            <button type="button" class="btn vbg-btn-dark" id="btnVbgExportSvg">Export SVG</button>
-            <button type="button" class="btn vbg-btn-dark" id="btnVbgDownloadPng">Download PNG</button>
-          </div>
-          <div class="vbg-hero-stats" id="vbgHeroStats">
-            140 shapes · 17 KB
-          </div>
-        </div>
-        <div class="vbg-helper-note">
-          Paste the code into a text file and save it as .svg, then open it in Illustrator to save as AI or EPS. For hundreds of files at once, use the batch script.
-        </div>
-
-        <!-- 5. Variations of This Design -->
-        <div class="vbg-section">
-          <div class="vbg-section-header">
-            <div class="vbg-section-title">VARIATIONS OF THIS DESIGN</div>
-            <div class="vbg-header-controls">
-              <div class="vbg-seg-group" id="vbgStrengthSeg">
-                <button type="button" class="vbg-seg-btn" data-v="subtle">Subtle</button>
-                <button type="button" class="vbg-seg-btn active" data-v="medium">Medium</button>
-                <button type="button" class="vbg-seg-btn" data-v="wild">Wild</button>
-              </div>
-              <button type="button" class="btn vbg-btn-dark vbg-btn-sm" id="btnVbgMoreVars">Show 8 more</button>
-            </div>
-          </div>
-          <div class="vbg-variations-grid" id="vbgVariationsGrid">
-            <!-- 8 interactive variation cards generated live -->
-          </div>
-        </div>
-
-        <!-- 6. Match a Reference -->
-        <div class="vbg-section">
-          <div class="vbg-section-title">MATCH A REFERENCE</div>
-          <div class="vbg-match-box" id="vbgDropZone">
-            <input type="file" id="vbgRefFileInput" accept="image/*" style="display:none;">
-            <p class="vbg-match-desc">
-              Paste a screenshot with <kbd>Ctrl</kbd> + <kbd>V</kbd>, drop an image here, or choose a file. Claude finds the closest templates and copies the colours.
-            </p>
-            <button type="button" class="btn vbg-btn-dark" id="btnVbgChooseImg">Choose image</button>
-          </div>
-        </div>
-
-        <!-- 7. Pattern Family -->
-        <div class="vbg-section">
-          <div class="vbg-section-title">PATTERN FAMILY</div>
-          <div class="vbg-family-tabs" id="vbgFamilyTabs">
-            <button type="button" class="vbg-tab-pill active" data-cat="all">All</button>
-            <button type="button" class="vbg-tab-pill" data-cat="Radial">Radial</button>
-            <button type="button" class="vbg-tab-pill" data-cat="Tiles">Tiles</button>
-            <button type="button" class="vbg-tab-pill" data-cat="Lines">Lines</button>
-            <button type="button" class="vbg-tab-pill" data-cat="Soft">Soft</button>
-          </div>
-          <div class="vbg-patterns-grid" id="vbgPatternsGrid">
-            <!-- 3-column cards for patterns with SVG preview & title -->
-          </div>
-        </div>
-
-        <!-- 8. Design Library -->
-        <div class="vbg-section">
-          <div class="vbg-section-title">DESIGN LIBRARY</div>
-          <div class="vbg-library-toolbar">
-            <div class="vbg-stepper-wrap">
-              <button type="button" class="vbg-step-btn" id="btnVbgPrevDesign">←</button>
-              <input type="number" id="vbgDesignInput" min="1" max="510" value="1" class="vbg-num-input">
-              <span class="vbg-of-text">of 510</span>
-              <button type="button" class="vbg-step-btn" id="btnVbgNextDesign">→</button>
-            </div>
-            <button type="button" class="btn vbg-btn-dark vbg-btn-sm" id="btnVbgRandomDesign">Random</button>
-          </div>
-          <div class="vbg-designs-gallery" id="vbgDesignsGallery">
-            <!-- Visual cards for current design and neighbors -->
-          </div>
-        </div>
-
-        <!-- 9. Artboard Settings -->
-        <div class="vbg-section">
-          <div class="vbg-section-title">ARTBOARD</div>
-          <div class="vbg-artboard-row">
-            <div class="vbg-seg-group" id="vbgRatioSeg">
-              <button type="button" class="vbg-seg-btn active" data-ratio="16:9" data-w="1920" data-h="1080">16:9</button>
-              <button type="button" class="vbg-seg-btn" data-ratio="1:1" data-w="1080" data-h="1080">1:1</button>
-              <button type="button" class="vbg-seg-btn" data-ratio="4:3" data-w="1440" data-h="1080">4:3</button>
-              <button type="button" class="vbg-seg-btn" data-ratio="3:2" data-w="1620" data-h="1080">3:2</button>
-              <button type="button" class="vbg-seg-btn" data-ratio="9:16" data-w="1080" data-h="1920">9:16</button>
-            </div>
-          </div>
-          <div class="vbg-check-row">
-            <label class="vbg-checkbox-label">
-              <input type="checkbox" id="vbgTransparentCheck">
-              <span>Transparent background</span>
-            </label>
-          </div>
-          <div class="vbg-slider-row">
-            <div class="vbg-slider-meta">
-              <label for="vbgRotateSlider">Rotate pattern</label>
-              <span class="vbg-val-label" id="vbgRotateVal">0°</span>
-            </div>
-            <input type="range" min="-180" max="180" step="1" value="0" id="vbgRotateSlider" class="vbg-range">
-          </div>
-        </div>
-
-        <!-- 10. Shape Parameters -->
-        <div class="vbg-section">
-          <div class="vbg-section-title">SHAPE</div>
-          <div class="vbg-sliders-container" id="vbgShapeSliders">
-            <!-- Dynamic sliders for current pattern -->
-          </div>
-        </div>
-
-        <!-- 11. Colours -->
-        <div class="vbg-section">
-          <div class="vbg-section-title">COLOURS</div>
-          <div class="vbg-colors-swatches" id="vbgColorsSwatches">
-            <!-- Swatches for Background, Shape 1, Shape 2, ... -->
-          </div>
-          <div class="vbg-slider-row" style="margin-top: 14px;">
-            <div class="vbg-slider-meta">
-              <label for="vbgHueSlider">Hue shift</label>
-              <span class="vbg-val-label" id="vbgHueVal">0°</span>
-            </div>
-            <input type="range" min="0" max="360" step="1" value="0" id="vbgHueSlider" class="vbg-range">
-          </div>
-        </div>
-
-        <!-- 12. Palettes -->
-        <div class="vbg-section">
-          <div class="vbg-section-title">PALETTES</div>
-          <div class="vbg-palettes-grid" id="vbgPalettesGrid">
-            <!-- 2-column grid of 5-color bar strips -->
-          </div>
-        </div>
-
+        <div id="bgstudio-root"></div>
       </section>
 
     </main>
 
   </div>
 
-</div>
-
-<!-- SVG Code View Modal -->
-<div class="modal-backdrop" id="bgCodeModal" style="display:none;">
-  <div class="modal-card" style="max-width: 720px;">
-    <div class="modal-header">
-      <h3>
-        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="var(--accent)" stroke-width="2"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
-        Generated SVG Vector Code
-      </h3>
-      <div style="display:flex; align-items:center; gap:10px;">
-        <button type="button" class="btn" id="btnModalCopyCode" style="background:rgba(0,245,160,0.12); border:1px solid rgba(0,245,160,0.3); color:var(--accent); padding:5px 12px; font-size:12px; border-radius:6px; cursor:pointer; display:flex; align-items:center; gap:5px;">
-          <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>
-          Copy Code
-        </button>
-        <button type="button" class="icon-btn" id="closeBgCodeModal" title="Close" style="color:var(--text-muted); font-size:16px;">✕</button>
-      </div>
-    </div>
-    <div class="modal-body" style="padding: 16px;">
-      <textarea id="bgCodeTextarea" readonly style="width: 100%; height: 380px; background: #080c14; border: 1px solid var(--line-dim); border-radius: 8px; color: #a5f3fc; font-family: monospace; font-size: 12px; line-height: 1.5; padding: 12px; resize: vertical; outline: none;"></textarea>
-    </div>
-  </div>
 </div>
 
 <!-- AI Lessons Modal -->
@@ -1013,8 +848,6 @@
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
 <!-- Application Script -->
-<script src="/static/bg-generator.js"></script>
-  <script src="/static/bg-studio.js"></script>
-<script src="/static/app.js"></script>
+<script src="/static/app.js?v=1.4.0"></script>
 </body>
 </html>

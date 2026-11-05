@@ -6,9 +6,9 @@ from .geom import bez
 
 
 class Path:
-    __slots__ = ("A", "Hin", "Hout", "w", "join", "ml", "closed")
+    __slots__ = ("A", "Hin", "Hout", "w", "join", "ml", "closed", "tag")
 
-    def __init__(self, A, Hin, Hout, w, join="round", ml=4.0, closed=False):
+    def __init__(self, A, Hin, Hout, w, join="round", ml=4.0, closed=False, tag=""):
         self.A = np.asarray(A, float)
         self.Hin = np.asarray(Hin, float)
         self.Hout = np.asarray(Hout, float)
@@ -16,9 +16,10 @@ class Path:
         self.join = join
         self.ml = float(ml)
         self.closed = bool(closed)
+        self.tag = str(tag)
 
     @staticmethod
-    def from_segs(segs, w, closed=False, join="round"):
+    def from_segs(segs, w, closed=False, join="round", tag=""):
         S = np.array(segs, float)
         A = np.vstack([S[:, 0], S[-1:, 3]])
         Ho = np.vstack([S[:, 1], S[-1:, 3]])
@@ -27,7 +28,7 @@ class Path:
             A[-1] = A[0]
             Ho[-1] = Ho[0]
             Hi[0] = Hi[-1]
-        return Path(A, Hi, Ho, w, join, 4.0, closed)
+        return Path(A, Hi, Ho, w, join, 4.0, closed, tag)
 
     def segs(self):
         return [np.array([self.A[i], self.Hout[i], self.Hin[i + 1], self.A[i + 1]]) for i in range(len(self.A) - 1)]
@@ -53,14 +54,17 @@ class Path:
         return float(np.linalg.norm(np.diff(f, axis=0), axis=1).sum())
 
     def copy(self):
-        return Path(self.A.copy(), self.Hin.copy(), self.Hout.copy(), self.w, self.join, self.ml, self.closed)
+        return Path(self.A.copy(), self.Hin.copy(), self.Hout.copy(), self.w, self.join, self.ml, self.closed, self.tag)
 
     def to_dict(self):
-        return dict(A=self.A.tolist(), Hin=self.Hin.tolist(), Hout=self.Hout.tolist(), w=self.w, join=self.join, ml=self.ml, closed=self.closed)
+        d = dict(A=self.A.tolist(), Hin=self.Hin.tolist(), Hout=self.Hout.tolist(), w=self.w, join=self.join, ml=self.ml, closed=self.closed)
+        if self.tag:
+            d["tag"] = self.tag
+        return d
 
     @staticmethod
     def from_dict(q):
-        return Path(q["A"], q["Hin"], q["Hout"], q["w"], q.get("join", "round"), q.get("ml", 4.0), q.get("closed", False))
+        return Path(q["A"], q["Hin"], q["Hout"], q["w"], q.get("join", "round"), q.get("ml", 4.0), q.get("closed", False), q.get("tag", ""))
 
 
 class Model:
@@ -93,9 +97,10 @@ class Model:
         vb = viewbox or (0, 0, w, h)
         body = []
         for p in self.paths:
+            tag_attr = f' data-tag="{p.tag}"' if getattr(p, "tag", "") else ""
             body.append(
-                '<path d="%s" stroke-width="%.2f" stroke-linejoin="%s"%s/>'
-                % (p.d(), p.w * stroke_scale, p.join, (' stroke-miterlimit="%g"' % p.ml) if p.join == "miter" else "")
+                '<path d="%s" stroke-width="%.2f" stroke-linejoin="%s"%s%s/>'
+                % (p.d(), p.w * stroke_scale, p.join, (' stroke-miterlimit="%g"' % p.ml) if p.join == "miter" else "", tag_attr)
             )
         bg = '<rect width="100%%" height="100%%" fill="%s"/>' % background if background else ""
         sep = "\n  " if pretty else ""

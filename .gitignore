@@ -1,5 +1,19 @@
+# Data and outputs
 data/
 out/
 __pycache__/
 *.pyc
+*.pyo
+*.pyd
 .pytest_cache/
+
+# Large archives and builds
+*.zip
+scratch/
+build/
+dist/
+build_staging/
+*.log
+venv/
+.venv/
+test_output.txt

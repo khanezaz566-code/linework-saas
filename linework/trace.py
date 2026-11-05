@@ -67,6 +67,15 @@ def skeleton_branches(D: np.ndarray, S: int = 2, prune: int | None = None):
     """Return list of branches: dict(pts (N,2) x/y in source pixel-index coords, sj, ej)."""
     up = cv2.resize(D, None, fx=S, fy=S, interpolation=cv2.INTER_CUBIC)
     mask = up > 0.5
+    # Fill tiny pinholes (JPEG artifacts / voids inside solid stroke ink)
+    filled = ndi.binary_fill_holes(mask)
+    holes = filled & ~mask
+    if holes.any():
+        hole_labels, num_holes = ndi.label(holes)
+        max_hole = max(36, S * S * 16)
+        for h_id in range(1, num_holes + 1):
+            if np.sum(hole_labels == h_id) <= max_hole:
+                mask[hole_labels == h_id] = True
     sk = skeletonize(mask)
     H, W = sk.shape
     dt = ndi.distance_transform_edt(mask)

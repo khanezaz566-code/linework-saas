@@ -1,5 +1,28 @@
 # Changelog
 
+## 1.0.0 - Decision Engine (verified intent decisions & sheet-level gate)
+- **Why it exists**: Previous engines (Doctor, Finisher, Join, Structure) judge fixes solely by raw pixel overlap to blurry/wobbly raster sources. At 98-99% match, true geometric intent fixes (exact straight lines, axis alignment, true circles, sharp corner apexes, ends on centrelines) look like pixel noise and get rejected. The remaining 1-2% mismatch is primarily sub-pixel edge fuzz (<= 1 px from source).
+- **Decision Engine (`linework/decision.py`)**:
+  - Adds per-icon measurement, diagnosis, prescription, batch/single application, and verification loop.
+  - Recognizes intent defects: `straight`, `axis`, `ring`, `arc`, `corner`, `tip`, `gap`, plus hard residual blobs (`miss`, `extra`).
+  - Verifies each candidate against strict structural invariants: hard residual cannot grow beyond tiny slack, cumulative IoU loss bounded by 0.6%, each fix verified by re-rendering.
+  - Generates comprehensive decision reports (`decision.decide_best`), recording applied, open, and waived findings with reason text and edge fuzz measurement.
+  - Sheet gate evaluation (`decision.icon_ok`): requires hard residual <= 0.1% of ink area (or 8 px²), no open missing/extra blobs > 30 px², and IoU above floor.
+- **Sheet-level Gate & Escalation (`linework/setlevel.py`)**:
+  - Extends `weak_icons` to evaluate `clean` status without artificial `max_n` limits.
+  - Automated 3-rung escalation for un-clean icons: (1) next higher quality preset, (2) alternative trace candidate / threshold, (3) safe mode (simpler fit, no aggressive refine).
+  - Never replaces an icon with a worse result (evaluates `(hard, open, -iou)`).
+  - If still open after all rungs, flags `needs_review=True` with open findings, while still outputting a valid sheet assembly.
+- **UI & API Integration**:
+  - Two distinct metrics displayed per icon: **Match** (pixel IoU) and **Clean** (structural match `1 - hard/ink_area` with green checkmark or red 'needs review' badge).
+  - Expandable 'Why not 100%' panel explaining every residual (open findings, waived findings where ideal geometry contradicts source, and edge fuzz explanation).
+  - Residual overlay toggle: grey (matching ink), red (source-only missing), orange (render-only extra).
+  - API endpoints: `GET /api/jobs/{id}/icons/{k}/decision` and `GET /api/jobs/{id}/icons/{k}/diff.png`.
+- **Known Limitations**:
+  - Missing/extra blobs use `edit.refine_region`, which may be refused by verification on some icons; a dedicated local re-trace is future work and unresolved blobs stay in `open_findings`.
+  - Tip patches add short overlapping 3-anchor stubs (1.6x stroke width on centreline). Marked with `tag="tip_patch"` and controlled via `Options.tip_patches` (default True).
+  - Intent fixes may lower IoU by up to 0.6% in total (bounded by `IOU_TOTAL`).
+
 ## 0.9.5 - Join policy (acute-joint spikes / blobs)
 - Root cause: Doctor command `join` (round -> miter) forced a miter limit of 10 (`edit.set_join`) and `pipeline.run` accepted it with a tolerance of max(2.5 % of the icon mismatch, 25 px), so a spike at an acute joint (bubble tail, arrow head, folded corner) passed as "not worse". `Model.from_svg` also reset the miter limit to 4.0 and found the join with a one-attribute-order regex, and `finisher` merged strokes with `max(P.ml, Q.ml)`.
 - `linework/joinpolicy.py` (new): per path, candidates round / bevel / miter(1.5, 2, 3, 4) are rendered with the real output renderer and judged in a window around each corner; ink outside the 1 px dilated source (spike) counts 3x; a change is kept only if the window is strictly better and the icon does not get worse. `spike_guard` re-judges every path with a corner at the end of the pipeline (`metrics.joins.policy_changed`).

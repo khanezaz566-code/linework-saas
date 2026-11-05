@@ -1,26 +1,27 @@
 /*
  * batch.js: write thousands of unique, fully editable SVG backgrounds.
  *
- * The library has 510 designs (34 patterns x 15 styles). Every design can make
+ * The library has 2820 designs (188 patterns x 15 styles). Every design can make
  * as many variations as you ask for. Variation 0 is the design itself.
  *
- *   node batch.js                                  510 designs x 5 variations -> ./out
- *   node batch.js --variations 1000                510 x 1000 = 510,000 files
+ *   node batch.js                                  2820 designs x 5 variations -> ./out
+ *   node batch.js --variations 1000                2820 x 1000 = 2,820,000 files
  *   node batch.js --designs 1-30 --variations 200  only designs 1 to 30
  *   node batch.js --pattern burst --variations 500 one pattern only
  *   node batch.js --size 3840x2160 --strength wild --out D:/stock
  *
  * Options
- *   --designs  A-B       design range, 1 to 510 (default 1-510)
+ *   --designs  A-B       design range, 1 to 2820 (default 1-2820)
  *   --pattern  id        only designs of this pattern
  *   --variations N       files per design, including the design itself (default 5)
  *   --strength S         subtle | medium | wild (default medium)
  *   --size WxH           artboard in px (default 1920x1080)
+ *   --format F           svg | eps | both (default svg)
  *   --transparent        no background rectangle
  *   --out DIR            output folder (default ./out)
  *
  * Speed: about 3 ms per file. To use several CPU cores, start several terminals
- * with different --designs ranges (for example 1-130, 131-260, 261-390, 391-510).
+ * with different --designs ranges (for example 1-420, 421-840, 841-1260, 1261-2820).
  *
  * Layout:  out/<pattern>/d<design>/v<variation>.svg   and   out/manifest-<A>-<B>.csv
  * Every file is hashed. A file whose hash was already written is skipped and the
@@ -28,7 +29,7 @@
  */
 const fs = require('fs');
 const path = require('path');
-const G = require('./server/static/bg-generator.js');
+const G = require('./bg-generator.js');
 
 const args = {};
 for (let i = 2; i < process.argv.length; i++) {
@@ -44,6 +45,8 @@ const perDesign = Number(args.variations || 5);
 const strength = args.strength || 'medium';
 const [W, H] = String(args.size || '1920x1080').split('x').map(Number);
 const outDir = args.out || 'out';
+const format = args.format || 'svg';
+if (!['svg', 'eps', 'both'].includes(format)) { console.error('--format must be svg, eps or both'); process.exit(1); }
 const only = args.pattern || null;
 
 fs.mkdirSync(outDir, { recursive: true });
@@ -68,8 +71,10 @@ for (let n = from; n <= Math.min(to, total); n++) {
     const hash = G.hash(svg);
     if (seen.has(hash)) { skipped++; idx++; continue; }
     seen.add(hash);
-    const file = path.join(dir, 'v' + String(idx).padStart(4, '0') + '.svg');
-    fs.writeFileSync(file, G.toFile(svg));
+    const base = path.join(dir, 'v' + String(idx).padStart(4, '0'));
+    const file = base + (format === 'eps' ? '.eps' : '.svg');
+    if (format !== 'eps') fs.writeFileSync(base + '.svg', G.toFile(svg));
+    if (format !== 'svg') fs.writeFileSync(base + '.eps', G.toEPS(svg, d.name + ' v' + idx));
     manifest.push([path.relative(outDir, file), n, d.pattern, d.style, d.paletteName, idx, hash].join(','));
     made++; written++; idx++;
   }
@@ -77,4 +82,4 @@ for (let n = from; n <= Math.min(to, total); n++) {
 }
 
 fs.writeFileSync(path.join(outDir, `manifest-${from}-${Math.min(to, total)}.csv`), manifest.join('\n'));
-console.log(`Done. ${written} unique SVG files in ${((Date.now() - t0) / 1000).toFixed(1)}s (${skipped} duplicates skipped). Manifest saved.`);
+console.log(`Done. ${written} unique files in ${((Date.now() - t0) / 1000).toFixed(1)}s (${skipped} duplicates skipped). Manifest saved.`);

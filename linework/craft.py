@@ -10,9 +10,204 @@ from .model import Model, Path
 from .geom import unit, bez, _chord, _reparam
 from .doctor import Doctor, ink_of
 from .rings import _kasa
+from .render import render_gray
 from . import edit as E
 from . import topology as T
 from .finisher import _intersect_rays
+
+KAPPA = 0.552284749831
+
+
+def make_smart_rect(x0: float, y0: float, x1: float, y1: float,
+                    r_tl: float, r_tr: float, r_br: float, r_bl: float,
+                    w: float, join: str = "round", ml: float = 4.0) -> Path:
+    if x1 < x0:
+        x0, x1 = x1, x0
+    if y1 < y0:
+        y0, y1 = y1, y0
+    bw = max(1.0, x1 - x0)
+    bh = max(1.0, y1 - y0)
+    r_tl, r_tr, r_br, r_bl = [max(0.0, float(r)) for r in (r_tl, r_tr, r_br, r_bl)]
+    if r_tl + r_tr > bw:
+        s = bw / (r_tl + r_tr)
+        r_tl *= s
+        r_tr *= s
+    if r_bl + r_br > bw:
+        s = bw / (r_bl + r_br)
+        r_bl *= s
+        r_br *= s
+    if r_tl + r_bl > bh:
+        s = bh / (r_tl + r_bl)
+        r_tl *= s
+        r_bl *= s
+    if r_tr + r_br > bh:
+        s = bh / (r_tr + r_br)
+        r_tr *= s
+        r_br *= s
+
+    segs = []
+
+    def add_line(pa, pb):
+        pa = np.asarray(pa, float)
+        pb = np.asarray(pb, float)
+        d = pb - pa
+        if np.linalg.norm(d) > 0.20:
+            segs.append(np.array([pa, pa + d / 3.0, pa + 2.0 * d / 3.0, pb]))
+
+    def add_arc(pa, h1, h2, pb):
+        segs.append(np.array([np.asarray(pa, float), np.asarray(h1, float), np.asarray(h2, float), np.asarray(pb, float)]))
+
+    add_line([x0 + r_tl, y0], [x1 - r_tr, y0])
+    if r_tr > 0.20:
+        add_arc([x1 - r_tr, y0], [x1 - r_tr + KAPPA * r_tr, y0], [x1, y0 + r_tr - KAPPA * r_tr], [x1, y0 + r_tr])
+    add_line([x1, y0 + r_tr], [x1, y1 - r_br])
+    if r_br > 0.20:
+        add_arc([x1, y1 - r_br], [x1, y1 - r_br + KAPPA * r_br], [x1 - r_br + KAPPA * r_br, y1], [x1 - r_br, y1])
+    add_line([x1 - r_br, y1], [x0 + r_bl, y1])
+    if r_bl > 0.20:
+        add_arc([x0 + r_bl, y1], [x0 + r_bl - KAPPA * r_bl, y1], [x0, y1 - r_bl + KAPPA * r_bl], [x0, y1 - r_bl])
+    add_line([x0, y1 - r_bl], [x0, y0 + r_tl])
+    if r_tl > 0.20:
+        add_arc([x0, y0 + r_tl], [x0, y0 + r_tl - KAPPA * r_tl], [x0 + r_tl - KAPPA * r_tl, y0], [x0 + r_tl, y0])
+
+    p = Path.from_segs(segs, w, closed=True, join=join)
+    p.ml = ml
+    return p
+
+
+def _shift_path(p: Path, dx: float, dy: float) -> Path:
+    off = np.array([dx, dy], float)
+    return Path(p.A + off, p.Hin + off, p.Hout + off, p.w, p.join, p.ml, p.closed)
+
+
+def fit_smart_rect_for_path(model: Model, idx: int, D: np.ndarray):
+    p = model.paths[idx]
+    if not p.closed or len(p.A) < 4:
+        return None
+    f = p.flat(0.5)
+    if len(f) < 12:
+        return None
+    x0_p, x1_p = float(np.percentile(f[:, 0], 1.0)), float(np.percentile(f[:, 0], 99.0))
+    y0_p, y1_p = float(np.percentile(f[:, 1], 1.0)), float(np.percentile(f[:, 1], 99.0))
+    bw, bh = x1_p - x0_p, y1_p - y0_p
+    w = p.w
+    if bw < 0.95 * w or bh < 0.95 * w:
+        return None
+
+    cx_c, cy_c, r_c = _kasa(f)
+    rad_err = np.abs(np.hypot(f[:, 0] - cx_c, f[:, 1] - cy_c) - r_c)
+    aspect = max(bw, bh) / max(min(bw, bh), 1e-6)
+    if aspect < 1.25 and float(np.percentile(rad_err, 90)) < 0.12 * w:
+        return None
+
+    x_min, x_max = float(f[:, 0].min()), float(f[:, 0].max())
+    y_min, y_max = float(f[:, 1].min()), float(f[:, 1].max())
+    x0_p = float(np.median(f[f[:, 0] <= x_min + 0.20 * w, 0]))
+    x1_p = float(np.median(f[f[:, 0] >= x_max - 0.20 * w, 0]))
+    y0_p = float(np.median(f[f[:, 1] <= y_min + 0.20 * w, 1]))
+    y1_p = float(np.median(f[f[:, 1] >= y_max - 0.20 * w, 1]))
+
+    bw, bh = x1_p - x0_p, y1_p - y0_p
+    c_pts = [(x0_p, y0_p), (x1_p, y0_p), (x1_p, y1_p), (x0_p, y1_p)]
+    r_ests = []
+    for cx_k, cy_k in c_pts:
+        dk = float(np.min(np.hypot(f[:, 0] - cx_k, f[:, 1] - cy_k)))
+        r_ests.append(min(0.5 * min(bw, bh), dk / (np.sqrt(2.0) - 1.0)))
+
+    p_est = make_smart_rect(x0_p, y0_p, x1_p, y1_p, r_ests[0], r_ests[1], r_ests[2], r_ests[3], w)
+    f_est = p_est.flat(0.5)
+    from scipy.spatial import cKDTree
+    d_to_est, _ = cKDTree(f_est).query(f)
+    if float(np.percentile(d_to_est, 90)) > max(2.2, 0.28 * w):
+        return None
+
+    H, W = D.shape
+    pad = int(round(1.5 * w + 6))
+    wx0 = max(0, int(np.floor(x0_p - pad)))
+    wy0 = max(0, int(np.floor(y0_p - pad)))
+    wx1 = min(W, int(np.ceil(x1_p + pad)))
+    wy1 = min(H, int(np.ceil(y1_p + pad)))
+    ww, wh = wx1 - wx0, wy1 - wy0
+    if ww < 8 or wh < 8:
+        return None
+    D_win = D[wy0:wy1, wx0:wx1]
+
+    bg_paths = []
+    for j, q in enumerate(model.paths):
+        if j == idx:
+            continue
+        qx0, qy0 = q.A.min(axis=0) - q.w
+        qx1, qy1 = q.A.max(axis=0) + q.w
+        if qx1 >= wx0 and qx0 <= wx1 and qy1 >= wy0 and qy0 <= wy1:
+            bg_paths.append(_shift_path(q, -wx0, -wy0))
+    if bg_paths:
+        ink_bg = (255 - render_gray(Model(bg_paths, ww, wh).svg(), ww, wh).astype(np.float32)) / 255.0
+    else:
+        ink_bg = np.zeros((wh, ww), dtype=np.float32)
+
+    def eval_cand(p_c: Path) -> float:
+        ps = _shift_path(p_c, -wx0, -wy0)
+        ink_p = (255 - render_gray(Model([ps], ww, wh).svg(), ww, wh).astype(np.float32)) / 255.0
+        ink_tot = np.maximum(ink_bg, ink_p)
+        return float(np.abs(ink_tot - D_win).sum())
+
+    base_soft = eval_cand(p)
+    max_r = 0.5 * min(bw, bh)
+    r_grid = sorted(set([0.0] + [float(r) for r in np.linspace(max(1.0, 0.12 * min(bw, bh)), max_r, 8)] + [float(np.mean(r_ests))]))
+
+    cands = [
+        (0.0, 0.0, 0.0, 0.0, "round"),
+        (0.0, 0.0, 0.0, 0.0, "miter"),
+    ]
+    for R in r_grid:
+        if R > 0:
+            cands.append((R, R, R, R, "round"))
+            cands.append((R, R, 0.0, 0.0, "round"))
+            cands.append((0.0, 0.0, R, R, "round"))
+            cands.append((R, 0.0, 0.0, R, "round"))
+            cands.append((0.0, R, R, 0.0, "round"))
+
+    best_cfg = None
+    best_s = base_soft + 1e9
+    for rtl, rtr, rbr, rbl, jn in cands:
+        pc = make_smart_rect(x0_p, y0_p, x1_p, y1_p, rtl, rtr, rbr, rbl, w, join=jn, ml=p.ml)
+        sc = eval_cand(pc)
+        if sc < best_s:
+            best_s = sc
+            best_cfg = [x0_p, y0_p, x1_p, y1_p, rtl, rtr, rbr, rbl, w, jn]
+
+    x0_b, y0_b, x1_b, y1_b, rtl_b, rtr_b, rbr_b, rbl_b, w_b, jn_b = best_cfg
+    for step in (0.6, 0.3, 0.15):
+        for param_idx in range(4):
+            for delta in (-step, step):
+                coords = [x0_b, y0_b, x1_b, y1_b]
+                coords[param_idx] += delta
+                pc = make_smart_rect(coords[0], coords[1], coords[2], coords[3], rtl_b, rtr_b, rbr_b, rbl_b, w_b, join=jn_b, ml=p.ml)
+                sc = eval_cand(pc)
+                if sc < best_s:
+                    best_s = sc
+                    x0_b, y0_b, x1_b, y1_b = coords
+        if max(rtl_b, rtr_b, rbr_b, rbl_b) > 0:
+            for dr in (-step * 1.5, step * 1.5):
+                n_rtl = max(0.0, rtl_b + dr) if rtl_b > 0 else 0.0
+                n_rtr = max(0.0, rtr_b + dr) if rtr_b > 0 else 0.0
+                n_rbr = max(0.0, rbr_b + dr) if rbr_b > 0 else 0.0
+                n_rbl = max(0.0, rbl_b + dr) if rbl_b > 0 else 0.0
+                pc = make_smart_rect(x0_b, y0_b, x1_b, y1_b, n_rtl, n_rtr, n_rbr, n_rbl, w_b, join=jn_b, ml=p.ml)
+                sc = eval_cand(pc)
+                if sc < best_s:
+                    best_s = sc
+                    rtl_b, rtr_b, rbr_b, rbl_b = n_rtl, n_rtr, n_rbr, n_rbl
+        for dw in (-step * 0.5, step * 0.5):
+            nw = max(1.0, w_b + dw)
+            pc = make_smart_rect(x0_b, y0_b, x1_b, y1_b, rtl_b, rtr_b, rbr_b, rbl_b, nw, join=jn_b, ml=p.ml)
+            sc = eval_cand(pc)
+            if sc < best_s:
+                best_s = sc
+                w_b = nw
+
+    p_final = make_smart_rect(x0_b, y0_b, x1_b, y1_b, rtl_b, rtr_b, rbr_b, rbl_b, w_b, join=jn_b, ml=p.ml)
+    return p_final, base_soft, best_s, (rtl_b, rtr_b, rbr_b, rbl_b, jn_b)
 
 
 def fit_free_cubic(pts: np.ndarray):
@@ -805,6 +1000,18 @@ def craft_model(model: Model, D: np.ndarray, doctor: Doctor, W0: float = 10.0) -
                         continue
                     segs_a = ia['trimmed_segs']
                     segs_b = [s[::-1].copy() for s in ib['trimmed_segs'][::-1]]
+                    # Circle / Curve Guard: never flatten small rings or un-pulled circular arcs!
+                    pts_ab = np.vstack([bez(s, np.linspace(0, 1, 10)) for s in (segs_a[-2:] + segs_b[:2])])
+                    if len(pts_ab) >= 8:
+                        cx_k, cy_k, r_k = _kasa(pts_ab)
+                        rad_ab = np.abs(np.hypot(pts_ab[:, 0] - cx_k, pts_ab[:, 1] - cy_k) - r_k)
+                        if float(np.percentile(rad_ab, 90)) <= 0.25 * W0:
+                            if r_k < 5.5 * W0:
+                                continue
+                            err_j = abs(float(np.hypot(J[0] - cx_k, J[1] - cy_k) - r_k))
+                            err_proj = abs(float(np.hypot(J_proj[0] - cx_k, J_proj[1] - cy_k) - r_k))
+                            if err_j < 1.0 or err_proj > err_j - 0.85:
+                                continue
                     new_segs = segs_a + [s_bridge] + segs_b
                     cand = cur_m.copy()
                     np_w = Path.from_segs(new_segs, 0.5 * (ia['w'] + ib['w']), closed=False, join=ia['join'])
@@ -1045,14 +1252,16 @@ def craft_model(model: Model, D: np.ndarray, doctor: Doctor, W0: float = 10.0) -
             T._move_end(cand.paths[gj], gf, best_target)
         try_accept(cand, step_soft_tol=32.0, step_iou_drop=0.0035, structural=True)
 
-    _depull_t_junctions()
-
     # ------------------------------------------------------------------
     # 3. Canonical 4-Anchor Circle / Ring Reconstruction
     # ------------------------------------------------------------------
     try:
         from . import rings as RG
-        found_rings = [r for r in RG.detect_rings(D, W0) if r["r"] >= 1.2 * W0 and r.get("support", 0.0) >= 0.95]
+        found_rings = [
+            r for r in RG.detect_rings(D, W0)
+            if r["r"] >= 1.8 * W0 and r.get("support", 0.0) >= 0.96
+            and abs(r["a"] - r["b"]) / max(r["a"], r["b"], 1e-6) <= 0.035
+        ]
         found_rings.sort(key=lambda r: -r["r"])
         for ring in found_rings:
             already_closed = False
@@ -1066,10 +1275,18 @@ def craft_model(model: Model, D: np.ndarray, doctor: Doctor, W0: float = 10.0) -
                             break
             if not already_closed:
                 cand_ring = RG.apply_ring(cur_m, ring)
-                if len(cand_ring.paths) <= len(cur_m.paths) + 3:
-                    try_accept(cand_ring, step_soft_tol=125.0, step_iou_drop=0.0065, structural=True)
+                if len(cand_ring.paths) <= len(cur_m.paths):
+                    c_ink_r = ink_of(cand_ring)
+                    c_s_r = doctor.soft(c_ink_r)
+                    c_iou_r = doctor.iou(c_ink_r)
+                    if c_s_r <= cur_s + min(98.0, 0.0046 * doctor.area) and c_iou_r >= cur_iou - 0.0060:
+                        cur_m, cur_ink, cur_s, cur_iou = cand_ring, c_ink_r, c_s_r, c_iou_r
+                        min_allowed_iou = min(min_allowed_iou, cur_iou - 0.0010)
+                        max_allowed_soft = max(max_allowed_soft, cur_s + 24.0)
     except Exception:
         pass
+
+    _depull_t_junctions()
 
     for i in range(len(cur_m.paths)):
         p = cur_m.paths[i]
@@ -1128,6 +1345,20 @@ def craft_model(model: Model, D: np.ndarray, doctor: Doctor, W0: float = 10.0) -
 
     rect_infos = []  # [(path_idx, cx, cy, bw, bh, w)]
     for i in range(len(cur_m.paths)):
+        res_sr = fit_smart_rect_for_path(cur_m, i, D)
+        if res_sr is not None:
+            p_new, s_old, s_new, r_info = res_sr
+            cand = cur_m.copy()
+            cand.paths[i] = p_new
+            if try_accept(cand, step_soft_tol=18.0, step_iou_drop=0.0006, structural=True):
+                p_c = cur_m.paths[i]
+                bw_c = float(p_c.A[:, 0].max() - p_c.A[:, 0].min())
+                bh_c = float(p_c.A[:, 1].max() - p_c.A[:, 1].min())
+                cx_c = float(p_c.A[:, 0].mean())
+                cy_c = float(p_c.A[:, 1].mean())
+                rect_infos.append([i, cx_c, cy_c, bw_c, bh_c, p_c.w])
+                continue
+
         p = cur_m.paths[i]
         if not p.closed or len(p.A) < 5:
             continue
@@ -1165,8 +1396,10 @@ def craft_model(model: Model, D: np.ndarray, doctor: Doctor, W0: float = 10.0) -
         if abs(bw - bh) <= 0.10 * max(bw, bh):
             s_eq = 0.5 * (bw + bh)
             bw, bh = s_eq, s_eq
-        cur_m.paths[i] = _make_rect_path(cx_r - 0.5 * bw, cy_r - 0.5 * bh, cx_r + 0.5 * bw, cy_r + 0.5 * bh, p.w, p.join, p.ml)
-        rect_infos.append([i, cx_r, cy_r, bw, bh, p.w])
+        cand = cur_m.copy()
+        cand.paths[i] = _make_rect_path(cx_r - 0.5 * bw, cy_r - 0.5 * bh, cx_r + 0.5 * bw, cy_r + 0.5 * bh, p.w, p.join, p.ml)
+        if try_accept(cand, step_soft_tol=18.0, step_iou_drop=0.0006, structural=True):
+            rect_infos.append([i, cx_r, cy_r, bw, bh, p.w])
 
     # Equalize repeating squares/rectangles (e.g. 3x3 keypad grids, paired plug slots)
     if len(rect_infos) >= 2:

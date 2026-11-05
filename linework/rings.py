@@ -143,7 +143,7 @@ def detect_rings(D, w, min_support=0.93, max_rings=80):
         rr = (ea + eb) / 2
         if any(np.hypot(ex - o["cx"] + 0.5, ey - o["cy"] + 0.5) < 3.0 and abs(rr - o["r"]) < 0.7 * w for o in out):
             continue
-        if abs(ea - eb) / max(ea, eb) < 0.015:  # a true circle: keep it exactly round
+        if abs(ea - eb) / max(ea, eb) < 0.035:  # a true circle: keep it exactly round
             ea = eb = rr
         out.append(dict(cx=ex + 0.5, cy=ey + 0.5, a=ea, b=eb, th=th, r=rr, w=ww, support=sup))
         if len(out) >= max_rings:

@@ -38,7 +38,7 @@ class Options:
     time_budget: float | None = None
     region_edits: int | None = None
     repair: bool = True  # final safety net for missing / stray pieces
-    max_stroke: float = 14.0  # sources with thicker strokes (big / hi-res sheets) are processed at norm_stroke and scaled back
+    max_stroke: float = 24.0  # sources with thicker strokes (big / hi-res sheets) are processed at norm_stroke and scaled back
     norm_stroke: float = 10.0
     memory: bool = True  # remember best results / lessons between runs (linework/lessons.py)
     fresh: bool = False  # do not re-use a stored result for the same icon (still never return something worse than the stored best)
@@ -51,6 +51,9 @@ class Options:
     trace_ok: float = 0.93  # ... or at least this well (then the optimiser does the rest; saves ~10 s per dense icon)
     superres: int | None = None  # trace at k-times resolution (auto: thin strokes get 2-3x)
     dedupe_tol: float = 0.0025  # fraction of ink area we will sacrifice to remove a duplicate centerline
+    decision: bool = True  # Decision engine: per-icon decision + verification of the last few percent
+    decision_budget: float = 40.0
+    tip_patches: bool = True  # Tip patches: allow sharp corner apex stubs
 
     def resolved(self):
         p = dict(PRESETS.get(self.quality, PRESETS["standard"]))
@@ -96,8 +99,49 @@ def process_icon(gray, opts: Options = None, emit=_noop, name="icon"):
         m = Model.from_json(prev["model"])
         emit(engine="doctor", msg="Re-used the stored result for this icon (same version)", icon=name, iou=prev["metrics"].get("iou"), final=True)
         met = dict(prev["metrics"], from_memory=True)
-        return dict(model=m, svg=m.svg(), metrics=met)
+        return dict(model=m, svg=m.svg(), metrics=met, decision=met.get("decision"), clean=met.get("clean", True), model_pre_decision=m.copy())
     r = _process_icon_scaled(gray, opts, emit, name)
+    from . import decision as DC
+    r["model_pre_decision"] = r["model"].copy()
+    if opts.decision:
+        emit(engine="decision", msg="Decision engine: measuring residual", icon=name)
+        D = ink_map(gray)
+        model, drep = DC.decide_best(
+            r["model"], D,
+            time_budget=opts.decision_budget,
+            emit=emit,
+            name=name,
+            tip_patches=opts.tip_patches
+        )
+        ink_area = int((D > 0.5).sum())
+        clean = DC.icon_ok(drep, ink_area)
+        r["model"] = model
+        r["svg"] = model.svg()
+        r["decision"] = drep
+        r["clean"] = clean
+        hard = drep["after"]["hard"]
+        r["metrics"]["decision"] = drep
+        r["metrics"]["clean"] = clean
+        r["metrics"]["needs_review"] = not clean
+        r["metrics"]["hard"] = hard
+        r["metrics"]["structural_match"] = round(1.0 - (hard / max(ink_area, 1)), 5)
+        r["metrics"]["iou"] = drep["after"]["iou"]
+        r["metrics"]["paths"] = len(model.paths)
+        r["metrics"]["nodes"] = int(sum(len(p.A) for p in model.paths))
+        emit(
+            engine="decision",
+            msg=f"Decision engine: {drep['applied']} applied, {drep['open']} open, hard {hard}px² ({'clean' if clean else 'needs review'})",
+            icon=name,
+            final=True
+        )
+    else:
+        D = ink_map(gray)
+        ink_area = int((D > 0.5).sum())
+        r["clean"] = True
+        r["metrics"]["clean"] = True
+        r["metrics"]["needs_review"] = False
+        r["metrics"]["hard"] = 0
+        r["metrics"]["structural_match"] = 1.0
     if use_mem:
         LS.log_icon(name, r["metrics"], __version__)
         if not opts.fresh and prev and prev.get("version") == __version__ and prev["score"] > LS.quality_score(r["metrics"]) + 0.0005:
@@ -120,8 +164,20 @@ def _process_icon_scaled(gray, opts, emit, name):
     m = r["model"].scaled(W / small.shape[1], width=W, height=H)
     D = ink_map(gray)
     doc = Doctor(D)
+    try:
+        from . import opt
+        cur_s = doc.soft(ink_of(m))
+        cur_i = doc.iou(ink_of(m))
+        m_ref = opt.refine(m, D, taus=(0.6, 0.35), iters=18, lam_pos=0.05, lam_w=0.02, fit_width=True)
+        ink_ref = ink_of(m_ref)
+        s_ref = doc.soft(ink_ref)
+        iou_ref = doc.iou(ink_ref)
+        if s_ref <= cur_s + 2.0 and iou_ref >= cur_i - 0.0005:
+            m = m_ref
+    except Exception:
+        pass
     iou = doc.iou(ink_of(m))  # at the full source resolution: stricter (a 1 px shift of a 45 px stroke counts), kept as iou_full
-    r["metrics"].update(iou_full=iou, scale=float(k), stroke_width=float(r["metrics"].get("stroke_width", 0) * W / small.shape[1]))
+    r["metrics"].update(iou=iou, iou_full=iou, scale=float(k), stroke_width=float(r["metrics"].get("stroke_width", 0) * W / small.shape[1]))
     return dict(model=m, svg=m.svg(), metrics=r["metrics"])
 
 
@@ -275,8 +331,9 @@ def _process_icon(gray, opts: Options = None, emit=_noop, name="icon", set_w=Non
             ink2 = ink_of(new)
             s2 = doctor.soft(ink2)
             tol_ring = max(1.0, 0.0005 * state["cur"])
-            if ring["r"] >= 2.2 * w_est and ring.get("support", 0.0) >= 0.96 and len(new.paths) <= len(state["model"].paths):
-                tol_ring = max(tol_ring, min(115.0, 0.0038 * doctor.area))
+            is_true_circle = abs(ring["a"] - ring["b"]) / max(ring["a"], ring["b"], 1e-6) <= 0.035
+            if ring["r"] >= 2.0 * w_est and ring.get("support", 0.0) >= 0.96 and is_true_circle and len(new.paths) <= len(state["model"].paths):
+                tol_ring = max(tol_ring, min(115.0, 0.0046 * doctor.area))
             if s2 <= state["cur"] + tol_ring:
                 state.update(model=new, ink=ink2, cur=s2)
                 ok_n += 1
@@ -460,6 +517,20 @@ def _process_icon(gray, opts: Options = None, emit=_noop, name="icon", set_w=Non
     except Exception as e:
         import traceback
         traceback.print_exc()
+    try:
+        from . import opt
+        cur_soft = doctor.soft(ink)
+        cur_iou = doctor.iou(ink)
+        m_ref = opt.refine(model, D, taus=(0.6, 0.35), iters=18, lam_pos=0.05, lam_w=0.02, fit_width=True)
+        ink_ref = ink_of(m_ref)
+        s_ref = doctor.soft(ink_ref)
+        iou_ref = doctor.iou(ink_ref)
+        if s_ref <= cur_soft + 1.0 and iou_ref >= cur_iou - 0.0002:
+            model, ink = m_ref, ink_ref
+            state.update(model=model, ink=ink, cur=s_ref)
+            ev("edit", f"Subpixel Alignment: refined stroke width & coordinates to {iou_ref*100:.2f}% match", iou=iou_ref)
+    except Exception:
+        pass
     rep = doctor.diagnose(model, ink)
     open_all(rep)
     iou = doctor.iou(ink)
