@@ -607,6 +607,7 @@
         <span class="radar-dot"></span>
         <span>LIVE RADAR: <b id="statLiveRadarVal" style="color:#00f5a0; font-family:var(--mono);">1</b> Online Now</span>
         <span id="statLastUpdate" style="color:var(--text-dim); font-size:11px; margin-left:8px; font-family:var(--mono);">Updated just now</span>
+        <span id="dbStorageBadge" style="margin-left:12px; font-size:11px; padding:3px 9px; border-radius:12px; font-weight:600; display:inline-flex; align-items:center; gap:4px;"></span>
       </div>
 
       <div class="header-actions">
@@ -973,6 +974,23 @@
         document.getElementById('statLiveRadarVal').textContent = stats.live_online;
         const updEl = document.getElementById('statLastUpdate');
         if (updEl) updEl.textContent = 'Updated ' + new Date().toLocaleTimeString();
+
+        const bBadge = document.getElementById('dbStorageBadge');
+        if (bBadge && stats.db_backend) {
+          if (stats.db_backend === 'postgres') {
+            bBadge.innerHTML = '🛡️ Supabase Cloud (Permanent)';
+            bBadge.style.background = 'rgba(0, 245, 160, 0.15)';
+            bBadge.style.color = '#00f5a0';
+            bBadge.style.border = '1px solid rgba(0, 245, 160, 0.3)';
+            bBadge.title = 'Permanent cloud PostgreSQL storage connected';
+          } else {
+            bBadge.innerHTML = '⚠️ SQLite (Ephemeral Disk)';
+            bBadge.style.background = 'rgba(255, 184, 0, 0.15)';
+            bBadge.style.color = '#ffb800';
+            bBadge.style.border = '1px solid rgba(255, 184, 0, 0.3)';
+            bBadge.title = 'Render container resets SQLite on redeploy. Add DATABASE_URL to Render for permanent storage.';
+          }
+        }
         document.getElementById('kpiLiveOnline').textContent = stats.live_online;
         document.getElementById('kpiActiveToday').textContent = stats.active_today;
         document.getElementById('kpiMrr').textContent = '৳' + Number(stats.mrr).toLocaleString();

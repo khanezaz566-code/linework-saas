@@ -14,6 +14,112 @@ import secrets
 from datetime import datetime, timedelta
 from pathlib import Path
 
+try:
+    import psycopg2
+    import psycopg2.extras
+    PSYCOPG2_AVAILABLE = True
+except ImportError:
+    PSYCOPG2_AVAILABLE = False
+
+DATABASE_URL = os.environ.get("DATABASE_URL") or os.environ.get("SUPABASE_DB_URL") or os.environ.get("POSTGRES_URL")
+if DATABASE_URL and DATABASE_URL.startswith("postgres://"):
+    DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
+
+IS_POSTGRES = bool(DATABASE_URL and PSYCOPG2_AVAILABLE)
+
+
+class PostgresCursorWrapper:
+    def __init__(self, cur):
+        self.cur = cur
+        self.lastrowid = None
+
+    def execute(self, query, params=None):
+        pg_query = query.replace("?", "%s")
+        upper = pg_query.strip().upper()
+        if upper.startswith("INSERT INTO") and ("users" in upper.lower() or "payments" in upper.lower()) and "RETURNING" not in upper:
+            pg_query = pg_query.rstrip(" ;") + " RETURNING id"
+            if params:
+                self.cur.execute(pg_query, params)
+            else:
+                self.cur.execute(pg_query)
+            try:
+                row = self.cur.fetchone()
+                if row:
+                    self.lastrowid = row[0]
+            except Exception:
+                pass
+            return self
+
+        if params:
+            self.cur.execute(pg_query, params)
+        else:
+            self.cur.execute(pg_query)
+        return self
+
+    def fetchone(self):
+        return self.cur.fetchone()
+
+    def fetchall(self):
+        return self.cur.fetchall()
+
+    def __iter__(self):
+        return iter(self.cur)
+
+
+class PostgresConnectionWrapper:
+    def __init__(self, raw_conn):
+        self.raw_conn = raw_conn
+
+    def cursor(self):
+        return PostgresCursorWrapper(self.raw_conn.cursor(cursor_factory=psycopg2.extras.DictCursor))
+
+    def execute(self, query, params=None):
+        cur = self.cursor()
+        cur.execute(query, params)
+        return cur
+
+    def executescript(self, script):
+        cur = self.raw_conn.cursor()
+        cur.execute(script)
+        self.raw_conn.commit()
+        cur.close()
+
+    def commit(self):
+        self.raw_conn.commit()
+
+    def rollback(self):
+        self.raw_conn.rollback()
+
+    def close(self):
+        self.raw_conn.close()
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        if exc_type:
+            try:
+                self.rollback()
+            except Exception:
+                pass
+        else:
+            try:
+                self.commit()
+            except Exception:
+                pass
+        try:
+            self.close()
+        except Exception:
+            pass
+
+
+def _get_pg_conn():
+    url = DATABASE_URL
+    if "sslmode" not in url:
+        sep = "&" if "?" in url else "?"
+        url = f"{url}{sep}sslmode=require"
+    return psycopg2.connect(url)
+
 if getattr(sys, "frozen", False):
     DB_DIR = Path(sys.executable).resolve().parent / "data"
 else:
@@ -39,16 +145,25 @@ PLANS = {
 
 
 def get_db():
+    global IS_POSTGRES
+    if IS_POSTGRES:
+        try:
+            return PostgresConnectionWrapper(_get_pg_conn())
+        except Exception as e:
+            print(f"[DB WARN] Failed to connect to Postgres ({e}), falling back to SQLite", file=sys.stderr)
     conn = sqlite3.connect(str(DB_PATH))
     conn.row_factory = sqlite3.Row
     return conn
 
 
 def _migrate_db(conn):
-    """Safely apply column additions to existing SQLite tables."""
+    """Safely apply column additions to existing tables."""
     cur = conn.cursor()
     # Check users table columns
-    cur.execute("PRAGMA table_info(users)")
+    if IS_POSTGRES:
+        cur.execute("SELECT column_name AS name FROM information_schema.columns WHERE table_name = 'users'")
+    else:
+        cur.execute("PRAGMA table_info(users)")
     existing_user_cols = {row["name"] for row in cur.fetchall()}
     
     needed_user_cols = {
@@ -67,7 +182,10 @@ def _migrate_db(conn):
                 pass
 
     # Check payments table columns
-    cur.execute("PRAGMA table_info(payments)")
+    if IS_POSTGRES:
+        cur.execute("SELECT column_name AS name FROM information_schema.columns WHERE table_name = 'payments'")
+    else:
+        cur.execute("PRAGMA table_info(payments)")
     existing_pay_cols = {row["name"] for row in cur.fetchall()}
     
     needed_pay_cols = {
@@ -100,7 +218,10 @@ def _migrate_db(conn):
     """, (BKASH_NUMBER,))
     
         # Check sessions table columns
-    cur.execute("PRAGMA table_info(sessions)")
+    if IS_POSTGRES:
+        cur.execute("SELECT column_name AS name FROM information_schema.columns WHERE table_name = 'sessions'")
+    else:
+        cur.execute("PRAGMA table_info(sessions)")
     existing_sess_cols = {row["name"] for row in cur.fetchall()}
     if "last_seen_epoch" not in existing_sess_cols:
         try:
@@ -118,50 +239,101 @@ def _migrate_db(conn):
 
 def init_db():
     with get_db() as conn:
-        conn.executescript("""
-        CREATE TABLE IF NOT EXISTS users (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            username TEXT UNIQUE NOT NULL,
-            name TEXT,
-            phone TEXT UNIQUE,
-            whatsapp TEXT,
-            email TEXT,
-            password_hash TEXT NOT NULL,
-            salt TEXT NOT NULL,
-            role TEXT DEFAULT 'user',
-            status TEXT DEFAULT 'active',
-            plan TEXT DEFAULT 'free',
-            free_sheets_used INTEGER DEFAULT 0,
-            free_bg_used INTEGER DEFAULT 0,
-            pro_expires_at TEXT,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        );
+        if IS_POSTGRES:
+            cur = conn.cursor()
+            cur.execute("""
+            CREATE TABLE IF NOT EXISTS users (
+                id SERIAL PRIMARY KEY,
+                username TEXT UNIQUE NOT NULL,
+                name TEXT,
+                phone TEXT UNIQUE,
+                whatsapp TEXT,
+                email TEXT,
+                password_hash TEXT NOT NULL,
+                salt TEXT NOT NULL,
+                role TEXT DEFAULT 'user',
+                status TEXT DEFAULT 'active',
+                plan TEXT DEFAULT 'free',
+                free_sheets_used INTEGER DEFAULT 0,
+                free_bg_used INTEGER DEFAULT 0,
+                pro_expires_at TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                last_active TEXT,
+                last_seen_epoch BIGINT DEFAULT 0
+            );
 
-        CREATE TABLE IF NOT EXISTS sessions (
-            token TEXT PRIMARY KEY,
-            user_id INTEGER NOT NULL,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-        );
+            CREATE TABLE IF NOT EXISTS sessions (
+                token TEXT PRIMARY KEY,
+                user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                last_seen TEXT,
+                last_seen_epoch BIGINT DEFAULT 0,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            );
 
-        CREATE TABLE IF NOT EXISTS payments (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            user_id INTEGER NOT NULL,
-            username TEXT NOT NULL,
-            user_name TEXT,
-            phone TEXT NOT NULL,
-            whatsapp TEXT,
-            plan_selected TEXT DEFAULT 'bundle_pro',
-            amount INTEGER DEFAULT 300,
-            trx_id TEXT NOT NULL,
-            screenshot_path TEXT,
-            status TEXT DEFAULT 'pending',
-            admin_notes TEXT,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-        );
-        """)
+            CREATE TABLE IF NOT EXISTS payments (
+                id SERIAL PRIMARY KEY,
+                user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                username TEXT NOT NULL,
+                user_name TEXT,
+                phone TEXT NOT NULL,
+                whatsapp TEXT,
+                plan_selected TEXT DEFAULT 'bundle_pro',
+                amount INTEGER DEFAULT 300,
+                trx_id TEXT NOT NULL,
+                screenshot_path TEXT,
+                status TEXT DEFAULT 'pending',
+                admin_notes TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                reviewed_at TEXT
+            );
+            """)
+            conn.commit()
+        else:
+            conn.executescript("""
+            CREATE TABLE IF NOT EXISTS users (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                username TEXT UNIQUE NOT NULL,
+                name TEXT,
+                phone TEXT UNIQUE,
+                whatsapp TEXT,
+                email TEXT,
+                password_hash TEXT NOT NULL,
+                salt TEXT NOT NULL,
+                role TEXT DEFAULT 'user',
+                status TEXT DEFAULT 'active',
+                plan TEXT DEFAULT 'free',
+                free_sheets_used INTEGER DEFAULT 0,
+                free_bg_used INTEGER DEFAULT 0,
+                pro_expires_at TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            );
+
+            CREATE TABLE IF NOT EXISTS sessions (
+                token TEXT PRIMARY KEY,
+                user_id INTEGER NOT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+            );
+
+            CREATE TABLE IF NOT EXISTS payments (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER NOT NULL,
+                username TEXT NOT NULL,
+                user_name TEXT,
+                phone TEXT NOT NULL,
+                whatsapp TEXT,
+                plan_selected TEXT DEFAULT 'bundle_pro',
+                amount INTEGER DEFAULT 300,
+                trx_id TEXT NOT NULL,
+                screenshot_path TEXT,
+                status TEXT DEFAULT 'pending',
+                admin_notes TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+            );
+            """)
 
         _migrate_db(conn)
 
@@ -685,6 +857,8 @@ def get_admin_stats():
         conv_rate = round((pro_users / max(total_users, 1)) * 100, 1)
 
         return {
+            "db_backend": "postgres" if IS_POSTGRES else "sqlite",
+            "db_persistent": IS_POSTGRES,
             "total_users": total_users,
             "active_users": active_users,
             "banned_users": banned_users,

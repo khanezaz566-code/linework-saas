@@ -8,3 +8,5 @@ uvicorn[standard]>=0.29
 python-multipart>=0.0.9
 pillow>=10.0
 threadpoolctl>=3.2
+psycopg2-binary>=2.9.9
+
