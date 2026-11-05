@@ -77,8 +77,8 @@ def pool():
         is_cloud = bool(os.environ.get("RENDER") or os.environ.get("PORT"))
         inline_env = os.environ.get("LINEWORK_INLINE", "1" if is_cloud else "0")
         use_inline = inline_env.lower() in ("1", "true", "yes")
-        default_w = 1 if is_cloud else min(4, max(1, (os.cpu_count() or 2) // 2))
-        n = max(1, int(os.environ.get("LINEWORK_WORKERS", default_w)))
+        default_w = 4 if is_cloud else min(4, max(2, (os.cpu_count() or 2)))
+        n = max(2, int(os.environ.get("LINEWORK_WORKERS", default_w)))
         if use_inline:
             worker.init(_Q)
             _POOL = ThreadPoolExecutor(max_workers=n)
@@ -119,6 +119,16 @@ def cancel_all_jobs():
                 j["cancelled"] = True
                 j.setdefault("events", []).append(dict(engine="doctor", msg="Job cancelled by user", t=0, n=len(j.get("events", []))))
         reset_pool()
+
+
+def cancel_user_jobs(user_id: int):
+    """Cancel only the specific user's previous active jobs without affecting other users."""
+    with _LOCK:
+        for jid, j in list(JOBS.items()):
+            if j.get("user_id") == user_id and j.get("status") in ("queued", "splitting", "running"):
+                j["status"] = "cancelled"
+                j["cancelled"] = True
+                j.setdefault("events", []).append(dict(engine="doctor", msg="Replaced by new upload", t=0, n=len(j.get("events", []))))
 
 
 def cancel_job_by_id(job_id: str):
@@ -519,12 +529,13 @@ async def create_job(
     if len(data) > MAX_BYTES:
         raise HTTPException(413, "File too large (15 MB max)")
     gray = _decode_upload(data, file.filename or "")
-    return _start(gray, file.filename or "upload", quality, clean, target, fresh=fresh)
+    return _start(gray, file.filename or "upload", quality, clean, target, fresh=fresh, user_id=user["id"])
 
 
-def _start(gray, name, quality, clean, target, fresh: bool = True):
+def _start(gray, name, quality, clean, target, fresh: bool = True, user_id: int = None):
     _sweep_old()
-    cancel_all_jobs()
+    if user_id is not None:
+        cancel_user_jobs(user_id)
     if quality not in PRESETS:
         quality = "standard"
     job_id = uuid.uuid4().hex[:12]
@@ -534,7 +545,7 @@ def _start(gray, name, quality, clean, target, fresh: bool = True):
     clean = float(np.clip(clean, 0, 1))
     opts = dict(quality=quality, target_iou=float(np.clip(target, 90, 99.9)) / 100, dedupe_tol=0.0005 + 0.006 * clean, fresh=bool(fresh))
     job = dict(
-        id=job_id, name=name, status="queued", options=opts, created=time.time(), icons=[], events=[],
+        id=job_id, user_id=user_id, name=name, status="queued", options=opts, created=time.time(), icons=[], events=[],
         width=int(gray.shape[1]), height=int(gray.shape[0]), version=0, done=0, iou=None,
     )
     JOBS[job_id] = job
@@ -553,7 +564,7 @@ def sample(name: str, request: Request, quality: str = "standard", fresh: bool =
     if not fn.exists() or not name.replace("-", "").isalnum():
         raise HTTPException(404)
     gray = cv2.imread(str(fn), 0)
-    return _start(gray, name, quality, 0.5, 99.5, fresh=fresh)
+    return _start(gray, name, quality, 0.5, 99.5, fresh=fresh, user_id=user["id"])
 
 
 @app.get("/api/jobs/{job_id}")
