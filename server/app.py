@@ -1051,10 +1051,37 @@ def api_admin_stats(request: Request):
     return db.get_admin_stats()
 
 
+
 @app.get("/api/admin/users")
-def api_admin_users(request: Request, q: str = Query(None)):
+def api_admin_users(request: Request, q: str = Query(None), filter: str = Query(None)):
     require_admin(request)
-    return db.list_users(search=q)
+    return db.list_users(search=q, filter_type=filter)
+
+
+@app.post("/api/admin/users/{user_id}/access")
+async def api_admin_grant_access(user_id: int, request: Request):
+    require_admin(request)
+    body = await request.json()
+    plan = body.get("plan", "free")
+    days = int(body.get("days", 30))
+    role = body.get("role", "user")
+    status = body.get("status", "active")
+    reset_quota = bool(body.get("reset_quota", False))
+    sheets_used = body.get("sheets_used")
+    bg_used = body.get("bg_used")
+    
+    db.grant_user_access(
+        user_id=user_id,
+        plan=plan,
+        days=days,
+        role=role,
+        status=status,
+        reset_quota=reset_quota,
+        sheets_used=sheets_used,
+        bg_used=bg_used
+    )
+    return {"ok": True, "message": f"Access granted successfully for user #{user_id}"}
+
 
 
 @app.post("/api/admin/users/{user_id}/plan")

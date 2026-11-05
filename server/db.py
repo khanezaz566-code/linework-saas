@@ -55,7 +55,8 @@ def _migrate_db(conn):
         "name": "TEXT",
         "phone": "TEXT",
         "whatsapp": "TEXT",
-        "free_bg_used": "INTEGER DEFAULT 0"
+        "free_bg_used": "INTEGER DEFAULT 0",
+        "last_active": "TEXT"
     }
     for col, col_type in needed_user_cols.items():
         if col not in existing_user_cols:
@@ -86,6 +87,15 @@ def _migrate_db(conn):
     SET phone = ?, name = 'Super Admin', whatsapp = ? 
     WHERE username = 'admin' AND (phone IS NULL OR phone = '')
     """, (BKASH_NUMBER, BKASH_NUMBER))
+    
+    # Check sessions table columns
+    cur.execute("PRAGMA table_info(sessions)")
+    existing_sess_cols = {row["name"] for row in cur.fetchall()}
+    if "last_seen" not in existing_sess_cols:
+        try:
+            cur.execute("ALTER TABLE sessions ADD COLUMN last_seen TEXT")
+        except Exception:
+            pass
     conn.commit()
 
 
@@ -249,6 +259,15 @@ def get_user_from_token(token: str):
             return None
         u_dict = dict(user)
         _check_pro_expiration(u_dict, conn)
+        
+        # Keep activity timestamp fresh
+        try:
+            now_iso = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            conn.execute("UPDATE sessions SET last_seen = ? WHERE token = ?", (now_iso, token))
+            conn.execute("UPDATE users SET last_active = ? WHERE id = ?", (now_iso, u_dict["id"]))
+            conn.commit()
+        except Exception:
+            pass
         return u_dict
 
 
@@ -422,81 +441,100 @@ def submit_payment_request(user_id: int, plan_selected: str, amount: int, phone:
         return cur.lastrowid
 
 
-def list_users(search: str = None):
+
+def grant_user_access(user_id: int, plan: str, days: int = 30, role: str = "user", status: str = "active", reset_quota: bool = False, sheets_used: int = None, bg_used: int = None):
     with get_db() as conn:
         cur = conn.cursor()
-        if search:
-            s = f"%{search.strip()}%"
-            cur.execute("""
-            SELECT id, username, name, phone, whatsapp, email, role, status, plan, free_sheets_used, free_bg_used, pro_expires_at, created_at 
-            FROM users 
-            WHERE username LIKE ? OR name LIKE ? OR phone LIKE ? OR whatsapp LIKE ?
-            ORDER BY id DESC
-            """, (s, s, s, s))
-        else:
-            cur.execute("""
-            SELECT id, username, name, phone, whatsapp, email, role, status, plan, free_sheets_used, free_bg_used, pro_expires_at, created_at 
-            FROM users 
-            ORDER BY id DESC
-            """)
-        return [dict(r) for r in cur.fetchall()]
-
-
-def update_user_plan(user_id: int, plan: str, pro_days: int = 30, reset_quota: bool = False):
-    with get_db() as conn:
-        cur = conn.cursor()
+        now = datetime.now()
+        
+        # Expiry date computation
         if plan in ("bundle_pro", "redraw_pro", "bg_pro", "pro"):
-            exp_date = (datetime.now() + timedelta(days=pro_days)).strftime("%Y-%m-%d %H:%M:%S")
-            cur.execute("UPDATE users SET plan = ?, pro_expires_at = ?, status = 'active' WHERE id = ?", (plan, exp_date, user_id))
+            if days >= 3650 or days == -1:
+                exp_date = "2099-12-31 23:59:59"
+            else:
+                exp_date = (now + timedelta(days=days)).strftime("%Y-%m-%d %H:%M:%S")
         else:
-            cur.execute("UPDATE users SET plan = 'free', pro_expires_at = NULL WHERE id = ?", (user_id,))
+            exp_date = None
+            
+        cur.execute("""
+        UPDATE users 
+        SET plan = ?, pro_expires_at = ?, role = ?, status = ?
+        WHERE id = ?
+        """, (plan, exp_date, role, status, user_id))
         
         if reset_quota:
             cur.execute("UPDATE users SET free_sheets_used = 0, free_bg_used = 0 WHERE id = ?", (user_id,))
-        conn.commit()
-
-
-def update_user_status(user_id: int, status: str):
-    with get_db() as conn:
-        cur = conn.cursor()
-        cur.execute("UPDATE users SET status = ? WHERE id = ?", (status, user_id))
-        conn.commit()
-
-
-def list_payments(status_filter: str = None):
-    with get_db() as conn:
-        cur = conn.cursor()
-        if status_filter and status_filter != "all":
-            cur.execute("SELECT * FROM payments WHERE status = ? ORDER BY id DESC", (status_filter,))
         else:
-            cur.execute("SELECT * FROM payments ORDER BY id DESC")
-        return [dict(r) for r in cur.fetchall()]
+            if sheets_used is not None:
+                cur.execute("UPDATE users SET free_sheets_used = ? WHERE id = ?", (int(sheets_used), user_id))
+            if bg_used is not None:
+                cur.execute("UPDATE users SET free_bg_used = ? WHERE id = ?", (int(bg_used), user_id))
+                
+        conn.commit()
+        return True
 
 
-def review_payment(payment_id: int, approve: bool = True, notes: str = ""):
+def list_users(search: str = None, filter_type: str = None):
     with get_db() as conn:
         cur = conn.cursor()
-        cur.execute("SELECT * FROM payments WHERE id = ?", (payment_id,))
-        pay = cur.fetchone()
-        if not pay:
-            return False, "Payment request not found"
-
-        new_status = "approved" if approve else "declined"
-        cur.execute("""
-        UPDATE payments SET status = ?, admin_notes = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?
-        """, (new_status, notes, payment_id))
-
-        if approve:
-            user_id = pay["user_id"]
-            plan = pay["plan_selected"] or "bundle_pro"
-            # Grant 30 days subscription
-            exp_date = (datetime.now() + timedelta(days=30)).strftime("%Y-%m-%d %H:%M:%S")
-            cur.execute("""
-            UPDATE users SET plan = ?, status = 'active', pro_expires_at = ? WHERE id = ?
-            """, (plan, exp_date, user_id))
-
-        conn.commit()
-        return True, new_status
+        query = """
+        SELECT id, username, name, phone, whatsapp, email, role, status, plan, 
+               free_sheets_used, free_bg_used, pro_expires_at, created_at,
+               COALESCE(last_active, created_at) AS last_active
+        FROM users
+        """
+        params = []
+        conditions = []
+        if search:
+            s = f"%{search.strip()}%"
+            conditions.append("(username LIKE ? OR name LIKE ? OR phone LIKE ? OR whatsapp LIKE ?)")
+            params.extend([s, s, s, s])
+            
+        if filter_type == "pro":
+            conditions.append("plan IN ('bundle_pro', 'redraw_pro', 'bg_pro', 'pro')")
+        elif filter_type == "free":
+            conditions.append("plan = 'free'")
+        elif filter_type == "banned":
+            conditions.append("status = 'banned'")
+        elif filter_type == "admin":
+            conditions.append("role = 'admin'")
+            
+        if conditions:
+            query += " WHERE " + " AND ".join(conditions)
+            
+        query += " ORDER BY id DESC"
+        cur.execute(query, tuple(params))
+        rows = [dict(r) for r in cur.fetchall()]
+        
+        # Calculate online status & remaining days for each user
+        now = datetime.now()
+        for r in rows:
+            last_act_str = r.get("last_active")
+            is_online = False
+            if last_act_str:
+                try:
+                    last_act_dt = datetime.fromisoformat(last_act_str.replace("Z", ""))
+                    if (now - last_act_dt).total_seconds() < 900:  # 15 minutes
+                        is_online = True
+                except Exception:
+                    pass
+            r["is_online"] = is_online
+            
+            exp_str = r.get("pro_expires_at")
+            days_left = 0
+            if exp_str and r.get("plan") != "free":
+                try:
+                    exp_dt = datetime.fromisoformat(exp_str)
+                    diff = (exp_dt - now).days
+                    days_left = max(0, diff) if diff < 20000 else 9999
+                except Exception:
+                    pass
+            r["days_left"] = days_left
+            
+        if filter_type == "online":
+            rows = [r for r in rows if r["is_online"]]
+            
+        return rows
 
 
 def get_admin_stats():
@@ -508,6 +546,22 @@ def get_admin_stats():
         active_users = cur.fetchone()[0]
         cur.execute("SELECT COUNT(*) FROM users WHERE status = 'banned'")
         banned_users = cur.fetchone()[0]
+        
+        # Live active online users (active in last 15 minutes)
+        cur.execute("""
+        SELECT COUNT(DISTINCT user_id) FROM sessions 
+        WHERE last_seen >= datetime('now', '-15 minutes')
+        """)
+        live_online = cur.fetchone()[0] or 0
+        live_online = max(live_online, 1)  # At least 1 (the current admin)
+        
+        # Active Today (last 24 hours)
+        cur.execute("""
+        SELECT COUNT(DISTINCT user_id) FROM sessions 
+        WHERE last_seen >= datetime('now', '-24 hours')
+        """)
+        active_today = max(cur.fetchone()[0] or 0, live_online)
+        
         cur.execute("SELECT COUNT(*) FROM users WHERE plan = 'free'")
         free_users = cur.fetchone()[0]
         cur.execute("SELECT COUNT(*) FROM users WHERE plan = 'redraw_pro'")
@@ -516,6 +570,12 @@ def get_admin_stats():
         bg_pro_users = cur.fetchone()[0]
         cur.execute("SELECT COUNT(*) FROM users WHERE plan IN ('bundle_pro', 'pro')")
         bundle_pro_users = cur.fetchone()[0]
+        
+        pro_users = redraw_pro_users + bg_pro_users + bundle_pro_users
+        
+        # Monthly Recurring Revenue (MRR) projection
+        mrr = (redraw_pro_users * 300) + (bg_pro_users * 200) + (bundle_pro_users * 500)
+        
         cur.execute("SELECT COUNT(*) FROM payments WHERE status = 'pending'")
         pending_payments = cur.fetchone()[0]
         cur.execute("SELECT COALESCE(SUM(amount), 0) FROM payments WHERE status = 'approved'")
@@ -525,15 +585,21 @@ def get_admin_stats():
         cur.execute("SELECT COALESCE(SUM(free_bg_used), 0) FROM users")
         total_bg_used = cur.fetchone()[0]
 
+        conv_rate = round((pro_users / max(total_users, 1)) * 100, 1)
+
         return {
             "total_users": total_users,
             "active_users": active_users,
             "banned_users": banned_users,
+            "live_online": live_online,
+            "active_today": active_today,
             "free_users": free_users,
             "redraw_pro_users": redraw_pro_users,
             "bg_pro_users": bg_pro_users,
             "bundle_pro_users": bundle_pro_users,
-            "pro_users": redraw_pro_users + bg_pro_users + bundle_pro_users,
+            "pro_users": pro_users,
+            "mrr": mrr,
+            "conv_rate": conv_rate,
             "pending_payments": pending_payments,
             "total_revenue": total_revenue,
             "total_sheets_used": total_sheets_used,
@@ -541,16 +607,6 @@ def get_admin_stats():
             "bkash_number": BKASH_NUMBER,
             "support_phone": SUPPORT_PHONE,
         }
-
-
-def delete_user(user_id: int):
-    with get_db() as conn:
-        cur = conn.cursor()
-        cur.execute("DELETE FROM sessions WHERE user_id = ?", (user_id,))
-        cur.execute("DELETE FROM payments WHERE user_id = ?", (user_id,))
-        cur.execute("DELETE FROM users WHERE id = ?", (user_id,))
-        conn.commit()
-        return True
 
 
 # Auto initialize DB upon import
