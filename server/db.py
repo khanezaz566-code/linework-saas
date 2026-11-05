@@ -724,7 +724,7 @@ def list_users(search: str = None, filter_type: str = None):
         SELECT id, username, name, phone, whatsapp, email, role, status, plan, 
                free_sheets_used, free_bg_used, pro_expires_at, created_at,
                COALESCE(last_seen_epoch, 0) AS last_seen_epoch,
-               COALESCE(last_active, created_at) AS last_active
+               COALESCE(last_active, CAST(created_at AS TEXT)) AS last_active
         FROM users
         """
         params = []
