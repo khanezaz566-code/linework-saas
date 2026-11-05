@@ -27,7 +27,8 @@ from server import db  # noqa: E402
 DATA = FsPath(os.environ.get("LINEWORK_DATA", ROOT / "data"))
 DATA.mkdir(parents=True, exist_ok=True)
 MAX_BYTES = 15 * 1024 * 1024
-MAX_SIDE = 5000
+is_cloud = bool(os.environ.get("RENDER") or os.environ.get("PORT"))
+MAX_SIDE = 1400 if is_cloud else 3000
 MAX_ICONS = 96
 KEEP_SECONDS = 24 * 3600
 
@@ -284,17 +285,27 @@ def _finish_composite(job_id):
     d = _jobdir(job_id)
     allm = _compose(job_id)
     (d / "result.svg").write_text(allm.svg(pretty=True))
-    img = render_gray(allm.svg(), allm.width, allm.height)
+    render_w, render_h = allm.width, allm.height
+    if max(render_w, render_h) > 1200:
+        scale = 1200.0 / max(render_w, render_h)
+        render_w = max(24, int(round(render_w * scale)))
+        render_h = max(24, int(round(render_h * scale)))
+        
+    img = render_gray(allm.svg(), render_w, render_h)
     cv2.imwrite(str(d / "result.png"), img)
     gray = cv2.imread(str(d / "original.png"), 0)
-    ref = ink_map(gray) > 0.5
-    b = img < 128
-    job["iou"] = float((b & ref).sum() / max((b | ref).sum(), 1))
-    dm = np.full(ref.shape + (3,), 255, np.uint8)
-    dm[ref & b] = (200, 200, 200)
-    dm[ref & ~b] = (60, 60, 235)
-    dm[~ref & b] = (235, 120, 60)
-    cv2.imwrite(str(d / "diff.png"), dm)
+    if gray is not None and gray.size > 0:
+        if gray.shape != (render_h, render_w):
+            gray = cv2.resize(gray, (render_w, render_h), interpolation=cv2.INTER_AREA)
+        ref = ink_map(gray) > 0.5
+        b = img < 128
+        job["iou"] = float((b & ref).sum() / max((b | ref).sum(), 1))
+        dm = np.full(ref.shape + (3,), 255, np.uint8)
+        dm[ref & b] = (200, 200, 200)
+        dm[ref & ~b] = (60, 60, 235)
+        dm[~ref & b] = (235, 120, 60)
+        cv2.imwrite(str(d / "diff.png"), dm)
+        del img, gray, ref, b, dm
     a = audit_paths(allm.paths, min_run=1.2)
     iss = [ic["metrics"]["issues"] for ic in job["icons"] if ic.get("metrics")]
     fin_fixed = sum(ic.get("metrics", {}).get("finisher", {}).get("fixed", 0) for ic in job["icons"])
@@ -441,21 +452,19 @@ def _run_job(job_id):
             ic = job["icons"][k]
             try:
                 _, off, mj, met = fut.result()
-            except Exception as e:  # keep the job alive if one icon fails
-                if job.get("cancelled") or job.get("status") == "cancelled":
-                    break
-                reset_pool()
+                _store_icon(job, d, k, mj, off, met)
+                job["done"] += 1
+            except Exception as e:
                 try:
                     k_r, off_r, mj_r, met_r = worker.run_icon((job_id, k, crop_map[k], off_map[k], job["options"]))
                     _store_icon(job, d, k_r, mj_r, off_r, met_r)
                     job["done"] += 1
-                    _finish_composite(job_id)
-                    continue
                 except Exception as e2:
                     ic.update(status="error", error=str(e2))
                     continue
-            _store_icon(job, d, k, mj, off, met)
-            job["done"] += 1
+        
+        # Complete composite once for the full sheet to save RAM
+        if not (job.get("cancelled") or job.get("status") == "cancelled"):
             _finish_composite(job_id)
         if job.get("cancelled") or job.get("status") == "cancelled":
             job["status"] = "cancelled"
@@ -564,6 +573,10 @@ def sample(name: str, request: Request, quality: str = "standard", fresh: bool =
     if not fn.exists() or not name.replace("-", "").isalnum():
         raise HTTPException(404)
     gray = cv2.imread(str(fn), 0)
+    h, w = gray.shape
+    if max(h, w) > MAX_SIDE:
+        s = MAX_SIDE / max(h, w)
+        gray = cv2.resize(gray, None, fx=s, fy=s, interpolation=cv2.INTER_AREA)
     return _start(gray, name, quality, 0.5, 99.5, fresh=fresh, user_id=user["id"])
 
 
