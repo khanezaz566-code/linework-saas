@@ -1131,7 +1131,7 @@ def api_admin_delete_user(user_id: int, request: Request):
 @app.get("/api/admin/payments")
 def api_admin_payments(request: Request, status: str = Query("all")):
     require_admin(request)
-    return db.list_payments(status_filter=status)
+    return JSONResponse(db.list_payments(status_filter=status), headers=NO_CACHE_HEADERS)
 
 
 @app.post("/api/admin/payments/{payment_id}/review")

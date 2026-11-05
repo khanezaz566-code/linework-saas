@@ -73,7 +73,10 @@ def _migrate_db(conn):
     needed_pay_cols = {
         "user_name": "TEXT",
         "whatsapp": "TEXT",
-        "plan_selected": "TEXT DEFAULT 'bundle_pro'"
+        "plan_selected": "TEXT DEFAULT 'bundle_pro'",
+        "admin_notes": "TEXT",
+        "reviewed_at": "TEXT",
+        "updated_at": "TEXT"
     }
     for col, col_type in needed_pay_cols.items():
         if col not in existing_pay_cols:
@@ -669,3 +672,64 @@ def get_admin_stats():
 
 # Auto initialize DB upon import
 init_db()
+
+
+def list_payments(status_filter: str = "all"):
+    """Fetch payments for admin approval desk."""
+    with get_db() as conn:
+        cur = conn.cursor()
+        query = """
+        SELECT id, user_id, username, user_name, phone, whatsapp, 
+               plan_selected, amount, trx_id, screenshot_path, status, 
+               admin_notes, created_at, reviewed_at
+        FROM payments
+        """
+        params = []
+        if status_filter and status_filter != "all":
+            query += " WHERE status = ?"
+            params.append(status_filter)
+        query += " ORDER BY id DESC"
+        cur.execute(query, tuple(params))
+        return [dict(r) for r in cur.fetchall()]
+
+
+def review_payment(payment_id: int, approve: bool = True, notes: str = ""):
+    """Approve or decline bKash payment and activate subscription."""
+    with get_db() as conn:
+        cur = conn.cursor()
+        cur.execute("SELECT * FROM payments WHERE id = ?", (payment_id,))
+        p = cur.fetchone()
+        if not p:
+            return False, "Payment not found"
+        p_dict = dict(p)
+        now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        status = "approved" if approve else "declined"
+        cur.execute("""
+        UPDATE payments SET status = ?, admin_notes = ?, reviewed_at = ? WHERE id = ?
+        """, (status, notes, now_str, payment_id))
+        
+        if approve:
+            plan = p_dict.get("plan_selected", "bundle_pro")
+            user_id = p_dict["user_id"]
+            pro_exp = (datetime.now() + timedelta(days=30)).strftime("%Y-%m-%d %H:%M:%S")
+            cur.execute("""
+            UPDATE users SET plan = ?, pro_expires_at = ?, free_sheets_used = 0, free_bg_used = 0 WHERE id = ?
+            """, (plan, pro_exp, user_id))
+        conn.commit()
+        return True, status
+
+
+def update_user_plan(user_id: int, plan: str, pro_days: int = 30, reset_quota: bool = False):
+    grant_user_access(user_id, plan=plan, days=pro_days, reset_quota=reset_quota)
+
+
+def update_user_status(user_id: int, status: str = "active"):
+    grant_user_access(user_id, status=status)
+
+
+def delete_user(user_id: int):
+    with get_db() as conn:
+        conn.execute("DELETE FROM sessions WHERE user_id = ?", (user_id,))
+        conn.execute("DELETE FROM payments WHERE user_id = ?", (user_id,))
+        conn.execute("DELETE FROM users WHERE id = ?", (user_id,))
+        conn.commit()

@@ -959,8 +959,8 @@
     }
 
     async function loadAllData() {
+      // 1. KPI Stats
       try {
-        // 1. KPI Stats
         const stats = await apiCall('/api/admin/stats');
         document.getElementById('statLiveRadarVal').textContent = stats.live_online;
         const updEl = document.getElementById('statLastUpdate');
@@ -972,34 +972,42 @@
         document.getElementById('kpiTotalUsers').textContent = stats.total_users;
         document.getElementById('kpiConvRate').textContent = stats.conv_rate + '%';
         document.getElementById('kpiProUsers').textContent = stats.pro_users;
-        document.getElementById('kpiProBreakdown').textContent = `Redraw: ${stats.redraw_pro_users} · BG: ${stats.bg_pro_users} · Bundle: ${stats.bundle_pro_users}`;
+        document.getElementById('kpiProBreakdown').textContent = 'Redraw: ' + stats.redraw_pro_users + ' · BG: ' + stats.bg_pro_users + ' · Bundle: ' + stats.bundle_pro_users;
         document.getElementById('kpiPendingPayments').textContent = stats.pending_payments;
         document.getElementById('badgePendingCount').textContent = stats.pending_payments + ' Pending';
-        document.getElementById('kpiTotalOutput').textContent = (stats.total_sheets_used + stats.total_bg_used).toLocaleString();
-        document.getElementById('kpiOutputBreakdown').textContent = `Icons: ${stats.total_sheets_used} · BG: ${stats.total_bg_used}`;
+        document.getElementById('kpiTotalOutput').textContent = (stats.total_sheets_used + stats.total_bg_used);
+        document.getElementById('kpiOutputBreakdown').textContent = 'Icons: ' + stats.total_sheets_used + ' · BG: ' + stats.total_bg_used;
 
-        // Glow card if pending payments
         const payCard = document.getElementById('cardPendingPayments');
         if (stats.pending_payments > 0) {
           payCard.classList.add('glow-gold');
         } else {
           payCard.classList.remove('glow-gold');
         }
+      } catch (err) {
+        console.error('Stats load failed:', err);
+      }
 
-        // 2. Pending Payments Desk
+      // 2. Pending Payments Desk
+      try {
         const payments = await apiCall('/api/admin/payments?status=pending');
-        renderPayments(payments);
+        renderPayments(payments || []);
+      } catch (err) {
+        console.error('Payments load failed:', err);
+        renderPayments([]);
+      }
 
-        // 3. Customer CRM Table
+      // 3. Customer CRM Table
+      try {
         const users = await apiCall('/api/admin/users');
-        state.allUsers = users;
+        state.allUsers = users || [];
 
         // Update tab count badges
-        const countAll = users.length;
-        const countOnline = users.filter(u => u.is_online).length;
-        const countFree = users.filter(u => u.plan === 'free').length;
-        const countPro = users.filter(u => ['bundle_pro', 'redraw_pro', 'bg_pro', 'pro'].includes(u.plan)).length;
-        const countBanned = users.filter(u => u.status === 'banned').length;
+        const countAll = state.allUsers.length;
+        const countOnline = state.allUsers.filter(u => u.is_online).length;
+        const countFree = state.allUsers.filter(u => u.plan === 'free').length;
+        const countPro = state.allUsers.filter(u => ['bundle_pro', 'redraw_pro', 'bg_pro', 'pro'].includes(u.plan)).length;
+        const countBanned = state.allUsers.filter(u => u.status === 'banned').length;
 
         document.getElementById('tabCountAll').textContent = countAll;
         document.getElementById('tabCountOnline').textContent = countOnline;
@@ -1007,9 +1015,9 @@
         document.getElementById('tabCountPro').textContent = countPro;
         document.getElementById('tabCountBanned').textContent = countBanned;
 
-        renderUsers(filterUsers(users));
+        renderUsers(filterUsers(state.allUsers));
       } catch (err) {
-        console.error(err);
+        console.error('Users load failed:', err);
       }
     }
 
