@@ -1,17 +1,17 @@
 /*
  * batch.js: write thousands of unique, fully editable SVG backgrounds.
  *
- * The library has 2820 designs (188 patterns x 15 styles). Every design can make
+ * The library has 3600 designs (240 patterns x 15 styles). Every design can make
  * as many variations as you ask for. Variation 0 is the design itself.
  *
- *   node batch.js                                  2820 designs x 5 variations -> ./out
- *   node batch.js --variations 1000                2820 x 1000 = 2,820,000 files
+ *   node batch.js                                  3600 designs x 5 variations -> ./out
+ *   node batch.js --variations 1000                3600 x 1000 = 3,600,000 files
  *   node batch.js --designs 1-30 --variations 200  only designs 1 to 30
  *   node batch.js --pattern burst --variations 500 one pattern only
  *   node batch.js --size 3840x2160 --strength wild --out D:/stock
  *
  * Options
- *   --designs  A-B       design range, 1 to 2820 (default 1-2820)
+ *   --designs  A-B       design range, 1 to 3600 (default 1-3600)
  *   --pattern  id        only designs of this pattern
  *   --variations N       files per design, including the design itself (default 5)
  *   --strength S         subtle | medium | wild (default medium)
@@ -21,7 +21,7 @@
  *   --out DIR            output folder (default ./out)
  *
  * Speed: about 3 ms per file. To use several CPU cores, start several terminals
- * with different --designs ranges (for example 1-420, 421-840, 841-1260, 1261-2820).
+ * with different --designs ranges (for example 1-420, 421-840, 841-1260, 1261-3600).
  *
  * Layout:  out/<pattern>/d<design>/v<variation>.svg   and   out/manifest-<A>-<B>.csv
  * Every file is hashed. A file whose hash was already written is skipped and the

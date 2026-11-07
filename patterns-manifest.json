@@ -1,7 +1,7 @@
 {
- "version": "1.5.0",
- "patterns": 188,
- "designs": 2820,
+ "version": "1.7.0",
+ "patterns": 240,
+ "designs": 3600,
  "list": [
   {
    "id": "burst",
@@ -942,6 +942,266 @@
    "id": "rprose",
    "name": "Rose Ripples",
    "cat": "Ripple"
+  },
+  {
+   "id": "lgsoft",
+   "name": "Soft Spotlight",
+   "cat": "Light"
+  },
+  {
+   "id": "lgwide",
+   "name": "Wide Beam",
+   "cat": "Light"
+  },
+  {
+   "id": "lgcross",
+   "name": "Crossing Beams",
+   "cat": "Light"
+  },
+  {
+   "id": "lgcolor",
+   "name": "Colour Beams",
+   "cat": "Light"
+  },
+  {
+   "id": "lglime",
+   "name": "Lime Beam",
+   "cat": "Light"
+  },
+  {
+   "id": "lgclub",
+   "name": "Club Lights",
+   "cat": "Light"
+  },
+  {
+   "id": "lgfan",
+   "name": "Light Fan",
+   "cat": "Light"
+  },
+  {
+   "id": "lgfanwarm",
+   "name": "Warm Fan",
+   "cat": "Light"
+  },
+  {
+   "id": "lgfantop",
+   "name": "Top Fan",
+   "cat": "Light"
+  },
+  {
+   "id": "lgburst",
+   "name": "Ray Burst",
+   "cat": "Light"
+  },
+  {
+   "id": "lgburstc",
+   "name": "Colour Burst",
+   "cat": "Light"
+  },
+  {
+   "id": "lglimefan",
+   "name": "Lime Fan",
+   "cat": "Light"
+  },
+  {
+   "id": "lgstage",
+   "name": "Stage Spots",
+   "cat": "Light"
+  },
+  {
+   "id": "lgstagetwin",
+   "name": "Twin Spots",
+   "cat": "Light"
+  },
+  {
+   "id": "lgstagecol",
+   "name": "Colour Stage",
+   "cat": "Light"
+  },
+  {
+   "id": "lgstagebar",
+   "name": "Spot Row",
+   "cat": "Light"
+  },
+  {
+   "id": "lgflare",
+   "name": "Lens Flare",
+   "cat": "Light"
+  },
+  {
+   "id": "lgflarecol",
+   "name": "Colour Flare",
+   "cat": "Light"
+  },
+  {
+   "id": "lgflarewarm",
+   "name": "Warm Flare",
+   "cat": "Light"
+  },
+  {
+   "id": "lgbokeh",
+   "name": "Light Bokeh",
+   "cat": "Light"
+  },
+  {
+   "id": "lgbokehcol",
+   "name": "Colour Bokeh",
+   "cat": "Light"
+  },
+  {
+   "id": "lgbokehblue",
+   "name": "Blue Bokeh",
+   "cat": "Light"
+  },
+  {
+   "id": "ppfan",
+   "name": "Pleated Flower",
+   "cat": "Paper"
+  },
+  {
+   "id": "ppfangarden",
+   "name": "Fan Garden",
+   "cat": "Paper"
+  },
+  {
+   "id": "ppfanrain",
+   "name": "Pleat Rosettes",
+   "cat": "Paper"
+  },
+  {
+   "id": "pptulip",
+   "name": "Tulip Bouquet",
+   "cat": "Paper"
+  },
+  {
+   "id": "pptulipfield",
+   "name": "Tulip Field",
+   "cat": "Paper"
+  },
+  {
+   "id": "pptulipscat",
+   "name": "Tulip Scatter",
+   "cat": "Paper"
+  },
+  {
+   "id": "ppblossom",
+   "name": "Pink Blossoms",
+   "cat": "Paper"
+  },
+  {
+   "id": "ppblossommix",
+   "name": "Blossom Mix",
+   "cat": "Paper"
+  },
+  {
+   "id": "ppblossomnight",
+   "name": "Night Blossoms",
+   "cat": "Paper"
+  },
+  {
+   "id": "pplantern",
+   "name": "Paper Lantern",
+   "cat": "Paper"
+  },
+  {
+   "id": "pplantern3",
+   "name": "Lantern Trio",
+   "cat": "Paper"
+  },
+  {
+   "id": "pplanternrow",
+   "name": "Hanging Lanterns",
+   "cat": "Paper"
+  },
+  {
+   "id": "pphangtassel",
+   "name": "Tassel Garland",
+   "cat": "Paper"
+  },
+  {
+   "id": "pphangleaf",
+   "name": "Leaf Drops",
+   "cat": "Paper"
+  },
+  {
+   "id": "pphangheart",
+   "name": "Heart Strings",
+   "cat": "Paper"
+  },
+  {
+   "id": "pphangmix",
+   "name": "Rainbow Hangings",
+   "cat": "Paper"
+  },
+  {
+   "id": "ppdahlia",
+   "name": "Red Dahlia",
+   "cat": "Paper"
+  },
+  {
+   "id": "ppdahliapink",
+   "name": "Pink Dahlia",
+   "cat": "Paper"
+  },
+  {
+   "id": "ppmandala",
+   "name": "Paper Mandala",
+   "cat": "Paper"
+  },
+  {
+   "id": "pptree",
+   "name": "Rainbow Tree",
+   "cat": "Paper"
+  },
+  {
+   "id": "pptreeblossom",
+   "name": "Blossom Tree",
+   "cat": "Paper"
+  },
+  {
+   "id": "pptreeautumn",
+   "name": "Autumn Tree",
+   "cat": "Paper"
+  },
+  {
+   "id": "ppbutterfly",
+   "name": "Accordion Butterfly",
+   "cat": "Paper"
+  },
+  {
+   "id": "ppbutterflypink",
+   "name": "Pink Butterflies",
+   "cat": "Paper"
+  },
+  {
+   "id": "ppbutterflynight",
+   "name": "Night Butterflies",
+   "cat": "Paper"
+  },
+  {
+   "id": "ppstar",
+   "name": "Puffy Stars",
+   "cat": "Paper"
+  },
+  {
+   "id": "ppstarmix",
+   "name": "Star Confetti",
+   "cat": "Paper"
+  },
+  {
+   "id": "ppwreath",
+   "name": "Flower Wreath",
+   "cat": "Paper"
+  },
+  {
+   "id": "ppmoon",
+   "name": "Moon Wreath",
+   "cat": "Paper"
+  },
+  {
+   "id": "ppwreathtrio",
+   "name": "Wreath Trio",
+   "cat": "Paper"
   }
  ]
 }

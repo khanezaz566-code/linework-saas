@@ -2549,6 +2549,507 @@
     { id: 'rptunnel', name: 'Mint Tunnel', pi: 3, m: { x: 0.5, y: 0.5 }, p: { rings: 30, curve: 0.8 } },
     { id: 'rprose', name: 'Rose Ripples', pi: 4, m: { x: 0.05, y: -0.1 }, p: { rings: 24, curve: 1.3 } }
   ]);
+
+  /* ---------- Light family: spotlight beams, ray bursts, stage spots, fans, lens flares and bokeh on dark ground.
+     Everything is flat fills and gradients pre-blended with the dark ground, so SVG and EPS look the same ---------- */
+  regSet('lights', [
+    { name: 'Studio White', c: ['#000000', '#ffffff', '#e8f0ff', '#fff2d8', '#ffffff', '#cfd8e8'] },
+    { name: 'Warm Stage', c: ['#030201', '#fff0c8', '#ffd27a', '#ffb04a', '#fff8e8', '#ff9a3d'] },
+    { name: 'Lime Beam', c: ['#010200', '#d8f060', '#a0c830', '#fff0a0', '#7aa020', '#e8ff90'] },
+    { name: 'Blue Club', c: ['#010208', '#bcd8ff', '#5a9bff', '#8a7aff', '#e8f0ff', '#3d6bff'] },
+    { name: 'Magenta Club', c: ['#050108', '#ffc0f0', '#ff5ac8', '#8a5cff', '#ffe8fa', '#ff3d9a'] },
+    { name: 'Teal Cyan', c: ['#010505', '#c0fff8', '#3dd8d0', '#3d9bff', '#e8ffff', '#2fb8a8'] },
+    { name: 'Rainbow Stage', c: ['#020204', '#ff4a5a', '#ffd23d', '#3dff9a', '#3d9bff', '#c04fff'] },
+    { name: 'Red Spot', c: ['#050101', '#ffd0c0', '#ff5a3d', '#ff2d3d', '#fff0e8', '#ff8a5a'] }
+  ], [0, 90, 180, 270]);
+  function lgGrad(id, x1, y1, x2, y2, st) { return '<linearGradient id="' + id + '" gradientUnits="userSpaceOnUse" x1="' + f(x1) + '" y1="' + f(y1) + '" x2="' + f(x2) + '" y2="' + f(y2) + '">' + st.map(function (s) { return '<stop offset="' + f(s[0]) + '" stop-color="' + hx(s[1]) + '"/>'; }).join('') + '</linearGradient>'; }
+  function lgRad(id, cx, cy, r, st) { return '<radialGradient id="' + id + '" gradientUnits="userSpaceOnUse" cx="' + f(cx) + '" cy="' + f(cy) + '" r="' + f(r) + '">' + st.map(function (s) { return '<stop offset="' + f(s[0]) + '" stop-color="' + hx(s[1]) + '"/>'; }).join('') + '</radialGradient>'; }
+  function lgCtx(c) { return { n: 0, defs: '', out: [], bg: hex2rgb(c.col[0]), pal: palRGB(c.col), W: c.W, H: c.H, rnd: c.rnd }; }
+  function lgPath(P) { return 'M' + P.map(function (q) { return f(q[0]) + ' ' + f(q[1]); }).join('L') + 'Z'; }
+  function lgFlare(X, x, y, r, col, v) {
+    var id = 'lf' + (X.n++);
+    X.defs += lgRad(id, x, y, r, [[0, mixc(X.bg, [255, 255, 255], Math.min(1, v))], [0.14, mixc(X.bg, mixc(col, [255, 255, 255], 0.5), v * 0.9)], [0.4, mixc(X.bg, col, v * 0.3)], [0.7, mixc(X.bg, col, v * 0.06)], [1, X.bg]]);
+    X.out.push('<circle cx="' + f(x) + '" cy="' + f(y) + '" r="' + f(r) + '" fill="url(#' + id + ')"/>');
+  }
+  /* a soft cone: nested quads, wide and dim first, narrow and bright last; each fades to the ground along its length */
+  function lgBeam(X, o) {
+    var ca = Math.cos(o.ang), sa = Math.sin(o.ang), nx = -sa, ny = ca, L = o.layers, k, ex = o.x + ca * o.len, ey = o.y + sa * o.len, tn = Math.tan(o.half);
+    for (k = 0; k < L; k++) {
+      var t = k / (L - 1), wf = 1 - 0.92 * t, v = Math.min(1, o.power * Math.exp(-Math.pow(wf / 0.5, 2))), w0 = o.w0 * wf, w1 = o.len * tn * wf, id = 'lb' + (X.n++);
+      X.defs += lgGrad(id, o.x, o.y, ex, ey, [[0, mixc(X.bg, o.col, v)], [0.3, mixc(X.bg, o.col, v * 0.6)], [0.7, mixc(X.bg, o.col, v * 0.2)], [1, X.bg]]);
+      X.out.push('<path fill="url(#' + id + ')" d="' + lgPath([[o.x + nx * w0, o.y + ny * w0], [ex + nx * w1, ey + ny * w1], [ex - nx * w1, ey - ny * w1], [o.x - nx * w0, o.y - ny * w0]]) + '"/>');
+    }
+  }
+  function lgRay(X, o) {
+    var ca = Math.cos(o.ang), sa = Math.sin(o.ang), ex = o.x + ca * o.len, ey = o.y + sa * o.len, w = o.len * Math.tan(o.hw), id = 'lr' + (X.n++);
+    X.defs += lgGrad(id, o.x, o.y, ex, ey, [[0, mixc(X.bg, o.col, o.v)], [0.3, mixc(X.bg, o.col, o.v * 0.6)], [0.7, mixc(X.bg, o.col, o.v * 0.2)], [1, X.bg]]);
+    var b0 = w * 0.55;
+    X.out.push('<path fill="url(#' + id + ')" d="' + lgPath([[o.x - sa * b0, o.y + ca * b0], [o.x + sa * b0, o.y - ca * b0], [ex, ey]]) + '"/>');
+  }
+  function lgSource(W, H, rnd, kind) {
+    if (kind === 'top') return [W * (0.15 + 0.7 * rnd()), -H * 0.02];
+    if (kind === 'free') return [W * (0.1 + 0.8 * rnd()), H * (0.05 + 0.8 * rnd())];
+    var cx = rnd() < 0.5 ? 0.04 : 0.96, cy = rnd() < 0.55 ? 0.05 : 0.93; return [W * (cx + (rnd() - 0.5) * 0.05), H * (cy + (rnd() - 0.5) * 0.04)];
+  }
+  var LG_BEAM = [['beams', 'Beams', 1, 5, 1, 2], ['length', 'Beam length', 0.4, 1.8, 0.02, 1.1], ['spread', 'Beam width', 3, 45, 1, 16], ['power', 'Brightness', 0.3, 1, 0.02, 0.85], ['layers', 'Softness layers', 6, 24, 1, 18],
+    ['rays', 'Fine rays', 0, 90, 1, 20], ['flare', 'Source glow', 0, 1, 0.02, 0.7], ['aim', 'Aim variation', 0, 1.2, 0.02, 0.5]];
+  mkFam('Light', 'lights', LG_BEAM, function (c, m) {
+    var X = lgCtx(c), W = c.W, H = c.H, p = c.p, rnd = c.rnd, nb = Math.round(p.beams), k, r, dg = Math.hypot(W, H), srcs = [];
+    for (k = 0; k < nb; k++) {
+      var S = lgSource(W, H, rnd, m.src || 'corner'), tc = Math.atan2(H * (0.35 + 0.3 * rnd()) - S[1], W * (0.3 + 0.4 * rnd()) - S[0]), ang = tc + (rnd() - 0.5) * p.aim * 1.2;
+      var col = m.multi ? X.pal[k % X.pal.length] : X.pal[0], len = p.length * dg * 0.7 * (0.8 + 0.4 * rnd()), half = p.spread * Math.PI / 180 * (0.8 + 0.4 * rnd());
+      lgBeam(X, { x: S[0], y: S[1], ang: ang, len: len, half: half, w0: dg * 0.004, col: col, power: p.power * (0.8 + 0.2 * rnd()), layers: Math.round(p.layers), a: 0.16 });
+      var rays = [];
+      for (r = 0; r < Math.round(p.rays); r++) rays.push({ x: S[0], y: S[1], ang: ang + (rnd() - 0.5) * 2 * half * 0.9, len: len * (0.8 + 0.2 * rnd()), hw: 0.002 + 0.008 * rnd(), col: col, v: p.power * (0.35 + 0.6 * rnd()) });
+      rays.sort(function (a, b) { return a.v - b.v; }).forEach(function (ry) { lgRay(X, ry); });
+      srcs.push({ x: S[0], y: S[1], col: col });
+    }
+    srcs.forEach(function (s) { if (p.flare > 0.02) lgFlare(X, s.x, s.y, dg * 0.03 * (0.4 + p.flare), s.col, 0.9); });
+    return { body: '<g id="Light">' + X.out.join('') + '</g>', defs: X.defs, meta: nb + ' light beam(s) with ' + Math.round(p.rays) + ' rays each' };
+  }, [
+    { id: 'lgsoft', name: 'Soft Spotlight', pi: 0, p: {}, m: { src: 'corner' } },
+    { id: 'lgwide', name: 'Wide Beam', pi: 1, p: { beams: 1, spread: 30, layers: 18, rays: 8, length: 1.3 }, m: { src: 'corner' } },
+    { id: 'lgcross', name: 'Crossing Beams', pi: 3, p: { beams: 3, aim: 0.9, spread: 10, rays: 14 }, m: { src: 'top' } },
+    { id: 'lgcolor', name: 'Colour Beams', pi: 6, p: { beams: 4, spread: 12, rays: 6 }, m: { src: 'top', multi: 1 } },
+    { id: 'lglime', name: 'Lime Beam', pi: 2, p: { beams: 2, spread: 14, power: 0.7, rays: 30 }, m: { src: 'corner' } },
+    { id: 'lgclub', name: 'Club Lights', pi: 4, p: { beams: 4, spread: 8, rays: 10 }, m: { src: 'top', multi: 1 } }
+  ]);
+
+  /* --- burst / fan: many fine rays from one source --- */
+  var LG_FAN = [['rays', 'Rays', 20, 220, 1, 110], ['spread', 'Fan angle', 15, 360, 1, 55], ['length', 'Ray length', 0.5, 1.8, 0.02, 1.1], ['power', 'Brightness', 0.3, 1, 0.02, 0.85], ['flare', 'Source glow', 0, 1, 0.02, 0.7], ['soft', 'Soft glow cone', 0, 1, 0.02, 0.6]];
+  mkFam('Light', 'lights', LG_FAN, function (c, m) {
+    var X = lgCtx(c), W = c.W, H = c.H, p = c.p, rnd = c.rnd, dg = Math.hypot(W, H), k, S = m.center ? [W * (0.3 + 0.4 * rnd()), H * (0.3 + 0.4 * rnd())] : lgSource(W, H, rnd, m.src || 'corner');
+    var aim = Math.atan2(H / 2 - S[1], W / 2 - S[0]) + (rnd() - 0.5) * 0.5, half = p.spread * Math.PI / 360, full = p.spread >= 355, col = X.pal[0], rays = [];
+    for (k = 0; k < Math.round(p.rays); k++) {
+      var off = full ? (rnd() - 0.5) * TAU : (rnd() + rnd() + rnd() - 1.5) / 1.5 * half, edge = full ? 0 : Math.abs(off) / half;
+      rays.push({ x: S[0], y: S[1], ang: aim + off, len: p.length * dg * (0.45 + 0.55 * rnd()) * (1 - 0.3 * edge), hw: 0.003 + 0.014 * rnd(), col: m.multi ? X.pal[k % X.pal.length] : col, v: p.power * (0.15 + 0.85 * rnd()) * (1 - 0.5 * edge) });
+    }
+    if (p.soft > 0.02) for (k = 0; k < Math.round(p.soft * 36); k++) { var off2 = full ? (rnd() - 0.5) * TAU : (rnd() + rnd() - 1) * half; rays.push({ x: S[0], y: S[1], ang: aim + off2, len: p.length * dg * (0.5 + 0.5 * rnd()), hw: 0.03 + 0.06 * rnd(), col: col, v: p.power * p.soft * (0.08 + 0.14 * rnd()) }); }
+    rays.sort(function (a, b) { return a.v - b.v; }).forEach(function (ry) { lgRay(X, ry); });
+    if (p.flare > 0.02) lgFlare(X, S[0], S[1], dg * 0.034 * (0.4 + p.flare), col, 0.95);
+    return { body: '<g id="Light">' + X.out.join('') + '</g>', defs: X.defs, meta: Math.round(p.rays) + ' light rays' };
+  }, [
+    { id: 'lgfan', name: 'Light Fan', pi: 0, p: {}, m: { src: 'corner' } },
+    { id: 'lgfanwarm', name: 'Warm Fan', pi: 1, p: { rays: 140, spread: 70 }, m: { src: 'corner' } },
+    { id: 'lgfantop', name: 'Top Fan', pi: 3, p: { rays: 120, spread: 90, length: 1.2 }, m: { src: 'top' } },
+    { id: 'lgburst', name: 'Ray Burst', pi: 0, p: { rays: 90, spread: 360, length: 0.7, soft: 0, flare: 1 }, m: { center: 1 } },
+    { id: 'lgburstc', name: 'Colour Burst', pi: 6, p: { rays: 110, spread: 360, length: 0.8, soft: 0, flare: 0.9 }, m: { center: 1, multi: 1 } },
+    { id: 'lglimefan', name: 'Lime Fan', pi: 2, p: { rays: 100, spread: 40, power: 0.6 }, m: { src: 'corner' } }
+  ]);
+
+  /* --- stage spots: cones with elliptical floor pools --- */
+  var LG_STAGE = [['spots', 'Spotlights', 1, 6, 1, 3], ['height', 'Spot height', 0.01, 0.3, 0.01, 0.08], ['spread', 'Beam width', 0.06, 0.35, 0.01, 0.16], ['pool', 'Floor pool', 0, 1, 0.02, 0.8],
+    ['power', 'Brightness', 0.3, 1, 0.02, 0.95], ['layers', 'Softness layers', 6, 24, 1, 18], ['floor', 'Floor level', 0.6, 0.95, 0.01, 0.82]];
+  mkFam('Light', 'lights', LG_STAGE, function (c, m) {
+    var X = lgCtx(c), W = c.W, H = c.H, p = c.p, rnd = c.rnd, n = Math.round(p.spots), k, l, L = Math.round(p.layers);
+    for (k = 0; k < n; k++) {
+      var ax = W * (0.1 + 0.8 * (k + 0.5 + (rnd() - 0.5) * 0.5) / n), ay = H * p.height * (0.3 + 0.7 * rnd()), fx = ax + (rnd() - 0.5) * W * 0.08, fy = H * (p.floor + (rnd() - 0.5) * 0.06);
+      var rx = W * p.spread * (0.6 + 0.8 * rnd()) / 2, ry = rx * (0.16 + 0.1 * rnd()), col = m.multi ? X.pal[k % X.pal.length] : X.pal[0];
+      for (l = 0; l < L; l++) {
+        var t = l / (L - 1), wf = 1 - 0.92 * t, v = Math.min(1, p.power * Math.exp(-Math.pow(wf / 0.55, 2))), id = 'sc' + (X.n++), w0 = W * 0.002 * wf;
+        X.defs += lgGrad(id, ax, ay, fx, fy, [[0, mixc(X.bg, col, v * 0.95)], [0.6, mixc(X.bg, col, v * 0.5)], [1, mixc(X.bg, col, v * 0.3)]]);
+        X.out.push('<path fill="url(#' + id + ')" d="' + lgPath([[ax - w0, ay], [ax + w0, ay], [fx + rx * wf, fy], [fx - rx * wf, fy]]) + '"/>');
+      }
+      if (p.pool > 0.02) for (l = 0; l < L; l++) {
+        var t2 = l / (L - 1), sc = 1 - 0.92 * t2, v2 = Math.min(1, p.pool * (0.2 + p.power) * Math.exp(-Math.pow(sc / 0.62, 2)));
+        X.out.push('<ellipse cx="' + f(fx) + '" cy="' + f(fy) + '" rx="' + f(rx * sc) + '" ry="' + f(ry * sc) + '" fill="' + hx(mixc(X.bg, mixc(col, [255, 255, 255], t2 * 0.45), v2)) + '"/>');
+      }
+      lgFlare(X, ax, ay, W * 0.014, col, 0.9);
+    }
+    return { body: '<g id="Light">' + X.out.join('') + '</g>', defs: X.defs, meta: n + ' stage spotlights with floor pools' };
+  }, [
+    { id: 'lgstage', name: 'Stage Spots', pi: 0, p: {}, m: {} },
+    { id: 'lgstagetwin', name: 'Twin Spots', pi: 1, p: { spots: 2, spread: 0.26, height: 0.04 }, m: {} },
+    { id: 'lgstagecol', name: 'Colour Stage', pi: 6, p: { spots: 5, spread: 0.12 }, m: { multi: 1 } },
+    { id: 'lgstagebar', name: 'Spot Row', pi: 3, p: { spots: 6, spread: 0.1, pool: 0.9 }, m: {} }
+  ]);
+
+  /* --- lens flare and bokeh --- */
+  var LG_FLARE = [['rays', 'Star rays', 4, 24, 1, 10], ['length', 'Ray length', 0.2, 1.2, 0.01, 0.6], ['power', 'Brightness', 0.3, 1, 0.02, 0.9], ['ring', 'Rings', 0, 5, 1, 2], ['orbs', 'Ghost orbs', 0, 14, 1, 5]];
+  mkFam('Light', 'lights', LG_FLARE, function (c, m) {
+    var X = lgCtx(c), W = c.W, H = c.H, p = c.p, rnd = c.rnd, dg = Math.hypot(W, H), cx = W * (0.25 + 0.5 * rnd()), cy = H * (0.25 + 0.5 * rnd()), k, n = Math.round(p.rays), a0 = rnd() * TAU, rays = [];
+    for (k = 0; k < n; k++) rays.push({ x: cx, y: cy, ang: a0 + k / n * TAU + (rnd() - 0.5) * 0.1, len: dg * p.length * (0.3 + 0.7 * rnd()), hw: 0.002 + 0.008 * rnd(), col: X.pal[k % (m.multi ? X.pal.length : 1)], v: p.power * (0.4 + 0.6 * rnd()) });
+    rays.sort(function (a, b) { return a.v - b.v; }).forEach(function (ry) { lgRay(X, ry); });
+    for (k = 0; k < Math.round(p.ring); k++) X.out.push('<circle cx="' + f(cx) + '" cy="' + f(cy) + '" r="' + f(dg * (0.05 + 0.06 * k + 0.02 * rnd())) + '" fill="none" stroke="' + hx(mixc(X.bg, X.pal[0], 0.25 * p.power)) + '" stroke-width="' + f(Math.max(1, dg * 0.0015)) + '"/>');
+    for (k = 0; k < Math.round(p.orbs); k++) { var t = (rnd() - 0.4) * 2.2; lgFlare(X, cx + (W / 2 - cx) * t, cy + (H / 2 - cy) * t, dg * (0.01 + 0.03 * rnd()), X.pal[k % X.pal.length], 0.35 + 0.4 * rnd()); }
+    lgFlare(X, cx, cy, dg * 0.07, X.pal[0], 1);
+    return { body: '<g id="Light">' + X.out.join('') + '</g>', defs: X.defs, meta: 'lens flare with ' + n + ' star rays' };
+  }, [
+    { id: 'lgflare', name: 'Lens Flare', pi: 0, p: {}, m: {} },
+    { id: 'lgflarecol', name: 'Colour Flare', pi: 6, p: { rays: 14, orbs: 8 }, m: { multi: 1 } },
+    { id: 'lgflarewarm', name: 'Warm Flare', pi: 1, p: { rays: 8, ring: 3, orbs: 6 }, m: {} }
+  ]);
+  var LG_BOKEH = [['orbs', 'Orbs', 10, 120, 1, 50], ['size', 'Orb size', 0.02, 0.2, 0.005, 0.07], ['soft', 'Softness', 0.2, 1, 0.02, 0.6], ['power', 'Brightness', 0.3, 1, 0.02, 0.8], ['cluster', 'Clustering', 0, 1, 0.02, 0.5]];
+  mkFam('Light', 'lights', LG_BOKEH, function (c, m) {
+    var X = lgCtx(c), W = c.W, H = c.H, p = c.p, rnd = c.rnd, n = Math.round(p.orbs), k, orbs = [], hub = [[W * (0.2 + 0.6 * rnd()), H * (0.2 + 0.6 * rnd())], [W * (0.2 + 0.6 * rnd()), H * (0.2 + 0.6 * rnd())]];
+    for (k = 0; k < n; k++) {
+      var h = hub[k % 2], cl = p.cluster, x = W * rnd() * (1 - cl) + (h[0] + (rnd() - 0.5) * W * 0.5) * cl, y = H * rnd() * (1 - cl) + (h[1] + (rnd() - 0.5) * H * 0.6) * cl;
+      orbs.push({ x: x, y: y, r: H * p.size * (0.3 + 1.4 * Math.pow(rnd(), 1.6)), v: p.power * (0.25 + 0.75 * rnd()), col: m.multi ? X.pal[Math.floor(rnd() * X.pal.length)] : X.pal[Math.floor(rnd() * Math.min(3, X.pal.length))] });
+    }
+    orbs.sort(function (a, b) { return b.r - a.r; }).forEach(function (o) {
+      var id = 'bk' + (X.n++), e = 0.94 - 0.5 * p.soft * 0.5;
+      X.defs += lgRad(id, o.x, o.y, o.r, [[0, mixc(X.bg, o.col, o.v * 0.5)], [e * 0.8, mixc(X.bg, o.col, o.v * 0.62)], [e, mixc(X.bg, o.col, o.v)], [1, X.bg]]);
+      X.out.push('<circle cx="' + f(o.x) + '" cy="' + f(o.y) + '" r="' + f(o.r) + '" fill="url(#' + id + ')"/>');
+    });
+    return { body: '<g id="Light">' + X.out.join('') + '</g>', defs: X.defs, meta: n + ' bokeh light orbs' };
+  }, [
+    { id: 'lgbokeh', name: 'Light Bokeh', pi: 1, p: {}, m: {} },
+    { id: 'lgbokehcol', name: 'Colour Bokeh', pi: 6, p: { orbs: 70, size: 0.06 }, m: { multi: 1 } },
+    { id: 'lgbokehblue', name: 'Blue Bokeh', pi: 3, p: { orbs: 40, size: 0.09, soft: 0.8 }, m: {} }
+  ]);
+
+  /* ---------- Paper Craft family: pleated paper flowers, tulips, blossoms, lanterns, hanging tassels, dahlias, trees,
+     accordion butterflies, origami stars and wreaths. Everything is flat opaque fills (paper tones are pre-mixed), so SVG and EPS match.
+     Every random choice (layout, count, size, colour order, rotation) comes from the variation seed, so each New variation is a new composition ---------- */
+  function regSetK(name, arr, shifts) {
+    var lib = [];
+    shifts.forEach(function (sh, si) {
+      arr.forEach(function (p) {
+        lib.push({ name: p.name + (si ? ' ' + 'I'.repeat(Math.min(si + 1, 4)) : ''), c: sh ? p.c.map(function (x, q) { return (q === 0 || q === 5) ? x : hueShift(x, sh); }) : p.c.slice() });
+      });
+    });
+    PSETS[name] = { base: arr, lib: lib };
+  }
+  regSetK('paper', [
+    { name: 'Pink Craft', c: ['#e9e7e8', '#ee6a94', '#f7a5bd', '#c0467a', '#fdd3de', '#7fb069'] },
+    { name: 'Tulip Garden', c: ['#dfe3e6', '#f4e8d8', '#e98aa5', '#8e5aa6', '#f6b59a', '#4f9a4a'] },
+    { name: 'Lantern Slate', c: ['#3d5266', '#ff8a1f', '#ffc21f', '#e0381f', '#c9a13a', '#d9421e'] },
+    { name: 'Rainbow Craft', c: ['#f1ece4', '#ef4b4b', '#ffb21f', '#3fbf6a', '#2f8bf0', '#9a4fd8'] },
+    { name: 'Red Paper', c: ['#1a1a1c', '#d92027', '#ef4048', '#a3121a', '#ffffff', '#f5c6c9'] },
+    { name: 'Teal Mustard', c: ['#27474e', '#f2b134', '#e8684a', '#6cc4b8', '#f7e3b5', '#2f8f7a'] },
+    { name: 'Dark Pop', c: ['#2b2b30', '#ff5a9a', '#ffcf3d', '#3dd6c8', '#8a6cff', '#6ad05a'] },
+    { name: 'Soft Pastel', c: ['#f7efe8', '#f5a9b8', '#b8c8f0', '#f9d99a', '#c5e3c0', '#8fbf9a'] },
+    { name: 'Sky Collage', c: ['#a9cfe6', '#ffd43d', '#ff5aa0', '#3f8be0', '#ffffff', '#4fb070'] },
+    { name: 'Lavender', c: ['#ece6f4', '#9a6fd0', '#c9a6ef', '#6f4fa8', '#f3d6f0', '#6fae8a'] }
+  ], [0, 60, 120, 180, 240, 300]);
+
+  function ppX(c) { var bg = hex2rgb(c.col[0]); return { W: c.W, H: c.H, rnd: c.rnd, bg: bg, pal: palRGB(c.col), out: [], dark: (bg[0] * 0.3 + bg[1] * 0.59 + bg[2] * 0.11) < 110 }; }
+  function ppAdd(X, s) { X.out.push(s); }
+  function ppG(x, y, a, s, inner) { return '<g transform="translate(' + f(x) + ' ' + f(y) + ') rotate(' + f(a) + ') scale(' + (Math.round(s * 10000) / 10000) + ')">' + inner + '</g>'; }
+  function ppC(cx, cy, r, c) { return '<circle cx="' + f(cx) + '" cy="' + f(cy) + '" r="' + f(r) + '" fill="' + hx(c) + '"/>'; }
+  function ppPoly(pts, c, sw) { return '<polygon fill="' + hx(c) + '"' + (sw ? ' stroke="' + hx(c) + '" stroke-width="' + sw + '"' : '') + ' points="' + pts.map(function (q) { return f(q[0]) + ',' + f(q[1]); }).join(' ') + '"/>'; }
+  function ppLine(x1, y1, x2, y2, w, c) { return '<path fill="none" stroke="' + hx(c) + '" stroke-width="' + f(w) + '" stroke-linecap="round" d="M' + f(x1) + ' ' + f(y1) + 'L' + f(x2) + ' ' + f(y2) + '"/>'; }
+  function ppInk(X, k) { return X.dark ? mixc(X.bg, [255, 255, 255], k) : mixc(X.bg, [0, 0, 0], k); }
+  /* pointed oval pointing up, two shaded halves */
+  function ppLens(L, w, cL, cR) {
+    return '<path fill="' + hx(cL) + '" d="M0 0C' + f(-w) + ' ' + f(-L * 0.3) + ' ' + f(-w * 0.7) + ' ' + f(-L * 0.85) + ' 0 ' + f(-L) + 'Z"/>' +
+      '<path fill="' + hx(cR) + '" d="M0 0C' + f(w) + ' ' + f(-L * 0.3) + ' ' + f(w * 0.7) + ' ' + f(-L * 0.85) + ' 0 ' + f(-L) + 'Z"/>';
+  }
+  function ppHeart(cL, cR) {
+    return '<path fill="' + hx(cL) + '" d="M0 45C-15 30-52 10-52-18C-52-40-22-50 0-26Z"/><path fill="' + hx(cR) + '" d="M0 45C15 30 52 10 52-18C52-40 22-50 0-26Z"/>';
+  }
+  function ppDrop(cL, cR) {
+    return '<path fill="' + hx(cL) + '" d="M0 0C-20 28-38 52-38 74C-38 92-18 100 0 100Z"/><path fill="' + hx(cR) + '" d="M0 0C20 28 38 52 38 74C38 92 18 100 0 100Z"/>';
+  }
+  /* round paper flower, radius 100 */
+  function ppBlossom(n, col, rim, light, ctr) {
+    var s = '', k, a, r = n <= 4 ? 52 : n === 5 ? 46 : n === 6 ? 40 : 35, d = 100 - r;
+    for (k = 0; k < n; k++) { a = k / n * TAU - Math.PI / 2; s += ppC(Math.cos(a) * d, Math.sin(a) * d, r, rim); }
+    for (k = 0; k < n; k++) { a = k / n * TAU - Math.PI / 2; s += ppC(Math.cos(a) * (d + r * 0.08), Math.sin(a) * (d + r * 0.08), r * 0.9, col); }
+    for (k = 0; k < n; k++) { a = k / n * TAU - Math.PI / 2; s += ppC(Math.cos(a) * d * 0.95, Math.sin(a) * d * 0.95, r * 0.46, light); }
+    return s + ppC(0, 0, 17, ctr) + ppC(0, 0, 8, fshade(ctr, 0.25));
+  }
+  /* pleated fan flower, radius 100: rings of fan-shaped petals with alternating light and dark pleats */
+  function ppFanFlower(P, layers, pleats, base, light) {
+    var s = '', j, i, m, h, R, step = TAU / P, span = step * 1.5;
+    for (j = 0; j < layers; j++) {
+      R = 100 * (1 - j * 0.2);
+      var off = j * step * 0.5 + j * 0.2, t = layers > 1 ? j / (layers - 1) : 0.4, cc = fshade(base, -0.24 + 0.36 * t), cA = fshade(cc, 0.1), cB = fshade(cc, -0.13);
+      for (i = 0; i < P; i++) {
+        var a0 = off + i * step - Math.PI / 2 - span / 2;
+        for (m = 0; m < pleats; m++) for (h = 0; h < 2; h++) {
+          var q0 = a0 + span * (m * 2 + h) / (pleats * 2), q1 = a0 + span * (m * 2 + h + 1) / (pleats * 2), col = h ? cB : cA;
+          s += '<path fill="' + hx(col) + '" stroke="' + hx(col) + '" stroke-width=".6" d="M0 0L' + f(Math.cos(q0) * R) + ' ' + f(Math.sin(q0) * R) + 'A' + f(R) + ' ' + f(R) + ' 0 0 1 ' + f(Math.cos(q1) * R) + ' ' + f(Math.sin(q1) * R) + 'Z"/>';
+        }
+      }
+    }
+    return s + '<g transform="scale(.3)">' + ppBlossom(5, light, fshade(light, -0.1), fshade(light, 0.05), fshade(base, -0.3)) + '</g>';
+  }
+  function ppStar(cL, cD) {
+    var s = '', k, P = [], r, a;
+    for (k = 0; k < 10; k++) { r = k % 2 ? 50 : 100; a = k / 10 * TAU - Math.PI / 2; P.push([Math.cos(a) * r, Math.sin(a) * r]); }
+    for (k = 0; k < 10; k++) s += ppPoly([[0, 0], P[k], P[(k + 1) % 10]], k % 2 ? cD : cL, 0.8);
+    return s;
+  }
+  /* tassel, hangs from 0,0 (height about 110) */
+  function ppTassel(c) {
+    var cA = fshade(c, 0.08), cB = fshade(c, -0.16), cap = fshade(c, -0.32);
+    return ppC(0, 4, 5, cap) + ppPoly([[-8, 8], [8, 8], [9, 24], [-9, 24]], cap) +
+      ppPoly([[-9, 24], [-3, 24], [-7, 108], [-22, 108]], cA, 0.5) + ppPoly([[-3, 24], [3, 24], [7, 108], [-7, 108]], cB, 0.5) + ppPoly([[3, 24], [9, 24], [22, 108], [7, 108]], cA, 0.5) +
+      ppPoly([[-10, 36], [10, 36], [11, 44], [-11, 44]], cap);
+  }
+  function ppTulip(c) {
+    var cb = fshade(c, -0.14), cd = fshade(c, -0.3);
+    return ppG(0, 0, -17, 1, ppLens(100, 46, cb, cd)) + ppG(0, 0, 17, 1, ppLens(100, 46, fshade(c, -0.24), cb)) + ppG(0, 0, 0, 1, ppLens(94, 48, fshade(c, 0.14), c)) + '<path fill="' + hx(cb) + '" d="M-30-8C-30 10 30 10 30-8L24-30L-24-30Z"/>';
+  }
+  function ppScatter(X, n, radf, bleed, loose) {
+    var pts = [], k, j, tries, x, y, r, ok, rnd = X.rnd;
+    for (k = 0; k < n; k++) {
+      r = radf(k);
+      for (tries = 0; tries < 36; tries++) {
+        x = (rnd() * (1 + 2 * bleed) - bleed) * X.W; y = (rnd() * (1 + 2 * bleed) - bleed) * X.H; ok = true;
+        for (j = 0; j < pts.length; j++) if (Math.hypot(x - pts[j].x, y - pts[j].y) < (r + pts[j].r) * (loose || 0.8)) { ok = false; break; }
+        if (ok) break;
+      }
+      pts.push({ x: x, y: y, r: r });
+    }
+    return pts;
+  }
+  function ppOut(X, id, meta) { return { body: '<g id="' + id + '">' + X.out.join('') + '</g>', defs: '', meta: meta }; }
+
+  /* --- Pleated fan flowers --- */
+  var PP_PLEAT = [['count', 'Flowers', 1, 16, 1, 5], ['size', 'Flower size', 0.1, 1.1, 0.01, 0.3], ['layers', 'Layers', 1, 4, 1, 3], ['petals', 'Petals', 5, 12, 1, 8], ['pleats', 'Pleats per petal', 2, 8, 1, 4], ['shadow', 'Paper shadow', 1]];
+  mkFam('Paper', 'paper', PP_PLEAT, function (c, m) {
+    var X = ppX(c), p = c.p, rnd = c.rnd, n = Math.round(p.count), R0 = Math.min(X.W, X.H) * p.size / 2, pts;
+    pts = n === 1 ? [{ x: X.W * (0.35 + 0.3 * rnd()), y: X.H * (0.4 + 0.2 * rnd()), r: R0 }] : ppScatter(X, n, function () { return R0 * (m.vary ? 0.5 + 0.8 * rnd() : 0.88 + 0.24 * rnd()); }, 0.04);
+    pts.sort(function (a, b) { return b.r - a.r; }).forEach(function (q, i) {
+      var base = m.multi ? X.pal[(i + Math.floor(rnd() * 3)) % 4] : X.pal[m.alt && i % 3 === 2 ? 1 : 0], light = X.pal[3];
+      if (p.shadow) ppAdd(X, ppC(q.x + q.r * 0.05, q.y + q.r * 0.08, q.r, ppInk(X, 0.14)));
+      ppAdd(X, ppG(q.x, q.y, rnd() * 360, q.r / 100, ppFanFlower(Math.round(p.petals) + (m.mixp ? Math.floor(rnd() * 3) - 1 : 0), Math.round(p.layers), Math.round(p.pleats), base, light)));
+    });
+    return ppOut(X, 'Paper', n + ' pleated paper flower(s)');
+  }, [
+    { id: 'ppfan', name: 'Pleated Flower', pi: 4, p: { count: 3, size: 0.62, layers: 3, petals: 8, pleats: 5 }, m: { vary: 1 } },
+    { id: 'ppfangarden', name: 'Fan Garden', pi: 0, p: { count: 10, size: 0.24, layers: 2, petals: 7, pleats: 4 }, m: { vary: 1, alt: 1 } },
+    { id: 'ppfanrain', name: 'Pleat Rosettes', pi: 3, p: { count: 13, size: 0.2, layers: 2, petals: 9, pleats: 3 }, m: { multi: 1, vary: 1, mixp: 1 } }
+  ]);
+
+  /* --- Tulips --- */
+  var PP_TULIP = [['count', 'Tulips', 2, 18, 1, 7], ['size', 'Head size', 0.1, 0.5, 0.01, 0.24], ['leaves', 'Leaves', 0, 10, 1, 5], ['spread', 'Spread', 0.2, 1.6, 0.02, 0.9], ['lean', 'Stem curve', 0, 1, 0.02, 0.5]];
+  mkFam('Paper', 'paper', PP_TULIP, function (c, m) {
+    var X = ppX(c), p = c.p, rnd = c.rnd, W = X.W, H = X.H, n = Math.round(p.count), nl = Math.round(p.leaves), k, hh = H * p.size, leaf = X.pal[4], leafD = fshade(leaf, -0.18), leafL = fshade(leaf, 0.1), tcol = function (i) { return m.mono ? X.pal[0] : X.pal[i % 4]; };
+    var sw = Math.max(2, H * 0.011);
+    if (m.mode === 'bouquet') {
+      var ax = W * (0.4 + 0.2 * rnd()), ay = H * 1.04, heads = [];
+      for (k = 0; k < nl; k++) { var rot = (rnd() - 0.5) * p.spread * 120, len = H * (0.45 + 0.4 * rnd()); ppAdd(X, ppG(ax, ay, rot, 1, ppLens(len, len * 0.1, k % 2 ? leafL : leafD, k % 2 ? leafD : leafL))); }
+      for (k = 0; k < n; k++) {
+        var rt = (n > 1 ? (k / (n - 1) - 0.5) : 0) * p.spread * 80 + (rnd() - 0.5) * 16, dist = H * (0.45 + 0.4 * rnd()), a = rt * Math.PI / 180, hx0 = ax + Math.sin(a) * dist, hy0 = ay - Math.cos(a) * dist;
+        ppAdd(X, '<path fill="none" stroke="' + hx(leaf) + '" stroke-width="' + f(sw) + '" stroke-linecap="round" d="M' + f(ax) + ' ' + f(ay) + 'Q' + f(ax + Math.sin(a) * dist * 0.5 + (rnd() - 0.5) * p.lean * dist * 0.3) + ' ' + f(ay - Math.cos(a) * dist * 0.5) + ' ' + f(hx0) + ' ' + f(hy0) + '"/>');
+        heads.push({ x: hx0, y: hy0, rot: rt * 0.9, c: tcol(k) });
+      }
+      heads.sort(function (a, b) { return a.y - b.y; }).forEach(function (h) { ppAdd(X, ppG(h.x, h.y, h.rot, hh / 100, ppTulip(h.c))); });
+    } else if (m.mode === 'field') {
+      var hs = [];
+      for (k = 0; k < n; k++) {
+        var x = W * (k + 0.5 + (rnd() - 0.5) * 0.5) / n, y = H * (0.2 + 0.5 * rnd()), lean = (rnd() - 0.5) * p.lean * W * 0.06;
+        for (var q = 0; q < Math.min(2, Math.ceil(nl / 3)); q++) ppAdd(X, ppG(x, H * 1.03, (q ? 1 : -1) * (14 + 22 * rnd()), 1, ppLens(H * (0.3 + 0.3 * rnd()), H * 0.045, leafL, leafD)));
+        ppAdd(X, '<path fill="none" stroke="' + hx(leaf) + '" stroke-width="' + f(sw) + '" stroke-linecap="round" d="M' + f(x) + ' ' + f(H * 1.03) + 'Q' + f(x + lean * 0.3) + ' ' + f((y + H) / 2) + ' ' + f(x + lean) + ' ' + f(y) + '"/>');
+        hs.push({ x: x + lean, y: y, c: tcol(k), rot: lean / W * 140 });
+      }
+      hs.forEach(function (h) { ppAdd(X, ppG(h.x, h.y, h.rot, hh / 100, ppTulip(h.c))); });
+    } else {
+      var pts = ppScatter(X, n, function () { return hh * (0.3 + 0.35 * rnd()); }, 0.04);
+      for (k = 0; k < nl * 2; k++) ppAdd(X, ppG(W * rnd(), H * rnd(), rnd() * 360, 1, ppLens(hh * (0.8 + 0.8 * rnd()), hh * 0.12, leafL, leafD)));
+      pts.forEach(function (q, i) { ppAdd(X, ppG(q.x, q.y, (rnd() - 0.5) * 70 + (rnd() < 0.3 ? 180 : 0), q.r / 50, ppTulip(tcol(i)))); });
+    }
+    return ppOut(X, 'Paper', n + ' paper tulips');
+  }, [
+    { id: 'pptulip', name: 'Tulip Bouquet', pi: 1, p: {}, m: { mode: 'bouquet' } },
+    { id: 'pptulipfield', name: 'Tulip Field', pi: 0, p: { count: 9, size: 0.2, leaves: 6 }, m: { mode: 'field' } },
+    { id: 'pptulipscat', name: 'Tulip Scatter', pi: 7, p: { count: 22, leaves: 5, size: 0.2 }, m: { mode: 'scatter' } }
+  ]);
+
+  /* --- Scattered paper blossoms --- */
+  var PP_BLOSSOM = [['count', 'Flowers', 10, 320, 1, 110], ['size', 'Flower size', 0.02, 0.2, 0.002, 0.08], ['vary', 'Size variety', 0, 1, 0.02, 0.6], ['petals', 'Petals', 4, 8, 1, 5], ['leaves', 'Leaves', 0, 80, 1, 0], ['dots', 'Tiny dots', 0, 80, 1, 0]];
+  mkFam('Paper', 'paper', PP_BLOSSOM, function (c, m) {
+    var X = ppX(c), p = c.p, rnd = c.rnd, W = X.W, H = X.H, n = Math.round(p.count), k, items = [];
+    for (k = 0; k < Math.round(p.leaves); k++) { var lr = H * p.size * (0.6 + 0.8 * rnd()); ppAdd(X, ppG(W * rnd(), H * rnd(), rnd() * 360, 1, ppLens(lr, lr * 0.3, fshade(X.pal[4], 0.1), fshade(X.pal[4], -0.14)))); }
+    for (k = 0; k < n; k++) {
+      var R = H * p.size * (1 - p.vary * 0.75 * Math.pow(rnd(), 1.4)) / 2, base = m.multi ? X.pal[Math.floor(rnd() * 4)] : mixc(X.pal[0], X.pal[1], rnd()), np = Math.round(p.petals) + (m.mixp ? Math.floor(rnd() * 3) - 1 : 0);
+      items.push({ x: W * (rnd() * 1.06 - 0.03), y: H * (rnd() * 1.06 - 0.03), R: R, base: base, np: Math.max(4, np), rot: rnd() * 360 });
+    }
+    items.forEach(function (q) { ppAdd(X, ppG(q.x, q.y, q.rot, q.R / 100, ppBlossom(q.np, q.base, fshade(q.base, -0.16), fshade(q.base, 0.24), X.pal[2]))); });
+    for (k = 0; k < Math.round(p.dots); k++) ppAdd(X, ppC(W * rnd(), H * rnd(), H * (0.003 + 0.006 * rnd()), X.pal[k % 4]));
+    return ppOut(X, 'Paper', n + ' paper blossoms');
+  }, [
+    { id: 'ppblossom', name: 'Pink Blossoms', pi: 0, p: { leaves: 0 }, m: {} },
+    { id: 'ppblossommix', name: 'Blossom Mix', pi: 7, p: { count: 110, size: 0.085, petals: 5, leaves: 24 }, m: { multi: 1, mixp: 1 } },
+    { id: 'ppblossomnight', name: 'Night Blossoms', pi: 6, p: { count: 80, size: 0.1, dots: 40 }, m: { multi: 1, mixp: 1 } }
+  ]);
+
+  /* --- Layered lanterns --- */
+  var PP_LANT = [['count', 'Lanterns', 1, 7, 1, 1], ['size', 'Size', 0.25, 1, 0.01, 0.62], ['layers', 'Layers', 3, 9, 1, 6], ['tassels', 'Tassels', 0, 5, 1, 3], ['wings', 'Gold leaves', 1], ['hang', 'Hang from top', 0]];
+  mkFam('Paper', 'paper', PP_LANT, function (c, m) {
+    var X = ppX(c), p = c.p, rnd = c.rnd, W = X.W, H = X.H, n = Math.round(p.count), L = Math.round(p.layers), nt = Math.round(p.tassels), k, l, slot = W / n;
+    for (k = 0; k < n; k++) {
+      var ext = nt ? 0.95 : 0.1, cx = slot * (k + 0.5) + (n > 1 ? (rnd() - 0.5) * slot * 0.14 : (rnd() - 0.5) * W * 0.1), h = Math.min(H * p.size * (n > 1 ? 0.7 + 0.3 * rnd() : 1), slot * 1.4, H * 0.94 / (1 + ext)), s = h / 200;
+      var total = h * (1 + ext), top = p.hang ? H * (0.1 + 0.25 * rnd()) : Math.max(H * 0.05, (H - total) * (0.25 + 0.3 * rnd())), by = top + h, pr = m.multi ? [X.pal[(k + 1) % 4], X.pal[k % 4], X.pal[(k + 2) % 4]] : [X.pal[1], X.pal[0], X.pal[2]];
+      if (p.hang) ppAdd(X, ppLine(cx, -4, cx, top + 6, H * 0.0035, X.pal[3]));
+      var inner = '';
+      if (p.wings) for (var w = 0; w < 2; w++) { inner += ppG(0, -4, (w ? 1 : -1) * 64, 1, ppLens(92, 36, fshade(X.pal[3], 0.1), fshade(X.pal[3], -0.16))); inner += ppG(0, -4, (w ? 1 : -1) * 36, 1, ppLens(70, 28, fshade(X.pal[3], -0.06), fshade(X.pal[3], -0.22))); }
+      for (l = 0; l < L; l++) {
+        var t = l / (L - 1), sc = 1 - 0.78 * t, col = rampN(pr, t);
+        inner += '<g transform="scale(' + (Math.round(sc * 1000) / 1000) + ')"><path fill="' + hx(fshade(col, 0.1)) + '" d="M0 0C-34 0-65-18-65-55C-65-115-14-150 0-200Z"/><path fill="' + hx(fshade(col, -0.12)) + '" d="M0 0C34 0 65-18 65-55C65-115 14-150 0-200Z"/></g>';
+      }
+      inner += '<path fill="' + hx(fshade(X.pal[3], -0.1)) + '" d="M-30 -2L30 -2L24 12L-24 12Z"/>';
+      for (l = 0; l < nt; l++) {
+        var tx = (l - (nt - 1) / 2) * 34, ln = (l === (nt - 1) / 2 ? 80 : 60) + 12 * rnd();
+        inner += ppLine(tx, 10, tx, 10 + ln, 2.2, X.pal[3]) + ppG(tx, 10 + ln, 0, 0.78, ppTassel(m.multi ? X.pal[(k + l) % 4] : X.pal[l % 2 ? 0 : 2]));
+      }
+      ppAdd(X, ppG(cx, by, 0, s, inner));
+    }
+    return ppOut(X, 'Paper', n + ' layered paper lantern(s)');
+  }, [
+    { id: 'pplantern', name: 'Paper Lantern', pi: 2, p: {}, m: {} },
+    { id: 'pplantern3', name: 'Lantern Trio', pi: 2, p: { count: 3, size: 0.5 }, m: { multi: 1 } },
+    { id: 'pplanternrow', name: 'Hanging Lanterns', pi: 6, p: { count: 5, size: 0.34, layers: 5, tassels: 1, hang: 1 }, m: { multi: 1 } }
+  ]);
+
+  /* --- Hanging strings with beads and tassels, leaves, hearts or drops --- */
+  var PP_HANG = [['strings', 'Strings', 3, 18, 1, 8], ['length', 'Max length', 0.25, 1, 0.01, 0.7], ['beads', 'Beads', 0, 10, 1, 4], ['size', 'Element size', 0.04, 0.2, 0.005, 0.13], ['rod', 'Top rod', 1], ['flowers', 'Top flowers', 1]];
+  mkFam('Paper', 'paper', PP_HANG, function (c, m) {
+    var X = ppX(c), p = c.p, rnd = c.rnd, W = X.W, H = X.H, n = Math.round(p.strings), k, b, ink = ppInk(X, 0.5), y0 = H * 0.06, kinds = ['tassel', 'leaf', 'heart', 'drop'], es = H * p.size;
+    if (p.rod) ppAdd(X, ppLine(W * 0.02, y0, W * 0.98, y0, H * 0.004, ink));
+    for (k = 0; k < n; k++) {
+      var x = W * (k + 0.5 + (rnd() - 0.5) * 0.3) / n, kind = m.kind === 'mix' ? kinds[Math.floor(rnd() * 4)] : m.kind, base = X.pal[(k + (m.shift || 0)) % 4], len = Math.min(H * p.length * (0.55 + 0.45 * rnd()), H * 0.97 - y0 - es * 1.1), ye = y0 + Math.max(len, es), nb = Math.round(p.beads);
+      ppAdd(X, ppLine(x, y0, x, ye, H * 0.0035, ink));
+      for (b = 0; b < nb; b++) { var by = y0 + (ye - y0) * (0.1 + 0.8 * (b + rnd() * 0.5) / Math.max(1, nb)), br = H * (0.007 + 0.008 * rnd()); ppAdd(X, ppC(x, by, br, X.pal[(k + b) % 5])); }
+      if (p.flowers) ppAdd(X, ppG(x, y0, rnd() * 360, H * 0.03 * (0.8 + 0.5 * rnd()) / 100, ppBlossom(5, base, fshade(base, -0.16), fshade(base, 0.22), X.pal[(k + 2) % 4])));
+      if (kind === 'tassel') ppAdd(X, ppG(x, ye, 0, es / 100, ppTassel(base)));
+      else if (kind === 'leaf') ppAdd(X, ppG(x, ye, 180, es / 100 * 1.1, ppLens(100, 34, fshade(base, 0.1), fshade(base, -0.16))));
+      else if (kind === 'heart') ppAdd(X, ppG(x, ye + 38 * es / 100, (rnd() - 0.5) * 30, es / 100 * 0.95, ppHeart(fshade(base, 0.08), fshade(base, -0.14))));
+      else ppAdd(X, ppG(x, ye, 0, es / 100, ppDrop(fshade(base, 0.08), fshade(base, -0.14))));
+    }
+    return ppOut(X, 'Paper', n + ' hanging strings');
+  }, [
+    { id: 'pphangtassel', name: 'Tassel Garland', pi: 6, p: {}, m: { kind: 'tassel' } },
+    { id: 'pphangleaf', name: 'Leaf Drops', pi: 3, p: { strings: 9, size: 0.14 }, m: { kind: 'leaf' } },
+    { id: 'pphangheart', name: 'Heart Strings', pi: 0, p: { strings: 7, size: 0.12 }, m: { kind: 'heart' } },
+    { id: 'pphangmix', name: 'Rainbow Hangings', pi: 8, p: { strings: 9 }, m: { kind: 'mix' } }
+  ]);
+
+  /* --- Layered dahlia / sunflower with scattered hearts --- */
+  var PP_DAHLIA = [['layers', 'Layers', 3, 8, 1, 5], ['petals', 'Petals per layer', 8, 30, 1, 16], ['size', 'Flower size', 0.3, 1.3, 0.02, 0.6], ['hearts', 'Hearts', 0, 70, 1, 18], ['coil', 'Dark centre', 1]];
+  mkFam('Paper', 'paper', PP_DAHLIA, function (c, m) {
+    var X = ppX(c), p = c.p, rnd = c.rnd, W = X.W, H = X.H, L = Math.round(p.layers), n = Math.round(p.petals), j, i, R = Math.min(W, H) * p.size / 2 * 1.6;
+    var cx = m.pos === 'center' ? W * (0.45 + 0.1 * rnd()) : W * (m.pos === 'side' ? 0.62 + 0.1 * rnd() : 0.7 + 0.1 * rnd()), cy = H * (0.42 + 0.16 * rnd()), prm = m.mandala ? X.pal.slice(0, 5) : [X.pal[2], X.pal[0], X.pal[1]];
+    for (i = 0; i < Math.round(p.hearts); i++) {
+      var a = rnd() * TAU, d = R * (1.12 + 1.9 * Math.pow(rnd(), 1.3)), hxx = cx + Math.cos(a) * d, hyy = cy + Math.sin(a) * d, hs = H * (0.022 + 0.03 * rnd()) * (1 - 0.35 * Math.min(1, d / (R * 3)));
+      if (hxx < -hs || hxx > W + hs || hyy < -hs || hyy > H + hs) continue;
+      var hc = X.pal[i % 3]; ppAdd(X, ppG(hxx, hyy, (rnd() - 0.5) * 70, hs / 50, ppHeart(fshade(hc, 0.08), fshade(hc, -0.14))));
+    }
+    for (j = 0; j < L; j++) {
+      var t = L > 1 ? j / (L - 1) : 0, len = R * (1 - 0.68 * t), nn = Math.max(6, Math.round(n * (1 - 0.35 * t))), col = rampN(prm, t), step = TAU / nn, off = j * step * 0.5 + rnd() * 0.05;
+      for (i = 0; i < nn; i++) ppAdd(X, ppG(cx, cy, (off + i * step) * 180 / Math.PI, 1, ppLens(len, len * Math.sin(step / 2) * 1.35, fshade(col, 0.1), fshade(col, -0.15))));
+    }
+    if (p.coil) {
+      var cr = R * 0.2, c1 = X.dark ? [60, 60, 68] : [30, 30, 34], c2 = X.dark ? [110, 110, 122] : [66, 66, 74];
+      for (i = 0; i < 6; i++) ppAdd(X, ppC(cx, cy, cr * (1 - i * 0.16), i % 2 ? c2 : c1));
+    }
+    return ppOut(X, 'Paper', L + ' layers of ' + n + ' paper petals');
+  }, [
+    { id: 'ppdahlia', name: 'Red Dahlia', pi: 4, p: {}, m: { pos: 'corner' } },
+    { id: 'ppdahliapink', name: 'Pink Dahlia', pi: 0, p: { size: 0.75, hearts: 26, petals: 18 }, m: { pos: 'side' } },
+    { id: 'ppmandala', name: 'Paper Mandala', pi: 3, p: { layers: 6, petals: 14, size: 0.7, hearts: 0 }, m: { pos: 'center', mandala: 1 } }
+  ]);
+
+  /* --- Paper tree with heart leaves --- */
+  var PP_TREE = [['leaves', 'Leaves', 60, 700, 1, 300], ['size', 'Canopy size', 0.25, 0.75, 0.01, 0.42], ['leafsize', 'Leaf size', 0.02, 0.12, 0.002, 0.05], ['hill', 'Hill', 1], ['trunk', 'Trunk', 1]];
+  mkFam('Paper', 'paper', PP_TREE, function (c, m) {
+    var X = ppX(c), p = c.p, rnd = c.rnd, W = X.W, H = X.H, n = Math.round(p.leaves), k, R = H * p.size, cx = W * (0.32 + 0.36 * rnd()), cy = H * (0.4 + 0.06 * rnd()), gy = H * 0.86, ls = H * p.leafsize, prm = X.pal.slice(0, 5);
+    var leaf = mixc([96, 160, 92], X.bg, 0.12), brown = X.dark ? [150, 110, 80] : [112, 74, 50];
+    if (p.hill) {
+      ppAdd(X, '<ellipse cx="' + f(cx + W * 0.2) + '" cy="' + f(H * 1.0) + '" rx="' + f(W * 0.8) + '" ry="' + f(H * 0.22) + '" fill="' + hx(fshade(leaf, 0.22)) + '"/>');
+      ppAdd(X, '<ellipse cx="' + f(cx - W * 0.1) + '" cy="' + f(H * 1.04) + '" rx="' + f(W * 0.7) + '" ry="' + f(H * 0.2) + '" fill="' + hx(fshade(leaf, -0.1)) + '"/>');
+    }
+    if (p.trunk) {
+      var tw = H * 0.03, bx = cx + (rnd() - 0.5) * W * 0.04;
+      ppAdd(X, ppPoly([[bx - tw * 1.5, gy + H * 0.04], [bx + tw * 1.5, gy + H * 0.04], [cx + tw * 0.5, cy + R * 0.2], [cx - tw * 0.5, cy + R * 0.2]], brown));
+      for (k = 0; k < 6; k++) { var ba = -Math.PI / 2 + (k / 5 - 0.5) * 2.1 + (rnd() - 0.5) * 0.2, bl = R * (0.55 + 0.35 * rnd()); ppAdd(X, ppLine(cx, cy + R * 0.25, cx + Math.cos(ba) * bl, cy + R * 0.25 + Math.sin(ba) * bl, tw * (0.5 + 0.3 * rnd()), brown)); }
+    }
+    for (k = 0; k < n; k++) {
+      var r = Math.sqrt(rnd()), th = rnd() * TAU, sn = Math.sin(th), x = cx + R * 1.15 * r * Math.cos(th), y = cy + R * r * sn * (sn > 0 ? 0.5 : 1);
+      var t = clamp01((x - (cx - R * 1.15)) / (2.3 * R) + (rnd() - 0.5) * 0.18), col = m.mono ? mixc(X.pal[Math.floor(rnd() * 3)], X.pal[3], rnd() * 0.4) : rampN(prm, t), sz = ls * (0.7 + 0.6 * rnd());
+      if (m.round) ppAdd(X, ppG(x, y, rnd() * 360, sz / 100 * 1.1, ppBlossom(5, col, fshade(col, -0.16), fshade(col, 0.22), X.pal[2])));
+      else ppAdd(X, ppG(x, y, (rnd() - 0.5) * 90, sz / 50, ppHeart(fshade(col, 0.07), fshade(col, -0.12))));
+    }
+    return ppOut(X, 'Paper', n + ' leaves on a paper tree');
+  }, [
+    { id: 'pptree', name: 'Rainbow Tree', pi: 3, p: {}, m: {} },
+    { id: 'pptreeblossom', name: 'Blossom Tree', pi: 0, p: { leaves: 200, leafsize: 0.06 }, m: { mono: 1, round: 1 } },
+    { id: 'pptreeautumn', name: 'Autumn Tree', pi: 2, p: { leaves: 340, size: 0.46 }, m: {} }
+  ]);
+
+  /* --- Accordion butterflies --- */
+  var PP_BFLY = [['count', 'Butterflies', 1, 12, 1, 4], ['size', 'Wing span', 0.15, 0.9, 0.01, 0.36], ['strips', 'Pleats', 5, 16, 1, 9], ['tilt', 'Tilt', 0, 1, 0.02, 0.35]];
+  function ppButterfly(strips, pr, X) {
+    var s = '', side, part, j, h, parts = [[-84, -4, 100], [12, 80, 72]];
+    for (side = -1; side <= 1; side += 2) parts.forEach(function (pt) {
+      var a0 = pt[0], a1 = pt[1], R = pt[2], qm = (a0 + a1) / 2;
+      for (j = 0; j < strips; j++) for (h = 0; h < 2; h++) {
+        var u0 = (j * 2 + h) / (strips * 2), u1 = (j * 2 + h + 1) / (strips * 2), q0 = a0 + (a1 - a0) * u0, q1 = a0 + (a1 - a0) * u1;
+        var r0 = R * (0.8 + 0.2 * Math.cos((q0 - qm) / (a1 - a0) * Math.PI)), r1 = R * (0.8 + 0.2 * Math.cos((q1 - qm) / (a1 - a0) * Math.PI)), col = rampN(pr, (q0 + q1) / 2 / 164 + 0.5 + 0.0);
+        col = h ? fshade(col, -0.16) : fshade(col, 0.08);
+        var A = q0 * Math.PI / 180, B = q1 * Math.PI / 180;
+        s += ppPoly([[side * 6, 0], [side * Math.cos(A) * r0, Math.sin(A) * r0], [side * Math.cos(B) * r1, Math.sin(B) * r1]], col, 0.6);
+      }
+    });
+    var body = fshade(pr[Math.floor(pr.length / 2)], -0.5);
+    s += '<ellipse cx="0" cy="4" rx="7" ry="34" fill="' + hx(body) + '"/>' + ppC(0, -34, 8, body);
+    s += '<path fill="none" stroke="' + hx(body) + '" stroke-width="2.4" stroke-linecap="round" d="M-3-40Q-10-62-24-72M3-40Q10-62 24-72"/>' + ppC(-24, -72, 3.4, body) + ppC(24, -72, 3.4, body);
+    return s;
+  }
+  mkFam('Paper', 'paper', PP_BFLY, function (c, m) {
+    var X = ppX(c), p = c.p, rnd = c.rnd, n = Math.round(p.count), span = X.H * p.size, pr = m.rain ? X.pal.slice(0, 5) : [X.pal[0], X.pal[1], X.pal[2], X.pal[3]];
+    var pts = n === 1 ? [{ x: X.W * (0.4 + 0.2 * rnd()), y: X.H * (0.42 + 0.14 * rnd()), r: span / 2 }] : ppScatter(X, n, function () { return span / 2 * (0.5 + 0.6 * rnd()); }, 0.03, 0.7);
+    pts.sort(function (a, b) { return b.r - a.r; }).forEach(function (q, i) {
+      var prr = m.multi ? [X.pal[i % 4], X.pal[(i + 1) % 4], X.pal[(i + 2) % 4], X.pal[(i + 3) % 4]] : pr;
+      ppAdd(X, ppG(q.x, q.y, (rnd() - 0.5) * 80 * p.tilt * 2, q.r / 100, ppButterfly(Math.round(p.strips), prr, X)));
+    });
+    return ppOut(X, 'Paper', n + ' accordion butterflies');
+  }, [
+    { id: 'ppbutterfly', name: 'Accordion Butterfly', pi: 3, p: {}, m: { rain: 1 } },
+    { id: 'ppbutterflypink', name: 'Pink Butterflies', pi: 0, p: { count: 7, size: 0.26, strips: 7 }, m: {} },
+    { id: 'ppbutterflynight', name: 'Night Butterflies', pi: 6, p: { count: 5, size: 0.3 }, m: { multi: 1 } }
+  ]);
+
+  /* --- Origami puffy stars --- */
+  var PP_STAR = [['count', 'Stars', 4, 90, 1, 18], ['size', 'Star size', 0.03, 0.3, 0.005, 0.16], ['vary', 'Size variety', 0, 1, 0.02, 0.6], ['dots', 'Dots', 0, 90, 1, 12]];
+  mkFam('Paper', 'paper', PP_STAR, function (c, m) {
+    var X = ppX(c), p = c.p, rnd = c.rnd, n = Math.round(p.count), R0 = X.H * p.size / 2, k, pts;
+    pts = ppScatter(X, n, function () { return R0 * (1 - p.vary * 0.7 * rnd()); }, 0.03, 0.75);
+    for (k = 0; k < Math.round(p.dots); k++) ppAdd(X, ppC(X.W * rnd(), X.H * rnd(), X.H * (0.003 + 0.006 * rnd()), X.pal[3]));
+    pts.sort(function (a, b) { return b.r - a.r; }).forEach(function (q, i) {
+      var base = m.multi ? X.pal[i % 4] : mixc(X.pal[0], X.pal[1], rnd());
+      var rt = rnd() * 72, sh = ppInk(X, 0.13);
+      ppAdd(X, ppG(q.x + q.r * 0.06, q.y + q.r * 0.1, rt, q.r / 100, ppStar(sh, sh)));
+      ppAdd(X, ppG(q.x, q.y, rt, q.r / 100, ppStar(fshade(base, 0.12), fshade(base, -0.16))));
+    });
+    return ppOut(X, 'Paper', n + ' origami stars');
+  }, [
+    { id: 'ppstar', name: 'Puffy Stars', pi: 0, p: {}, m: {} },
+    { id: 'ppstarmix', name: 'Star Confetti', pi: 8, p: { count: 34, size: 0.12 }, m: { multi: 1 } }
+  ]);
+
+  /* --- Flower wreaths and moons with hanging tassels --- */
+  var PP_WREATH = [['rings', 'Wreaths', 1, 3, 1, 1], ['size', 'Wreath size', 0.2, 0.9, 0.01, 0.5], ['flowers', 'Flowers', 5, 30, 1, 14], ['leaves', 'Leaves', 0, 40, 1, 16], ['strings', 'Hanging strings', 0, 8, 1, 5], ['arc', 'Arc angle', 120, 360, 5, 360]];
+  mkFam('Paper', 'paper', PP_WREATH, function (c, m) {
+    var X = ppX(c), p = c.p, rnd = c.rnd, W = X.W, H = X.H, nr = Math.round(p.rings), r, k, kinds = ['tassel', 'leaf', 'heart', 'drop'];
+    for (r = 0; r < nr; r++) {
+      var slot = W / nr, cx = slot * (r + 0.5) + (rnd() - 0.5) * slot * 0.08, R = Math.min(H * p.size / 2 * (nr > 1 ? 0.85 + 0.2 * rnd() : 1), slot * 0.42), cy = H * (0.1 + 0.02 * rnd()) + R * 1.15, arc = p.arc * Math.PI / 180, mid = 135 * Math.PI / 180;
+      var nf = Math.round(p.flowers), nl = Math.round(p.leaves), ns = Math.round(p.strings);
+      for (k = 0; k < ns; k++) {
+        var sx = cx + (ns > 1 ? (k / (ns - 1) - 0.5) * R * 1.3 : 0), sy = cy + Math.sqrt(Math.max(0, R * R - (sx - cx) * (sx - cx))) * 0.95, ln = H * (0.12 + 0.3 * rnd()), ye = Math.min(sy + ln, H * 0.9), es = H * (0.055 + 0.03 * rnd()), base = X.pal[(k + r) % 4], kind = kinds[Math.floor(rnd() * 4)];
+        ppAdd(X, ppLine(sx, sy, sx, ye, H * 0.003, ppInk(X, 0.5)));
+        for (var b = 0; b < 3; b++) ppAdd(X, ppC(sx, sy + (ye - sy) * (0.2 + 0.25 * b), H * 0.007, X.pal[(k + b) % 5]));
+        if (kind === 'tassel') ppAdd(X, ppG(sx, ye, 0, es / 100, ppTassel(base))); else if (kind === 'leaf') ppAdd(X, ppG(sx, ye, 180, es / 100 * 1.1, ppLens(100, 34, fshade(base, 0.1), fshade(base, -0.16))));
+        else if (kind === 'heart') ppAdd(X, ppG(sx, ye + 38 * es / 100, 0, es / 100 * 0.95, ppHeart(fshade(base, 0.08), fshade(base, -0.14)))); else ppAdd(X, ppG(sx, ye, 0, es / 100, ppDrop(fshade(base, 0.08), fshade(base, -0.14))));
+      }
+      if (p.arc < 350) { ppAdd(X, ppC(cx, cy, R * 1.02, X.pal[1])); ppAdd(X, ppC(cx + R * 0.3, cy - R * 0.3, R * 0.84, X.bg)); }
+      else ppAdd(X, '<circle cx="' + f(cx) + '" cy="' + f(cy) + '" r="' + f(R) + '" fill="none" stroke="' + hx(fshade(X.pal[4], -0.1)) + '" stroke-width="' + f(R * 0.06) + '"/>');
+      for (k = 0; k < nl; k++) { var la = mid - arc / 2 + arc * (k + rnd() * 0.5) / nl, lx = cx + Math.cos(la) * R, ly = cy + Math.sin(la) * R; ppAdd(X, ppG(lx, ly, la * 180 / Math.PI + 90 + (rnd() < 0.5 ? 40 : -40), 1, ppLens(R * 0.4, R * 0.12, fshade(X.pal[4], 0.1), fshade(X.pal[4], -0.16)))); }
+      for (k = 0; k < nf; k++) {
+        var fa = mid - arc / 2 + arc * (k + 0.5 + (rnd() - 0.5) * 0.4) / nf, fr = R * (0.1 + 0.12 * rnd()), fx = cx + Math.cos(fa) * R * (1 + (rnd() - 0.5) * 0.12), fy = cy + Math.sin(fa) * R * (1 + (rnd() - 0.5) * 0.12), fb = X.pal[(k + r) % 4];
+        ppAdd(X, ppG(fx, fy, rnd() * 360, fr / 100, ppBlossom(5, fb, fshade(fb, -0.16), fshade(fb, 0.24), X.pal[(k + 2) % 4])));
+      }
+    }
+    return ppOut(X, 'Paper', nr + ' flower wreath(es)');
+  }, [
+    { id: 'ppwreath', name: 'Flower Wreath', pi: 6, p: {}, m: {} },
+    { id: 'ppmoon', name: 'Moon Wreath', pi: 5, p: { arc: 210, flowers: 9, leaves: 12, size: 0.5 }, m: {} },
+    { id: 'ppwreathtrio', name: 'Wreath Trio', pi: 8, p: { rings: 3, size: 0.44, flowers: 12, strings: 3, leaves: 12 }, m: {} }
+  ]);
+
   EXTRA.forEach(function (p) { PATTERNS.push(p); });
 
 
@@ -3083,7 +3584,7 @@
     catalog: catalog, hueShift: hueShift, toEPS: toEPS,
     designAt: designAt, designCount: designCount, designNumber: designNumber, variation: variation, hash: cyrb53,
     moods: MOODS, libraryPalettes: LIB_PALETTES, VARIATIONS_PER_DESIGN: VARIATIONS_PER_DESIGN,
-    version: '1.5.0', palettesFor: palsFor, darkPalettes: DARK_PALETTES,
+    version: '1.7.0', palettesFor: palsFor, darkPalettes: DARK_PALETTES,
     patterns: PATTERNS, byId: byId, palettes: PALETTES,
     defaults: defaults, defaultColors: defaultColors,
     build: build, generate: generate, toFile: toFile, randomOptions: randomOptions

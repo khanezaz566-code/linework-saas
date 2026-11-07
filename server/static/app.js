@@ -1602,8 +1602,8 @@
           };
           document.head.appendChild(s);
         }
-        addScript('/static/bgstudio/bg-generator.js?v=2.2.0', () => {
-          addScript('/static/bgstudio/bg-studio.js?v=2.2.0', () => {
+        addScript('/static/bgstudio/bg-generator.js?v=1.7.0', () => {
+          addScript('/static/bgstudio/bg-studio.js?v=1.7.0', () => {
             resolve();
           });
         });
