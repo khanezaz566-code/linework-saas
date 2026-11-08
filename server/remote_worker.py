@@ -22,10 +22,11 @@ def register_worker_node(url: str, secret: str, specs: dict = None) -> bool:
         return False
     url = url.rstrip("/")
     with _LOCK:
+        curr_active = ACTIVE_NODES.get(url, {}).get("active", 0)
         ACTIVE_NODES[url] = {
             "last_ping": time.time(),
             "specs": specs or {},
-            "active": 0
+            "active": curr_active
         }
     return True
 
@@ -33,24 +34,51 @@ def get_best_worker_url() -> str:
     now = time.time()
     best_url = None
     min_active = 999999
-    
     with _LOCK:
         dead_nodes = []
         for url, data in list(ACTIVE_NODES.items()):
-            # Node considered dead if no ping in last 90 seconds
             if now - data["last_ping"] > 90:
                 dead_nodes.append(url)
                 continue
             if data["active"] < min_active:
                 min_active = data["active"]
                 best_url = url
-                
         for dead in dead_nodes:
             ACTIVE_NODES.pop(dead, None)
-            
     return best_url
 
-def dispatch_to_remote_worker(worker_url: str, endpoint: str, payload: dict, timeout: int = 30):
+def acquire_best_worker() -> str:
+    """Acquire the worker URL with the lowest active load and increment active counter."""
+    now = time.time()
+    with _LOCK:
+        dead_nodes = []
+        best_url = None
+        min_active = 999999
+        for url, data in list(ACTIVE_NODES.items()):
+            if now - data["last_ping"] > 90:
+                dead_nodes.append(url)
+                continue
+            if data["active"] < min_active:
+                min_active = data["active"]
+                best_url = url
+        for dead in dead_nodes:
+            ACTIVE_NODES.pop(dead, None)
+        if best_url:
+            ACTIVE_NODES[best_url]["active"] += 1
+            return best_url
+    return None
+
+def release_worker(url: str, failed: bool = False):
+    """Decrement active counter, or evict node immediately on failure."""
+    if not url:
+        return
+    with _LOCK:
+        if url in ACTIVE_NODES:
+            ACTIVE_NODES[url]["active"] = max(0, ACTIVE_NODES[url]["active"] - 1)
+            if failed:
+                ACTIVE_NODES.pop(url, None)
+
+def dispatch_to_remote_worker(worker_url: str, endpoint: str, payload: dict, timeout: int = 45):
     url = f"{worker_url}{endpoint}"
     data = json.dumps(payload).encode("utf-8")
     req = urllib.request.Request(

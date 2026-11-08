@@ -1,6 +1,6 @@
 """Linework SaaS backend (FastAPI). Engines live in ../linework; this file only does jobs + HTTP."""
 from __future__ import annotations
-import io, json, os, sys, time, uuid, shutil, threading, zipfile, re, urllib.parse, multiprocessing as mp
+import io, json, os, sys, time, uuid, shutil, threading, zipfile, re, urllib.parse, base64, multiprocessing as mp
 
 # One math thread per worker process: N workers x N BLAS threads oversubscribes the CPU and makes every icon slower.
 for _v in ("OMP_NUM_THREADS", "OPENBLAS_NUM_THREADS", "MKL_NUM_THREADS", "NUMEXPR_NUM_THREADS", "VECLIB_MAXIMUM_THREADS"):
@@ -92,8 +92,8 @@ def pool():
         is_cloud = bool(os.environ.get("RENDER") or os.environ.get("PORT"))
         inline_env = os.environ.get("LINEWORK_INLINE", "1" if is_cloud else "0")
         use_inline = inline_env.lower() in ("1", "true", "yes")
-        default_w = 4
-        n = max(2, int(os.environ.get("LINEWORK_WORKERS", default_w)))
+        default_w = 16
+        n = max(4, int(os.environ.get("LINEWORK_WORKERS", default_w)))
         if use_inline:
             worker.init(_Q)
             _POOL = ThreadPoolExecutor(max_workers=n)
@@ -425,6 +425,32 @@ def _set_pass(job_id, d, jobs, order):
     _finish_composite(job_id)
 
 
+def _dispatch_single_icon(args):
+    job_id, k, crop, off, opts = args
+    if remote_worker.has_active_remote_worker():
+        node_url = remote_worker.acquire_best_worker()
+        if node_url:
+            try:
+                _, enc = cv2.imencode(".png", crop)
+                crop_b64 = base64.b64encode(enc.tobytes()).decode("utf-8")
+                payload = {
+                    "job_id": job_id,
+                    "k": k,
+                    "off": [int(off[0]), int(off[1])],
+                    "crop_b64": crop_b64,
+                    "options": opts
+                }
+                res = remote_worker.dispatch_to_remote_worker(node_url, "/process_icon", payload, timeout=50)
+                remote_worker.release_worker(node_url, failed=False)
+                if res.get("ok"):
+                    return k, off, res["model_json"], res["metrics"]
+            except Exception:
+                remote_worker.release_worker(node_url, failed=True)
+                # Seamless fallback to local worker below
+
+    return worker.run_icon(args)
+
+
 def _run_job(job_id):
     job = JOBS.get(job_id)
     if job is None or is_job_cancelled(job_id):
@@ -457,17 +483,21 @@ def _run_job(job_id):
 
         while (pending or in_flight) and not is_job_cancelled(job_id):
             active_cnt = sum(1 for j in JOBS.values() if j.get("status") in ("queued", "splitting", "running") and not is_job_cancelled(j.get("id", "")))
-            max_in_flight = 4 if active_cnt <= 1 else 2
+            remote_nodes = len(remote_worker.ACTIVE_NODES)
+            if remote_nodes > 0:
+                max_in_flight = 4 + (remote_nodes * 4)
+            else:
+                max_in_flight = 4 if active_cnt <= 1 else 2
 
             while pending and len(in_flight) < max_in_flight and not is_job_cancelled(job_id):
                 k, crop, off = pending.pop(0)
                 job["icons"][k]["status"] = "running"
                 try:
-                    fut = p.submit(worker.run_icon, (job_id, k, crop, off, job["options"]))
+                    fut = p.submit(_dispatch_single_icon, (job_id, k, crop, off, job["options"]))
                     in_flight[fut] = (k, crop, off)
                 except Exception:
                     try:
-                        k_r, off_r, mj_r, met_r = worker.run_icon((job_id, k, crop, off, job["options"]))
+                        k_r, off_r, mj_r, met_r = _dispatch_single_icon((job_id, k, crop, off, job["options"]))
                         _store_icon(job, d, k_r, mj_r, off_r, met_r)
                         job["done"] += 1
                     except Exception as efb:
@@ -490,7 +520,7 @@ def _run_job(job_id):
                     if is_job_cancelled(job_id) or str(e) == "Cancelled":
                         break
                     try:
-                        k_r, off_r, mj_r, met_r = worker.run_icon((job_id, k, crop_map[k], off_map[k], job["options"]))
+                        k_r, off_r, mj_r, met_r = _dispatch_single_icon((job_id, k, crop_map[k], off_map[k], job["options"]))
                         _store_icon(job, d, k_r, mj_r, off_r, met_r)
                         job["done"] += 1
                     except Exception as e2:
@@ -571,6 +601,7 @@ def worker_status():
     return {
         "hybrid_active": best is not None,
         "active_worker": best,
+        "active_nodes_count": len(remote_worker.ACTIVE_NODES),
         "nodes": list(remote_worker.ACTIVE_NODES.keys())
     }
 

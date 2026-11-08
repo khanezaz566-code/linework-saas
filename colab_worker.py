@@ -59,26 +59,23 @@ async def process_icon_endpoint(request: Request):
     crop = cv2.imdecode(nparr, cv2.IMREAD_GRAYSCALE)
     
     opts = Options(**opts_dict)
+    k = payload.get("k", 0)
     
     # Process icon at full Colab speed
     start_t = time.time()
     try:
-        from linework.pipeline import _process_single_crop
-        # If pipeline has run_icon or process_icon
         from linework.pipeline import process_icon
-        mj, metrics = process_icon(crop, opts)
+        r = process_icon(crop, opts, name=f"icon{k + 1}")
         elapsed = time.time() - start_t
         
-        # Serialize model joints and metrics
+        # Serialize model and metrics exactly matching server expectation
         return {
             "ok": True,
             "elapsed": round(elapsed, 3),
-            "svg": mj.to_svg(opts.target_iou) if hasattr(mj, "to_svg") else "",
-            "metrics": {
-                "iou": getattr(metrics, "iou", None),
-                "nodes": getattr(metrics, "nodes", None),
-                "score": getattr(metrics, "score", None)
-            }
+            "k": k,
+            "off": off,
+            "model_json": r["model"].to_json(),
+            "metrics": r["metrics"]
         }
     except Exception as e:
         import traceback
