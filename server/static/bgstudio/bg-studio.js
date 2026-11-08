@@ -122,18 +122,17 @@
     '.pack-drawer-head{display:flex;justify-content:space-between;align-items:center;gap:8px;}',
     '.pack-drawer-title{font-size:12px;font-weight:700;color:var(--fg);}',
     '.pack-drawer-sub{font-size:11px;color:var(--muted);}',
-    '.pack-fmt-switcher{display:inline-flex;background:#060d13;border:1px solid #182a3c;border-radius:6px;padding:2px;gap:2px;}',
-    '.fmt-pill{appearance:none;border:none;background:transparent;color:var(--muted);font-family:var(--mono);font-size:10px;font-weight:700;padding:3px 7px;border-radius:4px;cursor:pointer;transition:all .15s;}',
+        '.pack-fmt-switcher{display:inline-flex;background:#060d13;border:1px solid #182a3c;border-radius:6px;padding:2px;gap:2px;}',
+    '.fmt-pill{appearance:none;background:transparent;border:none;color:var(--muted);font-family:var(--mono);font-size:10.5px;font-weight:700;padding:2px 7px;border-radius:4px;cursor:pointer;transition:all .15s;}',
     '.fmt-pill:hover{color:var(--fg);}',
-    '.fmt-pill.active{background:var(--accent);color:#050b0d;font-weight:800;}',
+    '.fmt-pill.active{background:var(--accent);color:#050b0d;}',
     '.pack-fmt-box{display:flex;flex-direction:column;gap:6px;padding:8px 10px;background:#09121a;border:1px solid #142230;border-radius:8px;}',
     '.pack-fmt-title{font-family:var(--mono);font-size:10px;color:var(--muted);font-weight:700;letter-spacing:.05em;}',
     '.pack-fmt-options{display:grid;grid-template-columns:1fr 1fr;gap:6px;}',
-    '.fmt-opt{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--soft);cursor:pointer;padding:4px 6px;border-radius:5px;background:#060c12;border:1px solid #121e2a;}',
-    '.fmt-opt:hover{border-color:var(--accent);color:var(--fg);}',
-    '.fmt-opt input{accent-color:var(--accent);}',
-    '.fmt-opt span{display:inline-flex;flex-direction:column;line-height:1.2;}',
-    '.fmt-opt strong{font-size:11px;color:var(--fg);}',
+    '.fmt-opt{display:flex;align-items:center;gap:6px;font-size:11.5px;color:var(--soft);cursor:pointer;padding:4px 6px;border-radius:6px;}',
+    '.fmt-opt:hover{background:rgba(255,255,255,0.04);}',
+    '.fmt-opt input{accent-color:var(--accent);margin:0;width:13px;height:13px;}',
+    '.pack-fmt-label{font-family:var(--mono);font-size:10.5px;color:var(--muted);font-weight:700;}',
     '.pack-items{display:flex;flex-direction:column;gap:6px;max-height:200px;overflow-y:auto;padding-right:2px;}',
     '.pack-item{display:flex;align-items:center;gap:9px;padding:5px 8px;background:#0a131b;border:1px solid #152331;border-radius:6px;}',
     '.pack-thumb{width:44px;height:28px;object-fit:cover;border-radius:4px;border:1px solid #1a2a3a;background:#050a0f;flex:none;}',
@@ -144,8 +143,7 @@
     '.pack-del:hover{color:#ff6b6b;background:rgba(255,107,107,0.15);}',
     '.pack-empty{padding:14px;text-align:center;font-size:12px;color:var(--muted);}',
     '.pack-dl-all{appearance:none;font:inherit;width:100%;background:linear-gradient(135deg,var(--accent),#00e599);border:none;color:#050b0d;font-size:12.5px;font-weight:800;border-radius:8px;padding:9px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;box-shadow:0 0 16px rgba(0,245,160,0.25);}',
-    '.pack-dl-all:hover{filter:brightness(1.08);transform:translateY(-1px);}',
-    '.pack-dl-all:disabled{opacity:0.4;cursor:not-allowed;transform:none;box-shadow:none;}'
+    '.pack-dl-all:hover{filter:brightness(1.08);transform:translateY(-1px);}'
   ].join('\n');
 
   var HTML = [
@@ -170,18 +168,6 @@
     '<div class="var-grid" id="vars"></div></div>',
     '</section>',
     '<aside class="panel" aria-label="Controls">',
-    '<div class="sec"><h2>Match a reference</h2>',
-    '<div class="drop" id="drop"><p>Paste a screenshot with <kbd>Ctrl</kbd>+<kbd>V</kbd>, drop an image here, or choose a file. The closest templates are found and the colours are copied.</p>',
-    '<button class="btn" id="btn-file" type="button">Choose image</button><input type="file" id="file" accept="image/png,image/jpeg,image/webp,image/gif" hidden></div>',
-    '<div class="ref-row" id="ref-row" hidden><img id="ref-img" alt="Your reference"><div style="min-width:0;display:flex;flex-direction:column;gap:6px"><div class="swatches" id="ref-sw"></div><div class="status" id="ref-status" role="status"></div></div></div>',
-    '<div class="matches" id="matches"></div>',
-    '<label class="tog" id="diverge-row" hidden><input type="checkbox" id="diverge" checked><span>Variations differ from the reference (new hue and layout)</span></label></div>',
-    '<div class="sec"><h2>Pattern family</h2><div class="chips" id="cats"></div><div class="pat-grid" id="pats"></div></div>',
-    '<div class="sec"><h2>Design library</h2>',
-    '<div class="libnav"><button class="btn" id="lib-prev" type="button" aria-label="Previous design">←</button>',
-    '<input id="lib-no" type="number" min="1" value="1" aria-label="Design number"><span class="of" id="lib-of"></span>',
-    '<button class="btn" id="lib-next" type="button" aria-label="Next design">→</button><button class="btn" id="lib-rand" type="button">Random</button></div>',
-    '<div class="fam" id="fam"></div><p class="fine" id="lib-note"></p></div>',
     '<div class="sec"><h2>Artboard</h2><div class="chips" id="sizes"></div>',
     '<label class="tog"><input type="checkbox" id="transparent"><span>Transparent background</span></label>',
     '<div class="ctl"><div class="ctl-head"><label for="rot">Rotate pattern</label><output id="rot-o">0°</output></div><input type="range" id="rot" min="-90" max="90" step="5" value="0"></div></div>',
@@ -189,8 +175,19 @@
     '<div class="sec"><h2>Colours</h2><div class="colors" id="colors"></div>',
     '<div class="ctl"><div class="ctl-head"><label for="hue">Hue shift</label><output id="hue-o">0°</output></div><input type="range" id="hue" min="-180" max="180" step="5" value="0"></div>',
     '<h2 style="margin-top:4px">Palettes</h2><div class="pal" id="pals"></div></div>',
-    '</aside></div>',
-    '<div class="pack-dock" id="pack-dock">',
+    '<div class="sec"><h2>Pattern family</h2><div class="chips" id="cats"></div><div class="pat-grid" id="pats"></div></div>',
+    '<div class="sec"><h2>Design library</h2>',
+    '<div class="libnav"><button class="btn" id="lib-prev" type="button" aria-label="Previous design">←</button>',
+    '<input id="lib-no" type="number" min="1" value="1" aria-label="Design number"><span class="of" id="lib-of"></span>',
+    '<button class="btn" id="lib-next" type="button" aria-label="Next design">→</button><button class="btn" id="lib-rand" type="button">Random</button></div>',
+    '<div class="fam" id="fam"></div><p class="fine" id="lib-note"></p></div>',
+    '<div class="sec"><h2>Match a reference</h2>',
+    '<div class="drop" id="drop"><p>Paste a screenshot with <kbd>Ctrl</kbd>+<kbd>V</kbd>, drop an image here, or choose a file. The closest templates are found and the colours are copied.</p>',
+    '<button class="btn" id="btn-file" type="button">Choose image</button><input type="file" id="file" accept="image/png,image/jpeg,image/webp,image/gif" hidden></div>',
+    '<div class="ref-row" id="ref-row" hidden><img id="ref-img" alt="Your reference"><div style="min-width:0;display:flex;flex-direction:column;gap:6px"><div class="swatches" id="ref-sw"></div><div class="status" id="ref-status" role="status"></div></div></div>',
+    '<div class="matches" id="matches"></div>',
+    '<label class="tog" id="diverge-row" hidden><input type="checkbox" id="diverge" checked><span>Variations differ from the reference (new hue and layout)</span></label></div>',
+        '<div class="pack-dock" id="pack-dock">',
     '<div class="pack-dock-bar" id="pack-toggle"><span class="pack-dock-icon">📦</span><span class="pack-dock-title">Collection Pack</span><span class="pack-dock-badge" id="pack-count">0</span><div class="pack-fmt-switcher" id="dock-fmt-switcher"><button class="fmt-pill active" data-fmt="svg" type="button" title="Download only SVG files">SVG</button><button class="fmt-pill" data-fmt="eps" type="button" title="Download only EPS files">EPS</button><button class="fmt-pill" data-fmt="both" type="button" title="Download both SVG and EPS">Both</button></div><button class="pack-quick-dl" id="btn-quick-dl" type="button" style="display:none;">Download SVG ZIP</button><button class="pack-dock-arrow" id="pack-expand" type="button" aria-label="Expand Pack">▲</button></div>',
     '<div class="pack-drawer" id="pack-drawer" hidden>',
     '<div class="pack-drawer-head"><div><span class="pack-drawer-title">Collected Backgrounds</span> <span class="pack-drawer-sub" id="pack-count-sub">(0)</span></div><button class="btn" id="btn-clear-pack" type="button" style="padding:3px 8px;font-size:11px;">Clear</button></div>',
@@ -198,7 +195,7 @@
     '<div class="pack-items" id="pack-items"><div class="pack-empty">Your pack is empty.<br>Click "+ Add to Pack" on any design!</div></div>',
     '<button class="pack-dl-all" id="btn-pack-dl-all" type="button" disabled>⬇ Download ZIP (0 SVGs)</button>',
     '</div></div>',
-    '</div>'
+    '</aside></div></div>'
   ].join('');
 
   var THEME_VARS = { bg: '--bgs-bg', panel: '--bgs-panel', panel2: '--bgs-panel2', line: '--bgs-line', fg: '--bgs-fg', soft: '--bgs-soft', muted: '--bgs-muted', accent: '--bgs-accent', accentFg: '--bgs-accent-fg', font: '--bgs-font' };
@@ -600,46 +597,10 @@
     }
 
     /* ---------- downloads ---------- */
-    function baseName() {
-      var s = SIZES[state.size];
-      return 'bg-' + state.id + (state.design ? '-d' + pad(state.design) : '-custom') + '-v' + state.vIdx + '-' + s.w + 'x' + s.h;
-    }
-    function saveBlob(name, blob) {
-      var a = document.createElement('a'), u = URL.createObjectURL(blob);
-      a.href = u; a.download = name; a.style.display = 'none';
-      document.body.appendChild(a); a.click();
-      setTimeout(function () { URL.revokeObjectURL(u); a.remove(); }, 2000);
-    }
-    function exportPNG() {
-      var s = SIZES[state.size], name = baseName();
-      var u = URL.createObjectURL(new Blob([current.svg], { type: 'image/svg+xml' })), img = new Image();
-      img.onload = function () {
-        var cv = document.createElement('canvas'); cv.width = s.w; cv.height = s.h;
-        cv.getContext('2d').drawImage(img, 0, 0, s.w, s.h);
-        cv.toBlob(function (b) { URL.revokeObjectURL(u); if (b) { saveBlob(name + '.png', b); toast('Saved the PNG.'); } else toast('The PNG was too large for this browser. Pick a smaller artboard.'); }, 'image/png');
-      };
-      img.onerror = function () { URL.revokeObjectURL(u); toast('The PNG could not be made.'); };
-      img.src = u;
-    }
 
-    /* ---------- wiring ---------- */
-    var onPaste = function (e) {
-      if (destroyed || !host.isConnected || !host.getClientRects().length) return;
-      var fl = e.clipboardData && e.clipboardData.files;
-      if (fl && fl.length && /^image\//.test(fl[0].type)) { e.preventDefault(); handleFile(fl[0]); }
-    };
-    document.addEventListener('paste', onPaste);
-    var drop = $('#drop');
-    ['dragenter', 'dragover'].forEach(function (ev) { drop.addEventListener(ev, function (e) { e.preventDefault(); drop.classList.add('over'); }); });
-    ['dragleave', 'drop'].forEach(function (ev) { drop.addEventListener(ev, function (e) { e.preventDefault(); drop.classList.remove('over'); }); });
-    drop.addEventListener('drop', function (e) { var fl = e.dataTransfer && e.dataTransfer.files; if (fl && fl.length) handleFile(fl[0]); });
-    $('#btn-file').onclick = function () { $('#file').click(); };
-    $('#file').onchange = function (e) { handleFile(e.target.files[0]); e.target.value = ''; };
-
-
-    /* ---------- Quota & Payment Verification ---------- */
+    /* ---------- Quota Check Hook ---------- */
     async function checkBgQuotaAndConsume() {
-      if (!window.LineworkAuth || !window.LineworkAuth.isLoggedIn()) {
+      if (!window.LineworkAuth || !window.LineworkAuth.user) {
         if (window.LineworkAuth) window.LineworkAuth.requireLogin();
         return false;
       }
@@ -651,7 +612,7 @@
         return false;
       }
       try {
-        var tok = localStorage.getItem('lw_token');
+        var tok = sessionStorage.getItem('lw_token') || localStorage.getItem('lw_token') || '';
         var res = await fetch('/api/bgstudio/use', {
           method: 'POST',
           headers: { 'Authorization': 'Bearer ' + tok }
@@ -672,6 +633,30 @@
       }
     }
 
+    function baseName() {
+      var s = SIZES[state.size];
+      return 'bg-' + state.id + (state.design ? '-d' + pad(state.design) : '-custom') + '-v' + state.vIdx + '-' + s.w + 'x' + s.h;
+    }
+    function saveBlob(name, blob) {
+      var a = document.createElement('a'), u = URL.createObjectURL(blob);
+      a.href = u; a.download = name; a.style.display = 'none';
+      document.body.appendChild(a); a.click();
+      setTimeout(function () { URL.revokeObjectURL(u); a.remove(); }, 2000);
+    }
+    async function exportPNG() {
+      if (!await checkBgQuotaAndConsume()) return;
+      var s = SIZES[state.size], name = baseName();
+      var u = URL.createObjectURL(new Blob([current.svg], { type: 'image/svg+xml' })), img = new Image();
+      img.onload = function () {
+        var cv = document.createElement('canvas'); cv.width = s.w; cv.height = s.h;
+        cv.getContext('2d').drawImage(img, 0, 0, s.w, s.h);
+        cv.toBlob(function (b) { URL.revokeObjectURL(u); if (b) { saveBlob(name + '.png', b); toast('Saved the PNG.'); } else toast('The PNG was too large for this browser. Pick a smaller artboard.'); }, 'image/png');
+      };
+      img.onerror = function () { URL.revokeObjectURL(u); toast('The PNG could not be made.'); };
+      img.src = u;
+    }
+
+    
     /* ---------- ZIP Collection Pack Engine ---------- */
     var pack = [];
 
@@ -968,7 +953,26 @@
       }
     }
 
-    /* ---------- Event Bindings ---------- */
+    /* ---------- wiring ---------- */
+    var onPaste = function (e) {
+      if (destroyed || !host.isConnected || !host.getClientRects().length) return;
+      var fl = e.clipboardData && e.clipboardData.files;
+      if (fl && fl.length && /^image\//.test(fl[0].type)) { e.preventDefault(); handleFile(fl[0]); }
+    };
+    document.addEventListener('paste', onPaste);
+    var drop = $('#drop');
+    ['dragenter', 'dragover'].forEach(function (ev) { drop.addEventListener(ev, function (e) { e.preventDefault(); drop.classList.add('over'); }); });
+    ['dragleave', 'drop'].forEach(function (ev) { drop.addEventListener(ev, function (e) { e.preventDefault(); drop.classList.remove('over'); }); });
+    drop.addEventListener('drop', function (e) { var fl = e.dataTransfer && e.dataTransfer.files; if (fl && fl.length) handleFile(fl[0]); });
+    $('#btn-file').onclick = function () { $('#file').click(); };
+    $('#file').onchange = function (e) { handleFile(e.target.files[0]); e.target.value = ''; };
+
+    $('#btn-svg').onclick = async function () { if (!await checkBgQuotaAndConsume()) return; saveBlob(baseName() + '.svg', new Blob([G.toFile(current.svg)], { type: 'image/svg+xml' })); toast('Saved the SVG. Open it in Illustrator, Figma or Inkscape.'); };
+    $('#btn-eps').onclick = async function () { if (!await checkBgQuotaAndConsume()) return;
+      var name = baseName();
+      saveBlob(name + '.eps', new Blob([G.toEPS(current.svg, name)], { type: 'application/postscript' })); toast('Saved the EPS.');
+    };
+    $('#btn-png').onclick = exportPNG;
     $('#btn-add-pack').onclick = addCurrentToPack;
     if ($('#btn-add-all-vars')) {
       $('#btn-add-all-vars').onclick = function () {
@@ -1013,30 +1017,17 @@
     };
     $('#btn-quick-dl').onclick = function (e) { e.stopPropagation(); downloadPackZip(); };
     $('#btn-pack-dl-all').onclick = downloadPackZip;
-
     $$('.fmt-pill').forEach(function (pill) {
       pill.onclick = function (e) {
         e.stopPropagation();
         setPackFormat(pill.dataset.fmt);
       };
     });
-    $$('input[name="pack-fmt"]').forEach(function (r) {
-      r.onchange = function () {
-        setPackFormat(r.value);
+    $$('input[name="pack-fmt"]').forEach(function (radio) {
+      radio.onchange = function () {
+        setPackFormat(radio.value);
       };
     });
-
-    $('#btn-svg').onclick = async function () { if (!await checkBgQuotaAndConsume()) return; saveBlob(baseName() + '.svg', new Blob([G.toFile(current.svg)], { type: 'image/svg+xml' })); toast('Saved the SVG. Open it in Illustrator, Figma or Inkscape.'); };
-    $('#btn-eps').onclick = async function () { if (!await checkBgQuotaAndConsume()) return;
-      var name = baseName();
-      saveBlob(name + '.eps', new Blob([G.toEPS(current.svg, name)], { type: 'application/postscript' })); toast('Saved the EPS.');
-    };
-
-    $('#btn-eps').onclick = function () {
-      var name = baseName();
-      saveBlob(name + '.eps', new Blob([G.toEPS(current.svg, name)], { type: 'application/postscript' })); toast('Saved the EPS.');
-    };
-    $('#btn-png').onclick = exportPNG;
     $('#btn-next').onclick = nextVariation;
     $('#btn-shuffle').onclick = function () {
       var o = G.randomOptions(state.id, Math.floor(Math.random() * 1e9));

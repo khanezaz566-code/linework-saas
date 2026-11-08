@@ -29,11 +29,22 @@ DATA = FsPath(os.environ.get("LINEWORK_DATA", ROOT / "data"))
 DATA.mkdir(parents=True, exist_ok=True)
 MAX_BYTES = 15 * 1024 * 1024
 is_cloud = bool(os.environ.get("RENDER") or os.environ.get("PORT"))
-MAX_SIDE = 1400 if is_cloud else 3000
+MAX_SIDE = 5000
 MAX_ICONS = 96
 KEEP_SECONDS = 24 * 3600
 
 app = FastAPI(title="Linework", version="0.1.0")
+
+@app.middleware("http")
+async def disable_static_cache(request: Request, call_next):
+    response = await call_next(request)
+    path = request.url.path
+    if path == "/" or path.startswith("/static/") or path.endswith((".js", ".css", ".html")):
+        response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+        response.headers["Pragma"] = "no-cache"
+        response.headers["Expires"] = "0"
+    return response
+
 JOBS: dict[str, dict] = {}
 _LOCK = threading.Lock()
 _CTX = mp.get_context("fork") if hasattr(os, "fork") else mp.get_context("spawn")
@@ -92,8 +103,8 @@ def pool():
         is_cloud = bool(os.environ.get("RENDER") or os.environ.get("PORT"))
         inline_env = os.environ.get("LINEWORK_INLINE", "1" if is_cloud else "0")
         use_inline = inline_env.lower() in ("1", "true", "yes")
-        default_w = 16
-        n = max(4, int(os.environ.get("LINEWORK_WORKERS", default_w)))
+        default_w = 1 if is_cloud else min(4, max(1, (os.cpu_count() or 2) // 2))
+        n = max(1, int(os.environ.get("LINEWORK_WORKERS", default_w)))
         if use_inline:
             worker.init(_Q)
             _POOL = ThreadPoolExecutor(max_workers=n)
@@ -305,27 +316,17 @@ def _finish_composite(job_id):
     d = _jobdir(job_id)
     allm = _compose(job_id)
     (d / "result.svg").write_text(allm.svg(pretty=True))
-    render_w, render_h = allm.width, allm.height
-    if max(render_w, render_h) > 1200:
-        scale = 1200.0 / max(render_w, render_h)
-        render_w = max(24, int(round(render_w * scale)))
-        render_h = max(24, int(round(render_h * scale)))
-        
-    img = render_gray(allm.svg(), render_w, render_h)
+    img = render_gray(allm.svg(), allm.width, allm.height)
     cv2.imwrite(str(d / "result.png"), img)
     gray = cv2.imread(str(d / "original.png"), 0)
-    if gray is not None and gray.size > 0:
-        if gray.shape != (render_h, render_w):
-            gray = cv2.resize(gray, (render_w, render_h), interpolation=cv2.INTER_AREA)
-        ref = ink_map(gray) > 0.5
-        b = img < 128
-        job["iou"] = float((b & ref).sum() / max((b | ref).sum(), 1))
-        dm = np.full(ref.shape + (3,), 255, np.uint8)
-        dm[ref & b] = (200, 200, 200)
-        dm[ref & ~b] = (60, 60, 235)
-        dm[~ref & b] = (235, 120, 60)
-        cv2.imwrite(str(d / "diff.png"), dm)
-        del img, gray, ref, b, dm
+    ref = ink_map(gray) > 0.5
+    b = img < 128
+    job["iou"] = float((b & ref).sum() / max((b | ref).sum(), 1))
+    dm = np.full(ref.shape + (3,), 255, np.uint8)
+    dm[ref & b] = (200, 200, 200)
+    dm[ref & ~b] = (60, 60, 235)
+    dm[~ref & b] = (235, 120, 60)
+    cv2.imwrite(str(d / "diff.png"), dm)
     a = audit_paths(allm.paths, min_run=1.2)
     iss = [ic["metrics"]["issues"] for ic in job["icons"] if ic.get("metrics")]
     fin_fixed = sum(ic.get("metrics", {}).get("finisher", {}).get("fixed", 0) for ic in job["icons"])
@@ -392,30 +393,27 @@ def _set_pass(job_id, d, jobs, order):
     mets = {k: job["icons"][k]["metrics"] for k in ok}
     offs = {k: off for k, _, off in jobs}
     crops = {k: c for k, c, _ in jobs}
-    is_precise = job.get("options", {}).get("quality") == "precise"
-    weak = []
-    if is_precise:
-        weak = SL.weak_icons([mets[k] for k in ok])
-        weak = [ok[i] for i in weak]
-        if weak:
-            job["events"].append(dict(engine="doctor", msg=f"Set check: {len(weak)} icon(s) need escalation / second pass", t=0, n=len(job["events"])))
-            base_opts = Options(**job["options"])
-            sheet_budget = min(40.0, len(weak) * 15.0)
-            deadline = time.time() + sheet_budget
-            for k in weak:
-                if time.time() > deadline or job.get("cancelled"):
-                    break
-                cur_m = Model.from_json((d / f"icon_local_{k}.json").read_text())
-                cur_met = mets[k]
-                m_esc, met_esc = SL.escalate_weak_icon(
-                    crops[k], offs[k], base_opts, cur_m, cur_met,
-                    emit=lambda **kw: job["events"].append(dict(kw, job=job_id, k=k, t=0, n=len(job["events"]))),
-                    name=f"icon{k+1}",
-                    sheet_deadline=deadline
-                )
-                if SL.result_key(m_esc, met_esc) < SL.result_key(cur_m, cur_met):
-                    _store_icon(job, d, k, m_esc.to_json(), offs[k], met_esc)
-                    mets[k] = met_esc
+    weak = SL.weak_icons([mets[k] for k in ok])
+    weak = [ok[i] for i in weak]
+    if weak:
+        job["events"].append(dict(engine="doctor", msg=f"Set check: {len(weak)} icon(s) need escalation / second pass", t=0, n=len(job["events"])))
+        base_opts = Options(**job["options"])
+        sheet_budget = max(90.0, len(jobs) * 20.0)
+        deadline = time.time() + sheet_budget
+        for k in weak:
+            if time.time() > deadline or is_job_cancelled(job_id):
+                break
+            cur_m = Model.from_json((d / f"icon_local_{k}.json").read_text())
+            cur_met = mets[k]
+            m_esc, met_esc = SL.escalate_weak_icon(
+                crops[k], offs[k], base_opts, cur_m, cur_met,
+                emit=lambda **kw: job["events"].append(dict(kw, job=job_id, k=k, t=0, n=len(job["events"]))),
+                name=f"icon{k+1}",
+                sheet_deadline=deadline
+            )
+            if SL.result_key(m_esc, met_esc) < SL.result_key(cur_m, cur_met):
+                _store_icon(job, d, k, m_esc.to_json(), offs[k], met_esc)
+                mets[k] = met_esc
     models = [Model.from_json((d / f"icon_local_{k}.json").read_text()) for k in ok]
     new, rep = SL.harmonize_widths(models, [crops[k] for k in ok])
     for k, m0, m1 in zip(ok, models, new):
@@ -477,60 +475,46 @@ def _run_job(job_id):
         crop_map = {k: c for k, c, off in jobs}
         off_map = {k: off for k, c, off in jobs}
 
+        futs = {}
         p = pool()
-        pending = list(order)
-        in_flight = {}
-
-        while (pending or in_flight) and not is_job_cancelled(job_id):
-            active_cnt = sum(1 for j in JOBS.values() if j.get("status") in ("queued", "splitting", "running") and not is_job_cancelled(j.get("id", "")))
-            remote_nodes = len(remote_worker.ACTIVE_NODES)
-            if remote_nodes > 0:
-                max_in_flight = 4 + (remote_nodes * 4)
-            else:
-                max_in_flight = 4 if active_cnt <= 1 else 2
-
-            while pending and len(in_flight) < max_in_flight and not is_job_cancelled(job_id):
-                k, crop, off = pending.pop(0)
-                job["icons"][k]["status"] = "running"
-                try:
-                    fut = p.submit(_dispatch_single_icon, (job_id, k, crop, off, job["options"]))
-                    in_flight[fut] = (k, crop, off)
-                except Exception:
-                    try:
-                        k_r, off_r, mj_r, met_r = _dispatch_single_icon((job_id, k, crop, off, job["options"]))
-                        _store_icon(job, d, k_r, mj_r, off_r, met_r)
-                        job["done"] += 1
-                    except Exception as efb:
-                        job["icons"][k].update(status="error", error=str(efb))
-
-            if not in_flight:
+        for k, crop, off in order:
+            if is_job_cancelled(job_id):
                 break
-
-            done_futs, _ = wait(list(in_flight.keys()), return_when=FIRST_COMPLETED)
-            for fut in done_futs:
-                k, crop, off = in_flight.pop(fut)
-                ic = job["icons"][k]
-                if is_job_cancelled(job_id):
-                    break
+            job["icons"][k]["status"] = "running"
+            try:
+                futs[p.submit(worker.run_icon, (job_id, k, crop, off, job["options"]))] = k
+            except Exception:
+                reset_pool()
+                p = pool()
                 try:
-                    _, off_r, mj_r, met_r = fut.result()
-                    _store_icon(job, d, k, mj_r, off_r, met_r)
+                    futs[p.submit(worker.run_icon, (job_id, k, crop, off, job["options"]))] = k
+                except Exception:
+                    k_r, off_r, mj_r, met_r = worker.run_icon((job_id, k, crop, off, job["options"]))
+                    _store_icon(job, d, k_r, mj_r, off_r, met_r)
                     job["done"] += 1
-                except Exception as e:
-                    if is_job_cancelled(job_id) or str(e) == "Cancelled":
-                        break
-                    try:
-                        k_r, off_r, mj_r, met_r = _dispatch_single_icon((job_id, k, crop_map[k], off_map[k], job["options"]))
-                        _store_icon(job, d, k_r, mj_r, off_r, met_r)
-                        job["done"] += 1
-                    except Exception as e2:
-                        ic.update(status="error", error=str(e2))
-                        continue
-
-        if is_job_cancelled(job_id):
-            job["status"] = "cancelled"
-            return
-
+        for fut in as_completed(futs):
+            if is_job_cancelled(job_id):
+                break
+            k = futs[fut]
+            ic = job["icons"][k]
+            try:
+                _, off, mj, met = fut.result()
+            except Exception as e:
+                if is_job_cancelled(job_id) or str(e) == "Cancelled":
+                    break
+                reset_pool()
+                try:
+                    k_r, off_r, mj_r, met_r = worker.run_icon((job_id, k, crop_map[k], off_map[k], job["options"]))
+                    _store_icon(job, d, k_r, mj_r, off_r, met_r)
+                    job["done"] += 1
+                    _finish_composite(job_id)
+                    continue
+                except Exception as e2:
+                    ic.update(status="error", error=str(e2))
+                    continue
+            _store_icon(job, d, k, mj, off, met)
+            job["done"] += 1
+            _finish_composite(job_id)
         if is_job_cancelled(job_id):
             job["status"] = "cancelled"
             return
@@ -664,10 +648,6 @@ def sample(name: str, request: Request, quality: str = "standard", fresh: bool =
     if not fn.exists() or not name.replace("-", "").isalnum():
         raise HTTPException(404)
     gray = cv2.imread(str(fn), 0)
-    h, w = gray.shape
-    if max(h, w) > MAX_SIDE:
-        s = MAX_SIDE / max(h, w)
-        gray = cv2.resize(gray, None, fx=s, fy=s, interpolation=cv2.INTER_AREA)
     return _start(gray, name, quality, 0.5, 99.5, fresh=fresh, user_id=user["id"])
 
 

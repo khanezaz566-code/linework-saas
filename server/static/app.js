@@ -11,7 +11,7 @@
     H: 0,
     tf: { x: 0, y: 0, k: 1 },
     timer: null,
-    quality: 'fast',
+    quality: 'standard',
     icons: [],
     done: false,
     logN: 0,
@@ -1602,8 +1602,8 @@
           };
           document.head.appendChild(s);
         }
-        addScript('/static/bgstudio/bg-generator.js?v=1.7.0', () => {
-          addScript('/static/bgstudio/bg-studio.js?v=1.7.1', () => {
+        addScript('/static/bgstudio/bg-generator.js?v=3.0.0', () => {
+          addScript('/static/bgstudio/bg-studio.js?v=3.0.0', () => {
             resolve();
           });
         });

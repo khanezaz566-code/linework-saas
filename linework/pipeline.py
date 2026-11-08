@@ -21,9 +21,9 @@ from . import lessons as LS
 from .split import find_icons, crop_icon, estimate_width
 
 PRESETS = {
-    "fast": dict(max_rounds=0, time_budget=15, region_edits=0, iters=16, taus=(1.0, 0.45)),
-    "standard": dict(max_rounds=1, time_budget=30, region_edits=4, iters=20, taus=(1.0, 0.5)),
-    "precise": dict(max_rounds=3, time_budget=60, region_edits=8, iters=28, taus=(1.0, 0.5, 0.35)),
+    "fast": dict(max_rounds=0, time_budget=25, region_edits=0, iters=18, taus=(1.0, 0.45)),
+    "standard": dict(max_rounds=4, time_budget=120, region_edits=8, iters=28, taus=(1.0, 0.5, 0.35)),
+    "precise": dict(max_rounds=6, time_budget=300, region_edits=12, iters=36, taus=(1.2, 0.8, 0.5, 0.34)),
 }
 
 
@@ -106,23 +106,13 @@ def process_icon(gray, opts: Options = None, emit=_noop, name="icon"):
     if opts.decision:
         emit(engine="decision", msg="Decision engine: measuring residual", icon=name)
         D = ink_map(gray)
-        if opts.quality == "fast":
-            DC.SHARP_FACTOR = 1.3
-            model, drep = DC.decide(
-                r["model"], D,
-                time_budget=min(opts.decision_budget, 15.0),
-                emit=emit,
-                name=name,
-                tip_patches=opts.tip_patches
-            )
-        else:
-            model, drep = DC.decide_best(
-                r["model"], D,
-                time_budget=opts.decision_budget,
-                emit=emit,
-                name=name,
-                tip_patches=opts.tip_patches
-            )
+        model, drep = DC.decide_best(
+            r["model"], D,
+            time_budget=opts.decision_budget,
+            emit=emit,
+            name=name,
+            tip_patches=opts.tip_patches
+        )
         ink_area = int((D > 0.5).sum())
         clean = DC.icon_ok(drep, ink_area)
         r["model"] = model
@@ -531,9 +521,7 @@ def _process_icon(gray, opts: Options = None, emit=_noop, name="icon", set_w=Non
         from . import opt
         cur_soft = doctor.soft(ink)
         cur_iou = doctor.iou(ink)
-        taus_sub = (0.5,) if opts.quality == "fast" else (0.6, 0.35)
-        iters_sub = 10 if opts.quality == "fast" else 14
-        m_ref = opt.refine(model, D, taus=taus_sub, iters=iters_sub, lam_pos=0.05, lam_w=0.02, fit_width=True)
+        m_ref = opt.refine(model, D, taus=(0.6, 0.35), iters=18, lam_pos=0.05, lam_w=0.02, fit_width=True)
         ink_ref = ink_of(m_ref)
         s_ref = doctor.soft(ink_ref)
         iou_ref = doctor.iou(ink_ref)

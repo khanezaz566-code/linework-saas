@@ -40,7 +40,12 @@ BLOB_MIN = 6            # px^2: smaller hard residual blobs are ignored
 SOFT_ALLOW_FRAC = 0.02  # intent fixes may cost this fraction of the current soft mismatch (design goal beats pixel copy)
 SOFT_ALLOW_MIN = 12.0   # ... but at least this many px of soft mismatch
 MAX_ML = 12.0
+import threading
+_TLS = threading.local()
 SHARP_FACTOR = 1.3      # corner counts as pointed when source ink exists this many round-join radii out (strict variant: full mitre tip)
+
+def _get_sharp_factor():
+    return getattr(_TLS, "sharp_factor", SHARP_FACTOR)
 
 
 # ----------------------------------------------------------------------------------------------- measurement
@@ -457,7 +462,7 @@ def _sharp_in_source(D, V, d1, d2, w, turn):
         return False
     out /= n
     # a round join reaches w/2 from the vertex; ink clearly beyond that (1.3 x) proves the corner is pointed, even if the source tip is truncated
-    T = V + out * min((w / 2) / inter * 0.9, SHARP_FACTOR * (w / 2))
+    T = V + out * min((w / 2) / inter * 0.9, _get_sharp_factor() * (w / 2))
     H, W = D.shape
     x, y = int(round(T[0])), int(round(T[1]))
     if not (1 <= x < W - 1 and 1 <= y < H - 1):
@@ -805,10 +810,11 @@ def icon_ok(report, ink_area=None, iou_floor=0.955):
 def decide_best(model: Model, D, **kw):
     """Run the loop with a loose and a strict notion of 'pointed corner' and keep the better result (never worse than the input)."""
     global SHARP_FACTOR
-    keep = SHARP_FACTOR
+    keep = getattr(_TLS, "sharp_factor", SHARP_FACTOR)
     best = None
     try:
         for fac in (1.3, 99.0):
+            _TLS.sharp_factor = fac
             SHARP_FACTOR = fac
             m2, rep = decide(model, D, **kw)
             key = (rep["after"]["hard"] > rep["before"]["hard"] + 4, rep["after"]["hard"], rep["open"], -rep["after"]["iou"])
@@ -816,5 +822,6 @@ def decide_best(model: Model, D, **kw):
                 rep["sharp_factor"] = fac
                 best = (key, m2, rep)
     finally:
+        _TLS.sharp_factor = keep
         SHARP_FACTOR = keep
     return best[1], best[2]
