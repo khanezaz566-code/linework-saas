@@ -104,7 +104,48 @@
     '.match{appearance:none;text-align:left;font:inherit;color:var(--fg);background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:5px;display:flex;gap:9px;cursor:pointer;align-items:center;}',
     '.match img{width:84px;height:47px;object-fit:cover;border-radius:4px;flex:none;background:var(--chk-b);}',
     '.match b{font-weight:600;font-size:12.5px;}.match small{display:block;font-size:11.5px;color:var(--muted);line-height:1.3;}',
-    '.err{padding:14px;border:1px solid #7f1d1d;border-radius:10px;color:#fecaca;background:#2a0f12;font-size:13px;}'
+    '.err{padding:14px;border:1px solid #7f1d1d;border-radius:10px;color:#fecaca;background:#2a0f12;font-size:13px;}',
+    '.pack-btn{background:linear-gradient(135deg,rgba(0,245,160,0.18),rgba(0,255,213,0.06));border:1.5px solid var(--accent);color:var(--accent);display:inline-flex;align-items:center;font-weight:700;transition:all .18s ease;box-shadow:0 0 12px rgba(0,245,160,0.15);cursor:pointer;}',
+    '.pack-btn:hover{background:var(--accent);color:#050b0d;box-shadow:0 0 20px rgba(0,245,160,0.4);transform:translateY(-1px);}',
+    '.pack-dock{position:fixed;bottom:20px;right:28px;z-index:9999;background:#080e14;border:1px solid #162636;border-radius:12px;box-shadow:0 14px 40px rgba(0,0,0,0.7),0 0 0 1px rgba(0,245,160,0.15);display:flex;flex-direction:column;width:340px;max-width:calc(100vw - 40px);overflow:hidden;backdrop-filter:blur(16px);font-family:inherit;}',
+    '.pack-dock-bar{display:flex;align-items:center;gap:10px;padding:9px 13px;cursor:pointer;background:#0d1822;user-select:none;transition:background .15s;}',
+    '.pack-dock-bar:hover{background:#11202e;}',
+    '.pack-dock-icon{font-size:16px;}',
+    '.pack-dock-title{font-size:12.5px;font-weight:700;color:var(--fg);flex:1;}',
+    '.pack-dock-badge{background:var(--accent);color:#050b0d;font-family:var(--mono);font-size:11px;font-weight:800;border-radius:999px;padding:2px 8px;min-width:18px;text-align:center;}',
+    '.pack-dock-badge.bump{transform:scale(1.25);transition:transform .15s ease;}',
+    '.pack-quick-dl{appearance:none;border:none;background:var(--accent);color:#050b0d;font:inherit;font-size:11.5px;font-weight:700;padding:5px 10px;border-radius:6px;cursor:pointer;}',
+    '.pack-quick-dl:hover{filter:brightness(1.1);}',
+    '.pack-dock-arrow{background:transparent;border:none;color:var(--muted);font-size:11px;cursor:pointer;padding:2px 4px;transition:transform .2s;}',
+    '.pack-dock.open .pack-dock-arrow{transform:rotate(180deg);}',
+    '.pack-drawer{padding:12px;display:flex;flex-direction:column;gap:10px;border-top:1px solid #162636;max-height:420px;}',
+    '.pack-drawer-head{display:flex;justify-content:space-between;align-items:center;gap:8px;}',
+    '.pack-drawer-title{font-size:12px;font-weight:700;color:var(--fg);}',
+    '.pack-drawer-sub{font-size:11px;color:var(--muted);}',
+    '.pack-fmt-switcher{display:inline-flex;background:#060d13;border:1px solid #182a3c;border-radius:6px;padding:2px;gap:2px;}',
+    '.fmt-pill{appearance:none;border:none;background:transparent;color:var(--muted);font-family:var(--mono);font-size:10px;font-weight:700;padding:3px 7px;border-radius:4px;cursor:pointer;transition:all .15s;}',
+    '.fmt-pill:hover{color:var(--fg);}',
+    '.fmt-pill.active{background:var(--accent);color:#050b0d;font-weight:800;}',
+    '.pack-fmt-box{display:flex;flex-direction:column;gap:6px;padding:8px 10px;background:#09121a;border:1px solid #142230;border-radius:8px;}',
+    '.pack-fmt-title{font-family:var(--mono);font-size:10px;color:var(--muted);font-weight:700;letter-spacing:.05em;}',
+    '.pack-fmt-options{display:grid;grid-template-columns:1fr 1fr;gap:6px;}',
+    '.fmt-opt{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--soft);cursor:pointer;padding:4px 6px;border-radius:5px;background:#060c12;border:1px solid #121e2a;}',
+    '.fmt-opt:hover{border-color:var(--accent);color:var(--fg);}',
+    '.fmt-opt input{accent-color:var(--accent);}',
+    '.fmt-opt span{display:inline-flex;flex-direction:column;line-height:1.2;}',
+    '.fmt-opt strong{font-size:11px;color:var(--fg);}',
+    '.pack-items{display:flex;flex-direction:column;gap:6px;max-height:200px;overflow-y:auto;padding-right:2px;}',
+    '.pack-item{display:flex;align-items:center;gap:9px;padding:5px 8px;background:#0a131b;border:1px solid #152331;border-radius:6px;}',
+    '.pack-thumb{width:44px;height:28px;object-fit:cover;border-radius:4px;border:1px solid #1a2a3a;background:#050a0f;flex:none;}',
+    '.pack-meta{flex:1;min-width:0;display:flex;flex-direction:column;gap:1px;}',
+    '.pack-name{font-size:11.5px;font-weight:600;color:var(--fg);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}',
+    '.pack-dim{font-family:var(--mono);font-size:10px;color:var(--muted);}',
+    '.pack-del{appearance:none;background:transparent;border:none;color:var(--muted);cursor:pointer;font-size:13px;padding:2px 5px;border-radius:4px;}',
+    '.pack-del:hover{color:#ff6b6b;background:rgba(255,107,107,0.15);}',
+    '.pack-empty{padding:14px;text-align:center;font-size:12px;color:var(--muted);}',
+    '.pack-dl-all{appearance:none;font:inherit;width:100%;background:linear-gradient(135deg,var(--accent),#00e599);border:none;color:#050b0d;font-size:12.5px;font-weight:800;border-radius:8px;padding:9px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;box-shadow:0 0 16px rgba(0,245,160,0.25);}',
+    '.pack-dl-all:hover{filter:brightness(1.08);transform:translateY(-1px);}',
+    '.pack-dl-all:disabled{opacity:0.4;cursor:not-allowed;transform:none;box-shadow:none;}'
   ].join('\n');
 
   var HTML = [
@@ -121,10 +162,11 @@
     '<button class="btn" id="btn-png" type="button">Download PNG</button>',
     '<button class="btn" id="btn-copy" type="button">Copy SVG code</button>',
     '<button class="btn" id="btn-code" type="button">Show code</button>',
+    '<button class="btn pack-btn" id="btn-add-pack" type="button" title="Add current design to ZIP bundle pack"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" style="vertical-align:middle;margin-right:4px;"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z"/><path d="M3 6h18"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>+ Add to Pack</button>',
     '<span class="stats" id="stats"></span><span class="toast" id="toast" role="status"></span></div>',
     '<textarea id="code" hidden readonly spellcheck="false" aria-label="SVG source"></textarea>',
     '<p class="hint">SVG, EPS and PNG download straight to your computer. EPS has no transparency, so opacity becomes solid colour and gradients become fine bands. Everything stays editable vector shapes.</p>',
-    '<div><div class="vars-head"><h2>Variations of this design</h2><div class="chips" id="strength"></div><button class="btn" id="btn-vars" type="button">Show 8 more</button></div>',
+    '<div><div class="vars-head"><h2>Variations of this design</h2><div class="chips" id="strength"></div><button class="btn" id="btn-add-all-vars" type="button" title="Add all 8 variations to ZIP pack">+ Add 8 to Pack</button><button class="btn" id="btn-vars" type="button">Show 8 more</button></div>',
     '<div class="var-grid" id="vars"></div></div>',
     '</section>',
     '<aside class="panel" aria-label="Controls">',
@@ -147,7 +189,16 @@
     '<div class="sec"><h2>Colours</h2><div class="colors" id="colors"></div>',
     '<div class="ctl"><div class="ctl-head"><label for="hue">Hue shift</label><output id="hue-o">0°</output></div><input type="range" id="hue" min="-180" max="180" step="5" value="0"></div>',
     '<h2 style="margin-top:4px">Palettes</h2><div class="pal" id="pals"></div></div>',
-    '</aside></div></div>'
+    '</aside></div>',
+    '<div class="pack-dock" id="pack-dock">',
+    '<div class="pack-dock-bar" id="pack-toggle"><span class="pack-dock-icon">📦</span><span class="pack-dock-title">Collection Pack</span><span class="pack-dock-badge" id="pack-count">0</span><div class="pack-fmt-switcher" id="dock-fmt-switcher"><button class="fmt-pill active" data-fmt="svg" type="button" title="Download only SVG files">SVG</button><button class="fmt-pill" data-fmt="eps" type="button" title="Download only EPS files">EPS</button><button class="fmt-pill" data-fmt="both" type="button" title="Download both SVG and EPS">Both</button></div><button class="pack-quick-dl" id="btn-quick-dl" type="button" style="display:none;">Download SVG ZIP</button><button class="pack-dock-arrow" id="pack-expand" type="button" aria-label="Expand Pack">▲</button></div>',
+    '<div class="pack-drawer" id="pack-drawer" hidden>',
+    '<div class="pack-drawer-head"><div><span class="pack-drawer-title">Collected Backgrounds</span> <span class="pack-drawer-sub" id="pack-count-sub">(0)</span></div><button class="btn" id="btn-clear-pack" type="button" style="padding:3px 8px;font-size:11px;">Clear</button></div>',
+    '<div class="pack-fmt-box"><div class="pack-fmt-title">SELECT FORMAT FOR ZIP:</div><div class="pack-fmt-options"><label class="fmt-opt"><input type="radio" name="pack-fmt" value="svg" checked> <span><strong>SVG Only</strong> (.svg vector)</span></label><label class="fmt-opt"><input type="radio" name="pack-fmt" value="eps"> <span><strong>EPS Only</strong> (.eps vector)</span></label><label class="fmt-opt"><input type="radio" name="pack-fmt" value="both"> <span><strong>Both</strong> (SVG + EPS)</span></label><label class="fmt-opt"><input type="radio" name="pack-fmt" value="png"> <span><strong>PNG Only</strong> (.png image)</span></label></div></div>',
+    '<div class="pack-items" id="pack-items"><div class="pack-empty">Your pack is empty.<br>Click "+ Add to Pack" on any design!</div></div>',
+    '<button class="pack-dl-all" id="btn-pack-dl-all" type="button" disabled>⬇ Download ZIP (0 SVGs)</button>',
+    '</div></div>',
+    '</div>'
   ].join('');
 
   var THEME_VARS = { bg: '--bgs-bg', panel: '--bgs-panel', panel2: '--bgs-panel2', line: '--bgs-line', fg: '--bgs-fg', soft: '--bgs-soft', muted: '--bgs-muted', accent: '--bgs-accent', accentFg: '--bgs-accent-fg', font: '--bgs-font' };
@@ -585,7 +636,402 @@
     $('#btn-file').onclick = function () { $('#file').click(); };
     $('#file').onchange = function (e) { handleFile(e.target.files[0]); e.target.value = ''; };
 
-    $('#btn-svg').onclick = function () { saveBlob(baseName() + '.svg', new Blob([G.toFile(current.svg)], { type: 'image/svg+xml' })); toast('Saved the SVG. Open it in Illustrator, Figma or Inkscape.'); };
+
+    /* ---------- Quota & Payment Verification ---------- */
+    async function checkBgQuotaAndConsume() {
+      if (!window.LineworkAuth || !window.LineworkAuth.isLoggedIn()) {
+        if (window.LineworkAuth) window.LineworkAuth.requireLogin();
+        return false;
+      }
+      var u = window.LineworkAuth.user;
+      var isUnlimited = (u.role === 'admin' || ['bundle_pro', 'bg_pro', 'pro'].indexOf(u.plan) !== -1);
+      if (!isUnlimited && u.bg_used >= 10) {
+        toast('Free trial limit reached (10 backgrounds used). Please upgrade to continue.', true);
+        if (window.LineworkAuth) window.LineworkAuth.showPricing('bg_pro');
+        return false;
+      }
+      try {
+        var tok = localStorage.getItem('lw_token');
+        var res = await fetch('/api/bgstudio/use', {
+          method: 'POST',
+          headers: { 'Authorization': 'Bearer ' + tok }
+        });
+        if (!res.ok) {
+          var err = await res.json().catch(function(){return {};});
+          toast(err.detail || 'Limit reached', true);
+          if (window.LineworkAuth) window.LineworkAuth.showPricing('bg_pro');
+          return false;
+        }
+        var data = await res.json();
+        if (window.LineworkAuth && data.quota) {
+          window.LineworkAuth.updateUserData(data.quota);
+        }
+        return true;
+      } catch (e) {
+        return true;
+      }
+    }
+
+    /* ---------- ZIP Collection Pack Engine ---------- */
+    var pack = [];
+
+    function buildZipData(files) {
+      var crcTable = new Uint32Array(256);
+      for (var i = 0; i < 256; i++) {
+        var c = i;
+        for (var k = 0; k < 8; k++) c = ((c & 1) ? (0xEDB88320 ^ (c >>> 1)) : (c >>> 1));
+        crcTable[i] = c;
+      }
+      function crc32(buf) {
+        var crc = -1;
+        for (var i = 0; i < buf.length; i++) crc = (crc >>> 8) ^ crcTable[(crc ^ buf[i]) & 0xFF];
+        return (crc ^ (-1)) >>> 0;
+      }
+      var te = new TextEncoder();
+      var fileRecords = [];
+      var offset = 0;
+      var parts = [];
+
+      for (var j = 0; j < files.length; j++) {
+        var f = files[j];
+        var nameBytes = te.encode(f.name);
+        var dataBytes = typeof f.data === 'string' ? te.encode(f.data) : f.data;
+        var crc = crc32(dataBytes);
+        var size = dataBytes.length;
+
+        var localHeader = new Uint8Array(30 + nameBytes.length);
+        var lv = new DataView(localHeader.buffer);
+        lv.setUint32(0, 0x04034b50, true);
+        lv.setUint16(4, 20, true);
+        lv.setUint16(6, 0, true);
+        lv.setUint16(8, 0, true);
+        lv.setUint16(10, 0, true);
+        lv.setUint16(12, 0, true);
+        lv.setUint32(14, crc, true);
+        lv.setUint32(18, size, true);
+        lv.setUint32(22, size, true);
+        lv.setUint16(26, nameBytes.length, true);
+        lv.setUint16(28, 0, true);
+        localHeader.set(nameBytes, 30);
+
+        parts.push(localHeader);
+        parts.push(dataBytes);
+
+        fileRecords.push({ nameBytes: nameBytes, crc: crc, size: size, offset: offset });
+        offset += localHeader.length + dataBytes.length;
+      }
+
+      var centralDirStart = offset;
+      for (var m = 0; m < fileRecords.length; m++) {
+        var rec = fileRecords[m];
+        var cd = new Uint8Array(46 + rec.nameBytes.length);
+        var cv = new DataView(cd.buffer);
+        cv.setUint32(0, 0x02014b50, true);
+        cv.setUint16(4, 20, true);
+        cv.setUint16(6, 20, true);
+        cv.setUint16(8, 0, true);
+        cv.setUint16(10, 0, true);
+        cv.setUint16(12, 0, true);
+        cv.setUint16(14, 0, true);
+        cv.setUint32(16, rec.crc, true);
+        cv.setUint32(20, rec.size, true);
+        cv.setUint32(24, rec.size, true);
+        cv.setUint16(28, rec.nameBytes.length, true);
+        cv.setUint16(30, 0, true);
+        cv.setUint16(32, 0, true);
+        cv.setUint16(34, 0, true);
+        cv.setUint16(36, 0, true);
+        cv.setUint32(38, 0, true);
+        cv.setUint32(42, rec.offset, true);
+        cd.set(rec.nameBytes, 46);
+
+        parts.push(cd);
+        offset += cd.length;
+      }
+
+      var centralDirSize = offset - centralDirStart;
+      var eocd = new Uint8Array(22);
+      var ev = new DataView(eocd.buffer);
+      ev.setUint32(0, 0x06054b50, true);
+      ev.setUint16(4, 0, true);
+      ev.setUint16(6, 0, true);
+      ev.setUint16(8, fileRecords.length, true);
+      ev.setUint16(10, fileRecords.length, true);
+      ev.setUint32(12, centralDirSize, true);
+      ev.setUint32(16, centralDirStart, true);
+      ev.setUint16(20, 0, true);
+      parts.push(eocd);
+
+      var totalLen = 0;
+      for (var k = 0; k < parts.length; k++) totalLen += parts[k].length;
+      var out = new Uint8Array(totalLen);
+      var pos = 0;
+      for (var p = 0; p < parts.length; p++) {
+        out.set(parts[p], pos);
+        pos += parts[p].length;
+      }
+      return out;
+    }
+
+    var packFormat = 'svg';
+
+    function setPackFormat(fmt) {
+      packFormat = fmt;
+      $$('.fmt-pill').forEach(function (b) {
+        b.classList.toggle('active', b.dataset.fmt === fmt);
+      });
+      $$('input[name="pack-fmt"]').forEach(function (r) {
+        r.checked = (r.value === fmt);
+      });
+      renderPack();
+    }
+
+    function renderPack() {
+      var countEl = $('#pack-count');
+      var countSubEl = $('#pack-count-sub');
+      var btnDlAll = $('#btn-pack-dl-all');
+      var quickDl = $('#btn-quick-dl');
+      var itemsBox = $('#pack-items');
+      var count = pack.length;
+
+      if (countEl) countEl.textContent = count;
+      if (countSubEl) countSubEl.textContent = '(' + count + ')';
+
+      var label = 'SVGs';
+      if (packFormat === 'eps') label = 'EPSs';
+      else if (packFormat === 'both') label = 'Designs · SVG+EPS';
+      else if (packFormat === 'png') label = 'PNGs';
+
+      if (btnDlAll) {
+        btnDlAll.textContent = '⬇ Download ZIP (' + count + ' ' + label + ')';
+        btnDlAll.disabled = count === 0;
+      }
+      if (quickDl) {
+        quickDl.style.display = count > 0 ? 'inline-block' : 'none';
+        var qFmt = packFormat.toUpperCase();
+        quickDl.textContent = packFormat === 'both' ? 'Download ZIP' : 'Download ' + qFmt + ' ZIP';
+      }
+
+      if (countEl) {
+        countEl.classList.remove('bump');
+        void countEl.offsetWidth;
+        countEl.classList.add('bump');
+      }
+
+      if (!itemsBox) return;
+      if (count === 0) {
+        itemsBox.innerHTML = '<div class="pack-empty">Your pack is empty.<br>Click "+ Add to Pack" on any design!</div>';
+        return;
+      }
+
+      itemsBox.innerHTML = '';
+      pack.forEach(function (item, idx) {
+        var row = document.createElement('div');
+        row.className = 'pack-item';
+
+        var img = document.createElement('img');
+        img.className = 'pack-thumb';
+        img.src = item.thumb;
+        img.alt = item.name;
+
+        var meta = document.createElement('div');
+        meta.className = 'pack-meta';
+        meta.innerHTML = '<span class="pack-name">' + (idx + 1) + '. ' + item.name + '</span>' +
+                         '<span class="pack-dim">' + item.dim + ' · var ' + item.vIdx + '</span>';
+
+        var del = document.createElement('button');
+        del.type = 'button';
+        del.className = 'pack-del';
+        del.innerHTML = '✕';
+        del.title = 'Remove from pack';
+        del.onclick = function (e) {
+          e.stopPropagation();
+          pack.splice(idx, 1);
+          renderPack();
+          toast('Removed item from pack.');
+        };
+
+        row.appendChild(img);
+        row.appendChild(meta);
+        row.appendChild(del);
+        itemsBox.appendChild(row);
+      });
+    }
+
+    function addCurrentToPack() {
+      var s = SIZES[state.size];
+      var pat = G.byId[state.id];
+      var pName = pat ? pat.name : state.id;
+      var title = pName + (state.design ? ' #' + state.design : '');
+      var base = baseName();
+
+      var thumbUrl = URL.createObjectURL(new Blob([current.svg], { type: 'image/svg+xml' }));
+
+      pack.push({
+        id: state.id,
+        name: title,
+        baseName: base,
+        vIdx: state.vIdx,
+        dim: s.w + 'x' + s.h,
+        svgText: G.toFile(current.svg),
+        epsText: G.toEPS(current.svg, base),
+        rawSvg: current.svg,
+        width: s.w,
+        height: s.h,
+        thumb: thumbUrl
+      });
+      renderPack();
+      toast('Added "' + title + '" to Pack! (' + pack.length + ' in ZIP)');
+    }
+
+    async function downloadPackZip() {
+      if (pack.length === 0) return;
+      if (!await checkBgQuotaAndConsume()) return;
+      var btn = $('#btn-pack-dl-all');
+      var quickBtn = $('#btn-quick-dl');
+      var prevText = btn ? btn.textContent : '';
+      if (btn) { btn.textContent = 'Generating ZIP...'; btn.disabled = true; }
+      if (quickBtn) quickBtn.textContent = 'Zipping...';
+
+      try {
+        var incSvg = (packFormat === 'svg' || packFormat === 'both');
+        var incEps = (packFormat === 'eps' || packFormat === 'both');
+        var incPng = (packFormat === 'png');
+
+        var files = [];
+        var readme = [
+          'Linework AI - BG Studio Vector Collection Pack',
+          '==============================================',
+          'Total Backgrounds: ' + pack.length,
+          'Exported at: ' + new Date().toLocaleString(),
+          '',
+          'Included Designs:'
+        ];
+
+        for (var i = 0; i < pack.length; i++) {
+          var it = pack[i];
+          var num = String(i + 1).padStart(2, '0');
+          var fileBase = num + '-' + it.baseName;
+
+          readme.push((i + 1) + '. ' + it.name + ' (' + it.dim + ', variation ' + it.vIdx + ')');
+
+          if (incSvg) {
+            files.push({ name: fileBase + '.svg', data: it.svgText });
+          }
+          if (incEps) {
+            files.push({ name: fileBase + '.eps', data: it.epsText });
+          }
+          if (incPng) {
+            try {
+              var pngData = await new Promise(function (res) {
+                var u = URL.createObjectURL(new Blob([it.rawSvg], { type: 'image/svg+xml' }));
+                var img = new Image();
+                img.onload = function () {
+                  var cv = document.createElement('canvas');
+                  cv.width = it.width;
+                  cv.height = it.height;
+                  cv.getContext('2d').drawImage(img, 0, 0, it.width, it.height);
+                  cv.toBlob(function (b) {
+                    URL.revokeObjectURL(u);
+                    if (b) {
+                      b.arrayBuffer().then(function (ab) { res(new Uint8Array(ab)); }).catch(function () { res(null); });
+                    } else res(null);
+                  }, 'image/png');
+                };
+                img.onerror = function () { URL.revokeObjectURL(u); res(null); };
+                img.src = u;
+              });
+              if (pngData) {
+                files.push({ name: fileBase + '.png', data: pngData });
+              }
+            } catch (err) {
+              console.warn('PNG render failed for item', i, err);
+            }
+          }
+        }
+
+        readme.push('');
+        readme.push('All SVG and EPS shapes are 100% native editable vector curves.');
+        readme.push('Generated with Linework AI BG Studio.');
+        files.push({ name: 'manifest.txt', data: readme.join('\n') });
+
+        var zipBytes = buildZipData(files);
+        var zipName = 'bgstudio-pack-' + pack.length + '-' + packFormat + '.zip';
+        saveBlob(zipName, new Blob([zipBytes], { type: 'application/zip' }));
+        toast('Downloaded ZIP containing ' + pack.length + ' backgrounds (' + files.length + ' files)!');
+      } catch (e) {
+        console.error('Error generating zip:', e);
+        toast('Failed to create ZIP: ' + (e.message || e));
+      } finally {
+        if (btn) { btn.textContent = prevText; btn.disabled = false; }
+        if (quickBtn) quickBtn.textContent = 'Download ZIP';
+      }
+    }
+
+    /* ---------- Event Bindings ---------- */
+    $('#btn-add-pack').onclick = addCurrentToPack;
+    if ($('#btn-add-all-vars')) {
+      $('#btn-add-all-vars').onclick = function () {
+        var s = SIZES[state.size];
+        var pat = G.byId[state.id];
+        var pName = pat ? pat.name : state.id;
+        for (var vi = 1; vi <= 8; vi++) {
+          var vIndex = state.vBase + vi;
+          var o = varOptions(vIndex);
+          var svgRaw = G.generate(state.id, { width: s.w, height: s.h, transparent: state.transparent, params: o.params, colors: o.colors, seed: o.seed, hue: o.hue, rotate: o.rotate });
+          var bName = state.id + '-v' + vIndex + '-' + s.w + 'x' + s.h;
+          var thumbUrl = URL.createObjectURL(new Blob([svgRaw], { type: 'image/svg+xml' }));
+          pack.push({
+            id: state.id,
+            name: pName + ' (Var ' + vIndex + ')',
+            baseName: bName,
+            vIdx: vIndex,
+            dim: s.w + 'x' + s.h,
+            svgText: G.toFile(svgRaw),
+            epsText: G.toEPS(svgRaw, bName),
+            rawSvg: svgRaw,
+            width: s.w,
+            height: s.h,
+            thumb: thumbUrl
+          });
+        }
+        renderPack();
+        toast('Added 8 variations to Pack! (' + pack.length + ' in ZIP)');
+      };
+    }
+    $('#pack-toggle').onclick = function () {
+      var d = $('#pack-drawer');
+      var isClosed = d.hidden;
+      d.hidden = !isClosed;
+      $('#pack-dock').classList.toggle('open', isClosed);
+    };
+    $('#btn-clear-pack').onclick = function (e) {
+      e.stopPropagation();
+      pack = [];
+      renderPack();
+      toast('Pack cleared.');
+    };
+    $('#btn-quick-dl').onclick = function (e) { e.stopPropagation(); downloadPackZip(); };
+    $('#btn-pack-dl-all').onclick = downloadPackZip;
+
+    $$('.fmt-pill').forEach(function (pill) {
+      pill.onclick = function (e) {
+        e.stopPropagation();
+        setPackFormat(pill.dataset.fmt);
+      };
+    });
+    $$('input[name="pack-fmt"]').forEach(function (r) {
+      r.onchange = function () {
+        setPackFormat(r.value);
+      };
+    });
+
+    $('#btn-svg').onclick = async function () { if (!await checkBgQuotaAndConsume()) return; saveBlob(baseName() + '.svg', new Blob([G.toFile(current.svg)], { type: 'image/svg+xml' })); toast('Saved the SVG. Open it in Illustrator, Figma or Inkscape.'); };
+    $('#btn-eps').onclick = async function () { if (!await checkBgQuotaAndConsume()) return;
+      var name = baseName();
+      saveBlob(name + '.eps', new Blob([G.toEPS(current.svg, name)], { type: 'application/postscript' })); toast('Saved the EPS.');
+    };
+
     $('#btn-eps').onclick = function () {
       var name = baseName();
       saveBlob(name + '.eps', new Blob([G.toEPS(current.svg, name)], { type: 'application/postscript' })); toast('Saved the EPS.');
