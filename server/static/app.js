@@ -63,28 +63,32 @@
   }
 
   // Health check
-  fetch('/api/health')
-    .then(r => r.json())
-    .then(h => {
-      const p = $('#health');
-      if (!p) return;
-      p.className = 'status-pill ok';
-      const txt = $('.status-text', p) || p.lastElementChild;
-      if (txt) {
-        if (h.hybrid_worker && h.hybrid_nodes_count > 0) {
-          txt.textContent = `🚀 Super Cluster · ${h.hybrid_nodes_count} Colab Node${h.hybrid_nodes_count > 1 ? 's' : ''}`;
-        } else {
-          txt.textContent = `AI Engine Online · ${h.renderer}`;
+  function updateClusterHealth() {
+    fetch('/api/health')
+      .then(r => r.json())
+      .then(h => {
+        const p = $('#health');
+        if (!p) return;
+        p.className = 'status-pill ok';
+        const txt = $('.status-text', p) || p.lastElementChild;
+        if (txt) {
+          if (h.hybrid_worker && h.hybrid_nodes_count > 0) {
+            txt.textContent = `🚀 Super Cluster · ${h.hybrid_nodes_count} Colab Node${h.hybrid_nodes_count > 1 ? 's' : ''}`;
+          } else {
+            txt.textContent = `AI Engine Online · ${h.renderer}`;
+          }
         }
-      }
-    })
-    .catch(() => {
-      const p = $('#health');
-      if (!p) return;
-      p.className = 'status-pill bad';
-      const txt = $('.status-text', p) || p.lastElementChild;
-      if (txt) txt.textContent = 'Engine Offline';
-    });
+      })
+      .catch(() => {
+        const p = $('#health');
+        if (!p) return;
+        p.className = 'status-pill bad';
+        const txt = $('.status-text', p) || p.lastElementChild;
+        if (txt) txt.textContent = 'Engine Offline';
+      });
+  }
+  updateClusterHealth();
+  setInterval(updateClusterHealth, 8000);
 
   // ---------------------------------------------------------------- options
   const qEl = $('#quality');

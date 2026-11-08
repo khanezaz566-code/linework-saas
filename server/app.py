@@ -418,7 +418,7 @@ _LOCAL_SEMAPHORE = threading.Semaphore(1)
 def _dispatch_single_icon(args):
     job_id, k, crop, off, opts = args
     if remote_worker.has_active_remote_worker():
-        node_url = remote_worker.acquire_best_worker()
+        node_url = remote_worker.acquire_worker(timeout=120.0)
         if node_url:
             try:
                 _, enc = cv2.imencode(".png", crop)
@@ -430,11 +430,14 @@ def _dispatch_single_icon(args):
                     "crop_b64": crop_b64,
                     "options": opts
                 }
-                res = remote_worker.dispatch_to_remote_worker(node_url, "/process_icon", payload, timeout=60)
-                remote_worker.release_worker(node_url, failed=False)
-                if res.get("ok"):
+                res = remote_worker.dispatch_to_remote_worker(node_url, "/process_icon", payload, timeout=180)
+                if res and res.get("ok"):
+                    remote_worker.release_worker(node_url, failed=False)
                     return k, off, res["model_json"], res["metrics"]
-            except Exception:
+                else:
+                    remote_worker.release_worker(node_url, failed=True)
+            except Exception as e:
+                print(f"[Remote Dispatch Error on {node_url}] {e}")
                 remote_worker.release_worker(node_url, failed=True)
                 # Seamless fallback to local worker below
 
@@ -604,15 +607,23 @@ def worker_status():
     return {
         "hybrid_active": best is not None,
         "active_worker": best,
-        "active_nodes_count": len(remote_worker.ACTIVE_NODES),
+        "active_nodes_count": remote_worker.get_active_nodes_count(),
+        "total_capacity": remote_worker.get_total_capacity(),
         "nodes": list(remote_worker.ACTIVE_NODES.keys())
     }
 
 
 @app.get("/api/health")
 def health():
-    return dict(ok=True, renderer=backend_name(), workers=os.cpu_count(), presets=list(PRESETS), hybrid_worker=remote_worker.has_active_remote_worker(), hybrid_nodes_count=len(remote_worker.ACTIVE_NODES))
-    return dict(ok=True, renderer=backend_name(), workers=os.cpu_count(), presets=list(PRESETS))
+    return dict(
+        ok=True,
+        renderer=backend_name(),
+        workers=os.cpu_count(),
+        presets=list(PRESETS),
+        hybrid_worker=remote_worker.has_active_remote_worker(),
+        hybrid_nodes_count=remote_worker.get_active_nodes_count(),
+        cluster_capacity=remote_worker.get_total_capacity()
+    )
 
 
 @app.post("/api/jobs")

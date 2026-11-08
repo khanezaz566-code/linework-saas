@@ -28,6 +28,7 @@ from fastapi import FastAPI, HTTPException, Header, Body
 import uvicorn
 
 app = FastAPI(title="Linework AI High-Performance Compute Worker")
+_CONCURRENCY_SEMAPHORE = threading.Semaphore(2)
 
 WORKER_SECRET = os.environ.get("LINEWORK_WORKER_SECRET", "linework_super_secret_2026")
 MASTER_URL = os.environ.get("MASTER_SERVER_URL", "https://linework-saas.onrender.com").rstrip("/")
@@ -60,11 +61,14 @@ def process_icon_endpoint(
     crop = cv2.imdecode(nparr, cv2.IMREAD_GRAYSCALE)
     
     opts = Options(**opts_dict)
-    
+    if hasattr(opts, "decision_budget") and (opts.decision_budget is None or opts.decision_budget > 8.0):
+        opts.decision_budget = 8.0
+
     # Process icon at full Colab speed with 100% mathematical precision
     start_t = time.time()
     try:
-        r = process_icon(crop, opts, name=f"icon{k + 1}")
+        with _CONCURRENCY_SEMAPHORE:
+            r = process_icon(crop, opts, name=f"icon{k + 1}")
         elapsed = time.time() - start_t
         iou_pct = round(r["metrics"]["iou"] * 100, 2)
         print(f"  [⚡ Colab Node] Icon #{k+1} finished in {round(elapsed, 2)}s | IoU: {iou_pct}% | Clean: {r['clean']}")
@@ -139,7 +143,8 @@ def start_tunnel_and_register(local_port=5000):
                     "specs": {
                         "ram": "12.7GB+",
                         "type": "Google Colab Super Worker",
-                        "cpus": os.cpu_count()
+                        "cpus": os.cpu_count(),
+                        "capacity": 2
                     }
                 }).encode("utf-8")
                 

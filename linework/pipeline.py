@@ -22,8 +22,8 @@ from .split import find_icons, crop_icon, estimate_width
 
 PRESETS = {
     "fast": dict(max_rounds=0, time_budget=25, region_edits=0, iters=18, taus=(1.0, 0.45)),
-    "standard": dict(max_rounds=4, time_budget=120, region_edits=8, iters=28, taus=(1.0, 0.5, 0.35)),
-    "precise": dict(max_rounds=6, time_budget=300, region_edits=12, iters=36, taus=(1.2, 0.8, 0.5, 0.34)),
+    "standard": dict(max_rounds=2, time_budget=35, region_edits=4, iters=24, taus=(1.0, 0.5, 0.35)),
+    "precise": dict(max_rounds=4, time_budget=90, region_edits=8, iters=30, taus=(1.2, 0.8, 0.5, 0.34)),
 }
 
 
@@ -52,7 +52,7 @@ class Options:
     superres: int | None = None  # trace at k-times resolution (auto: thin strokes get 2-3x)
     dedupe_tol: float = 0.0025  # fraction of ink area we will sacrifice to remove a duplicate centerline
     decision: bool = True  # Decision engine: per-icon decision + verification of the last few percent
-    decision_budget: float = 40.0
+    decision_budget: float = 8.0
     tip_patches: bool = True  # Tip patches: allow sharp corner apex stubs
 
     def resolved(self):
