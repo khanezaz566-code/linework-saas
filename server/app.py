@@ -573,6 +573,31 @@ async def register_worker(request: Request):
     return {"ok": True, "registered": url}
 
 
+@app.get("/api/worker/bundle.zip")
+def worker_bundle(secret: str = Query(...)):
+    if secret != remote_worker.WORKER_SECRET:
+        raise HTTPException(401, "Invalid secret")
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as z:
+        lw_dir = ROOT / "linework"
+        for f in lw_dir.glob("**/*"):
+            if f.is_file() and not f.name.endswith((".pyc", ".pyo")):
+                arcname = str(f.relative_to(ROOT)).replace("\\", "/")
+                z.write(f, arcname)
+        cw_file = ROOT / "colab_worker.py"
+        if cw_file.exists():
+            z.write(cw_file, "colab_worker.py")
+        req_file = ROOT / "requirements.txt"
+        if req_file.exists():
+            z.write(req_file, "requirements.txt")
+    buf.seek(0)
+    return Response(
+        buf.getvalue(),
+        media_type="application/zip",
+        headers={"Content-Disposition": 'attachment; filename="linework-worker.zip"'}
+    )
+
+
 @app.get("/api/worker/status")
 def worker_status():
     best = remote_worker.get_best_worker_url()
