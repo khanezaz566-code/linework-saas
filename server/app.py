@@ -100,20 +100,10 @@ def pool():
         if getattr(_POOL, "_broken", False) or getattr(_POOL, "_shutdown_thread", False):
             reset_pool()
     if _POOL is None:
-        is_cloud = bool(os.environ.get("RENDER") or os.environ.get("PORT"))
-        inline_env = os.environ.get("LINEWORK_INLINE", "1" if is_cloud else "0")
-        use_inline = inline_env.lower() in ("1", "true", "yes")
-        default_w = 1 if is_cloud else min(4, max(1, (os.cpu_count() or 2) // 2))
-        n = max(1, int(os.environ.get("LINEWORK_WORKERS", default_w)))
-        if use_inline:
-            worker.init(_Q)
-            _POOL = ThreadPoolExecutor(max_workers=n)
-        else:
-            try:
-                _POOL = ProcessPoolExecutor(max_workers=n, mp_context=_CTX, initializer=worker.init, initargs=(_Q,))
-            except Exception:
-                worker.init(_Q)
-                _POOL = ThreadPoolExecutor(max_workers=n)
+        # 16 worker threads so multi-node remote Colabs can be dispatched concurrently
+        # Local execution is strictly capped to 1 by _LOCAL_SEMAPHORE to prevent any OOM on Render
+        worker.init(_Q)
+        _POOL = ThreadPoolExecutor(max_workers=16)
     return _POOL
 
 
@@ -423,6 +413,8 @@ def _set_pass(job_id, d, jobs, order):
     _finish_composite(job_id)
 
 
+_LOCAL_SEMAPHORE = threading.Semaphore(1)
+
 def _dispatch_single_icon(args):
     job_id, k, crop, off, opts = args
     if remote_worker.has_active_remote_worker():
@@ -438,7 +430,7 @@ def _dispatch_single_icon(args):
                     "crop_b64": crop_b64,
                     "options": opts
                 }
-                res = remote_worker.dispatch_to_remote_worker(node_url, "/process_icon", payload, timeout=50)
+                res = remote_worker.dispatch_to_remote_worker(node_url, "/process_icon", payload, timeout=60)
                 remote_worker.release_worker(node_url, failed=False)
                 if res.get("ok"):
                     return k, off, res["model_json"], res["metrics"]
@@ -446,7 +438,9 @@ def _dispatch_single_icon(args):
                 remote_worker.release_worker(node_url, failed=True)
                 # Seamless fallback to local worker below
 
-    return worker.run_icon(args)
+    # Strictly throttled to 1 concurrent task on Render to prevent OOM
+    with _LOCAL_SEMAPHORE:
+        return worker.run_icon(args)
 
 
 def _run_job(job_id):
@@ -482,14 +476,14 @@ def _run_job(job_id):
                 break
             job["icons"][k]["status"] = "running"
             try:
-                futs[p.submit(worker.run_icon, (job_id, k, crop, off, job["options"]))] = k
+                futs[p.submit(_dispatch_single_icon, (job_id, k, crop, off, job["options"]))] = k
             except Exception:
                 reset_pool()
                 p = pool()
                 try:
-                    futs[p.submit(worker.run_icon, (job_id, k, crop, off, job["options"]))] = k
+                    futs[p.submit(_dispatch_single_icon, (job_id, k, crop, off, job["options"]))] = k
                 except Exception:
-                    k_r, off_r, mj_r, met_r = worker.run_icon((job_id, k, crop, off, job["options"]))
+                    k_r, off_r, mj_r, met_r = _dispatch_single_icon((job_id, k, crop, off, job["options"]))
                     _store_icon(job, d, k_r, mj_r, off_r, met_r)
                     job["done"] += 1
         for fut in as_completed(futs):
@@ -504,7 +498,7 @@ def _run_job(job_id):
                     break
                 reset_pool()
                 try:
-                    k_r, off_r, mj_r, met_r = worker.run_icon((job_id, k, crop_map[k], off_map[k], job["options"]))
+                    k_r, off_r, mj_r, met_r = _dispatch_single_icon((job_id, k, crop_map[k], off_map[k], job["options"]))
                     _store_icon(job, d, k_r, mj_r, off_r, met_r)
                     job["done"] += 1
                     _finish_composite(job_id)
@@ -592,7 +586,7 @@ def worker_status():
 
 @app.get("/api/health")
 def health():
-    return dict(ok=True, renderer=backend_name(), workers=os.cpu_count(), presets=list(PRESETS), hybrid_worker=remote_worker.has_active_remote_worker())
+    return dict(ok=True, renderer=backend_name(), workers=os.cpu_count(), presets=list(PRESETS), hybrid_worker=remote_worker.has_active_remote_worker(), hybrid_nodes_count=len(remote_worker.ACTIVE_NODES))
     return dict(ok=True, renderer=backend_name(), workers=os.cpu_count(), presets=list(PRESETS))
 
 
