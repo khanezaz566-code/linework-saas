@@ -13,7 +13,7 @@ import threading
 WORKER_SECRET = os.environ.get("LINEWORK_WORKER_SECRET", "linework_super_secret_2026")
 
 # In-memory registry of active remote compute nodes
-# Key: worker_url -> {"last_ping": float, "specs": dict, "active": int, "capacity": int, "failures": int}
+# Key: worker_url -> {"last_ping": float, "specs": dict, "active": int, "capacity": int, "failures": int, "total_dispatched": int, "last_dispatched": float}
 ACTIVE_NODES = {}
 _LOCK = threading.Lock()
 _CV = threading.Condition(_LOCK)
@@ -30,11 +30,15 @@ def register_worker_node(url: str, secret: str, specs: dict = None) -> bool:
     
     with _CV:
         curr_active = ACTIVE_NODES.get(url, {}).get("active", 0)
+        curr_total = ACTIVE_NODES.get(url, {}).get("total_dispatched", 0)
+        curr_last = ACTIVE_NODES.get(url, {}).get("last_dispatched", 0.0)
         ACTIVE_NODES[url] = {
             "last_ping": time.time(),
             "specs": specs,
             "capacity": capacity,
             "active": curr_active,
+            "total_dispatched": curr_total,
+            "last_dispatched": curr_last,
             "failures": 0  # reset failures on register/heartbeat
         }
         _CV.notify_all()
@@ -74,7 +78,7 @@ def get_best_worker_url() -> str:
 
 def acquire_worker(timeout: float = 120.0) -> str:
     """Acquire a worker node that has available capacity (active < capacity).
-    If workers exist but are temporarily at capacity, wait on condition until a slot frees up.
+    Uses strict Fair Round-Robin load balancing so all connected Colab nodes share work equally.
     Returns worker_url, or None if no remote workers are available.
     """
     deadline = time.time() + timeout
@@ -89,17 +93,25 @@ def acquire_worker(timeout: float = 120.0) -> str:
             if not ACTIVE_NODES:
                 return None  # No remote workers available, caller falls back to local
 
-            # Find worker with available capacity and lowest active load
-            best_url = None
-            min_active = 999999
+            # Find all workers with available capacity
+            candidates = []
             for url, data in ACTIVE_NODES.items():
                 cap = data.get("capacity", 2)
-                if data["active"] < cap and data["active"] < min_active:
-                    min_active = data["active"]
-                    best_url = url
+                if data["active"] < cap:
+                    # Sort key: 1) active load, 2) total tasks dispatched, 3) timestamp of last dispatch
+                    candidates.append((
+                        data["active"],
+                        data.get("total_dispatched", 0),
+                        data.get("last_dispatched", 0.0),
+                        url
+                    ))
 
-            if best_url:
+            if candidates:
+                candidates.sort()
+                best_url = candidates[0][3]
                 ACTIVE_NODES[best_url]["active"] += 1
+                ACTIVE_NODES[best_url]["total_dispatched"] = ACTIVE_NODES[best_url].get("total_dispatched", 0) + 1
+                ACTIVE_NODES[best_url]["last_dispatched"] = now
                 return best_url
 
             # All workers are at max capacity; wait for a slot to free up
