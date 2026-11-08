@@ -22,7 +22,8 @@ from linework.render import render_gray, backend_name  # noqa: E402
 from linework.trace import ink_map  # noqa: E402
 from linework.audit import audit as audit_paths  # noqa: E402
 from server import worker  # noqa: E402
-from server import db  # noqa: E402
+from server import db
+from server import remote_worker  # noqa: E402
 
 DATA = FsPath(os.environ.get("LINEWORK_DATA", ROOT / "data"))
 DATA.mkdir(parents=True, exist_ok=True)
@@ -550,8 +551,33 @@ def cancel_all_endpoint():
     return dict(ok=True, status="all_cancelled")
 
 
+@app.post("/api/worker/register")
+async def register_worker(request: Request):
+    body = await request.json()
+    url = body.get("url")
+    secret = body.get("secret")
+    specs = body.get("specs", {})
+    if not url or not secret:
+        raise HTTPException(400, "Missing url or secret")
+    ok = remote_worker.register_worker_node(url, secret, specs)
+    if not ok:
+        raise HTTPException(401, "Invalid secret")
+    return {"ok": True, "registered": url}
+
+
+@app.get("/api/worker/status")
+def worker_status():
+    best = remote_worker.get_best_worker_url()
+    return {
+        "hybrid_active": best is not None,
+        "active_worker": best,
+        "nodes": list(remote_worker.ACTIVE_NODES.keys())
+    }
+
+
 @app.get("/api/health")
 def health():
+    return dict(ok=True, renderer=backend_name(), workers=os.cpu_count(), presets=list(PRESETS), hybrid_worker=remote_worker.has_active_remote_worker())
     return dict(ok=True, renderer=backend_name(), workers=os.cpu_count(), presets=list(PRESETS))
 
 
