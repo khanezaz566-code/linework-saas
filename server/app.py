@@ -499,7 +499,7 @@ def _run_job(job_id):
             except Exception as e:
                 if is_job_cancelled(job_id) or str(e) == "Cancelled":
                     break
-                reset_pool()
+                print(f"[Job {job_id}] Icon #{k+1} retry after: {e}")
                 try:
                     k_r, off_r, mj_r, met_r = _dispatch_single_icon((job_id, k, crop_map[k], off_map[k], job["options"]))
                     _store_icon(job, d, k_r, mj_r, off_r, met_r)
