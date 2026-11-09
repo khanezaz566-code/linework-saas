@@ -930,6 +930,8 @@ def job_template_svg(
     font_family: str = "bebas",
     title_highlight: str = "pill",
     showcase_shape: str = "card",
+    icon_layout: str = "auto_grid",
+    artboard_margin: float = 0.06,
     bg: str = "",
     panel_bg: str = "",
     accent: str = "",
@@ -944,7 +946,8 @@ def job_template_svg(
         design=design, preset=preset, title=title, count=count, subtitle=subtitle,
         layout=layout, stroke_scale=float(scale),
         show_highlight=bool(show_highlight), highlight_mode=highlight_mode,
-        font_family=font_family, title_highlight=title_highlight, showcase_shape=showcase_shape
+        font_family=font_family, title_highlight=title_highlight, showcase_shape=showcase_shape,
+        icon_layout=icon_layout, artboard_margin=float(artboard_margin)
     )
     if banner_bg: cfg["banner_bg"] = banner_bg
     if banner_text: cfg["banner_text"] = banner_text
@@ -985,6 +988,8 @@ def job_template_eps(
     font_family: str = "bebas",
     title_highlight: str = "pill",
     showcase_shape: str = "card",
+    icon_layout: str = "auto_grid",
+    artboard_margin: float = 0.06,
     bg: str = "",
     panel_bg: str = "",
     accent: str = "",
@@ -999,7 +1004,8 @@ def job_template_eps(
         design=design, preset=preset, title=title, count=count, subtitle=subtitle,
         layout=layout, stroke_scale=float(scale),
         show_highlight=bool(show_highlight), highlight_mode=highlight_mode,
-        font_family=font_family, title_highlight=title_highlight, showcase_shape=showcase_shape
+        font_family=font_family, title_highlight=title_highlight, showcase_shape=showcase_shape,
+        icon_layout=icon_layout, artboard_margin=float(artboard_margin)
     )
     if banner_bg: cfg["banner_bg"] = banner_bg
     if banner_text: cfg["banner_text"] = banner_text
@@ -1039,6 +1045,8 @@ def job_template_png(
     font_family: str = "bebas",
     title_highlight: str = "pill",
     showcase_shape: str = "card",
+    icon_layout: str = "auto_grid",
+    artboard_margin: float = 0.06,
     download: int = 0,
 ):
     from linework.template import build_template_svg
@@ -1050,7 +1058,8 @@ def job_template_png(
         design=design, preset=preset, title=title, count=count, subtitle=subtitle,
         layout=layout, stroke_scale=float(scale),
         show_highlight=bool(show_highlight), highlight_mode=highlight_mode,
-        font_family=font_family, title_highlight=title_highlight, showcase_shape=showcase_shape
+        font_family=font_family, title_highlight=title_highlight, showcase_shape=showcase_shape,
+        icon_layout=icon_layout, artboard_margin=float(artboard_margin)
     )
     if banner_bg: cfg["banner_bg"] = banner_bg
     if banner_text: cfg["banner_text"] = banner_text

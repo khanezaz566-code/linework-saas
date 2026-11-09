@@ -281,7 +281,9 @@ def resolve_config(cfg: dict | None) -> dict[str, Any]:
         "highlight_mode": "mini_4",
         "font_family": "bebas",
         "title_highlight": "pill",
-        "showcase_shape": "card"
+        "showcase_shape": "card",
+        "icon_layout": "auto_grid",
+        "artboard_margin": 0.06
     })
     if cfg:
         p_name = cfg.get("preset")
@@ -355,6 +357,110 @@ def _get_checkered_defs(W: int) -> tuple[str, str]:
       <rect x="{chk_half}" y="{chk_half}" width="{chk_half}" height="{chk_half}" fill="#f1f3f6"/>
     </pattern>"""
     return defs, 'url(#stockCheckeredPattern)'
+
+
+def _compute_optimal_grid(N: int, target_aspect: float = 1.3) -> tuple[int, int]:
+    if N <= 0:
+        return 1, 1
+    standard_grids = {
+        1: (1, 1), 2: (2, 1), 3: (3, 1), 4: (2, 2), 5: (5, 1),
+        6: (3, 2), 8: (4, 2), 9: (3, 3), 10: (5, 2), 12: (4, 3),
+        15: (5, 3), 16: (4, 4), 18: (6, 3), 20: (5, 4), 21: (7, 3),
+        24: (6, 4), 25: (5, 5), 28: (7, 4), 30: (6, 5), 32: (8, 4),
+        35: (7, 5), 36: (6, 6), 40: (8, 5), 45: (9, 5), 48: (8, 6),
+        50: (10, 5), 60: (10, 6), 64: (8, 8), 70: (10, 7), 80: (10, 8),
+        100: (10, 10)
+    }
+    if N in standard_grids:
+        return standard_grids[N]
+
+    best_c, best_r = N, 1
+    best_diff = 999.0
+    for r in range(1, int(math.isqrt(N)) + 4):
+        c = math.ceil(N / r)
+        aspect = c / r
+        diff = abs(aspect - target_aspect)
+        if diff < best_diff:
+            best_diff = diff
+            best_c, best_r = c, r
+    return best_c, best_r
+
+
+def _render_adaptive_sheet_icons(
+    model: Model, icons_meta: list[dict] | None, c: dict,
+    sheet_x: float, sheet_y: float, sheet_w: float, sheet_h: float
+) -> str:
+    stroke_color = c["icon_stroke"]
+    stroke_scale = float(c["stroke_scale"])
+    layout_mode = str(c.get("icon_layout") or "auto_grid").lower()
+    try:
+        margin_pct = float(c.get("artboard_margin") or 0.06)
+    except Exception:
+        margin_pct = 0.06
+    margin_pct = max(0.02, min(0.20, margin_pct))
+
+    avail_icons = icons_meta or []
+    N = len(avail_icons)
+
+    # Mode 1: Auto-Grid by Icon Count (Adobe Stock standard)
+    if layout_mode == "auto_grid" and N > 1:
+        target_aspect = sheet_w / max(1.0, sheet_h)
+        cols, rows = _compute_optimal_grid(N, target_aspect)
+
+        pad_x = sheet_w * margin_pct
+        pad_y = sheet_h * margin_pct
+        grid_w = sheet_w - 2 * pad_x
+        grid_h = sheet_h - 2 * pad_y
+
+        cell_w = grid_w / cols
+        cell_h = grid_h / rows
+        target_size = min(cell_w * 0.72, cell_h * 0.72)
+
+        rendered = []
+        for i, ic in enumerate(avail_icons):
+            col_i = i % cols
+            row_i = i // cols
+            cell_cx = sheet_x + pad_x + col_i * cell_w + cell_w / 2
+            cell_cy = sheet_y + pad_y + row_i * cell_h + cell_h / 2
+
+            paths = _extract_icon_paths(model, ic["box"])
+            if not paths:
+                continue
+            bx1, by1, bx2, by2 = ic["box"]
+            bw, bh = max(1.0, bx2 - bx1), max(1.0, by2 - by1)
+            s = target_size / max(bw, bh)
+            ox = cell_cx - (bw * s) / 2 - bx1 * s
+            oy = cell_cy - (bh * s) / 2 - by1 * s
+            rendered.append(_render_paths_svg(paths, stroke_color, stroke_scale, s, ox, oy))
+        if rendered:
+            return "\n    ".join(rendered)
+
+    # Mode 2: Tight Bounding Box Auto-Fit (Trims empty borders around paths)
+    valid_paths = [p for p in model.paths if len(p.A) > 0]
+    if valid_paths:
+        all_xs = np.concatenate([p.A[:, 0] for p in valid_paths])
+        all_ys = np.concatenate([p.A[:, 1] for p in valid_paths])
+        min_x, max_x = float(np.min(all_xs)), float(np.max(all_xs))
+        min_y, max_y = float(np.min(all_ys)), float(np.max(all_ys))
+        t_w = max(10.0, max_x - min_x)
+        t_h = max(10.0, max_y - min_y)
+    else:
+        min_x, min_y = 0.0, 0.0
+        t_w, t_h = max(10.0, model.width), max(10.0, model.height)
+
+    pad_x = sheet_w * margin_pct
+    pad_y = sheet_h * margin_pct
+    avail_w = sheet_w - 2 * pad_x
+    avail_h = sheet_h - 2 * pad_y
+    scale = min(avail_w / t_w, avail_h / t_h)
+    target_w = t_w * scale
+    target_h = t_h * scale
+    off_x = sheet_x + pad_x + (avail_w - target_w) / 2 - min_x * scale
+    off_y = sheet_y + pad_y + (avail_h - target_h) / 2 - min_y * scale
+
+    return _render_paths_svg(model.paths, stroke_color, stroke_scale, scale, off_x, off_y)
+
+
 
 
 def _get_font_css(font_family: str = "bebas") -> tuple[str, str, str, str]:
@@ -669,6 +775,7 @@ def _extract_highlight_svg(model: Model, icons_meta: list[dict], hl_mode: str, c
 # Layout 1 & 2: Vectuz Sidebar (Left & Right)
 # =========================================================================
 def _build_vectuz_sidebar(model: Model, icons_meta: list[dict], c: dict, W: int, H: int, banner_w: int, is_right: bool = False) -> str:
+    stroke_scale = float(c.get("stroke_scale", 1.0))
     count_val = str(c.get("count") or (len(icons_meta) if icons_meta else "24"))
     mW, mH = max(10, model.width), max(10, model.height)
     sheet_w = W - banner_w
@@ -676,17 +783,10 @@ def _build_vectuz_sidebar(model: Model, icons_meta: list[dict], c: dict, W: int,
     sheet_x = 0 if is_right else banner_w
     banner_x_offset = (W - banner_w) if is_right else 0
 
-    avail_w = sheet_w * 0.88
-    avail_h = sheet_h * 0.88
-    scale = min(avail_w / mW, avail_h / mH)
-    target_w = mW * scale
-    target_h = mH * scale
-    off_x = sheet_x + (sheet_w - target_w) / 2
-    off_y = (sheet_h - target_h) / 2
-
-    stroke_color = c["icon_stroke"]
-    stroke_scale = float(c["stroke_scale"])
-    paths_svg_group = _render_paths_svg(model.paths, stroke_color, stroke_scale, scale, off_x, off_y)
+    paths_svg_group = _render_adaptive_sheet_icons(
+        model, icons_meta, c,
+        sheet_x=sheet_x, sheet_y=0, sheet_w=sheet_w, sheet_h=sheet_h
+    )
 
     artboard_bg = c.get("artboard_bg", "checkered")
     defs_svg = ""
@@ -785,17 +885,10 @@ def _build_wave_flow(model: Model, icons_meta: list[dict], c: dict, W: int, H: i
     sheet_x = int(bw * 0.85)
     sheet_w = W - sheet_x
 
-    avail_w = sheet_w * 0.88
-    avail_h = H * 0.86
-    scale = min(avail_w / mW, avail_h / mH)
-    target_w = mW * scale
-    target_h = mH * scale
-    off_x = sheet_x + (sheet_w - target_w) / 2
-    off_y = (H - target_h) / 2
-
-    stroke_color = c["icon_stroke"]
-    stroke_scale = float(c["stroke_scale"])
-    paths_svg_group = _render_paths_svg(model.paths, stroke_color, stroke_scale, scale, off_x, off_y)
+    paths_svg_group = _render_adaptive_sheet_icons(
+        model, icons_meta, c,
+        sheet_x=sheet_x, sheet_y=0, sheet_w=sheet_w, sheet_h=H
+    )
 
     artboard_bg = c.get("artboard_bg", "checkered")
     defs_svg = ""
@@ -865,17 +958,13 @@ def _build_hexagon_shield(model: Model, icons_meta: list[dict], c: dict, W: int,
     sheet_x = panel_w
     sheet_w = W - panel_w
 
-    avail_w = sheet_w * 0.88
-    avail_h = H * 0.88
-    scale = min(avail_w / mW, avail_h / mH)
-    target_w = mW * scale
-    target_h = mH * scale
-    off_x = sheet_x + (sheet_w - target_w) / 2
-    off_y = (H - target_h) / 2
-
-    stroke_color = c["icon_stroke"]
-    stroke_scale = float(c["stroke_scale"])
-    paths_svg_group = _render_paths_svg(model.paths, stroke_color, stroke_scale, scale, off_x, off_y)
+    paths_svg_group = _render_adaptive_sheet_icons(
+        model, icons_meta, c,
+        sheet_x=sheet_x if 'sheet_x' in locals() else (pad if 'pad' in locals() else 0),
+        sheet_y=banner_h if 'banner_h' in locals() else (pad if 'pad' in locals() else 0),
+        sheet_w=sheet_w if 'sheet_w' in locals() else (W - pad * 2 if 'pad' in locals() else W),
+        sheet_h=H - banner_h if 'banner_h' in locals() else (H - dock_h if 'dock_h' in locals() else (H - pad * 2 if 'pad' in locals() else H))
+    )
 
     artboard_bg = c.get("artboard_bg", "checkered")
     defs_svg = ""
@@ -954,17 +1043,13 @@ def _build_origami_fold(model: Model, icons_meta: list[dict], c: dict, W: int, H
     sheet_x = int(bw * 0.85)
     sheet_w = W - sheet_x
 
-    avail_w = sheet_w * 0.88
-    avail_h = H * 0.88
-    scale = min(avail_w / mW, avail_h / mH)
-    target_w = mW * scale
-    target_h = mH * scale
-    off_x = sheet_x + (sheet_w - target_w) / 2
-    off_y = (H - target_h) / 2
-
-    stroke_color = c["icon_stroke"]
-    stroke_scale = float(c["stroke_scale"])
-    paths_svg_group = _render_paths_svg(model.paths, stroke_color, stroke_scale, scale, off_x, off_y)
+    paths_svg_group = _render_adaptive_sheet_icons(
+        model, icons_meta, c,
+        sheet_x=sheet_x if 'sheet_x' in locals() else (pad if 'pad' in locals() else 0),
+        sheet_y=banner_h if 'banner_h' in locals() else (pad if 'pad' in locals() else 0),
+        sheet_w=sheet_w if 'sheet_w' in locals() else (W - pad * 2 if 'pad' in locals() else W),
+        sheet_h=H - banner_h if 'banner_h' in locals() else (H - dock_h if 'dock_h' in locals() else (H - pad * 2 if 'pad' in locals() else H))
+    )
 
     artboard_bg = c.get("artboard_bg", "checkered")
     defs_svg = ""
@@ -1025,17 +1110,13 @@ def _build_diagonal_slash(model: Model, icons_meta: list[dict], c: dict, W: int,
     sheet_x = int(bw * 0.85)
     sheet_w = W - sheet_x
 
-    avail_w = sheet_w * 0.88
-    avail_h = H * 0.88
-    scale = min(avail_w / mW, avail_h / mH)
-    target_w = mW * scale
-    target_h = mH * scale
-    off_x = sheet_x + (sheet_w - target_w) / 2
-    off_y = (H - target_h) / 2
-
-    stroke_color = c["icon_stroke"]
-    stroke_scale = float(c["stroke_scale"])
-    paths_svg_group = _render_paths_svg(model.paths, stroke_color, stroke_scale, scale, off_x, off_y)
+    paths_svg_group = _render_adaptive_sheet_icons(
+        model, icons_meta, c,
+        sheet_x=sheet_x if 'sheet_x' in locals() else (pad if 'pad' in locals() else 0),
+        sheet_y=banner_h if 'banner_h' in locals() else (pad if 'pad' in locals() else 0),
+        sheet_w=sheet_w if 'sheet_w' in locals() else (W - pad * 2 if 'pad' in locals() else W),
+        sheet_h=H - banner_h if 'banner_h' in locals() else (H - dock_h if 'dock_h' in locals() else (H - pad * 2 if 'pad' in locals() else H))
+    )
 
     artboard_bg = c.get("artboard_bg", "checkered")
     defs_svg = ""
@@ -1096,17 +1177,13 @@ def _build_bubble_orbital(model: Model, icons_meta: list[dict], c: dict, W: int,
     sheet_x = panel_w
     sheet_w = W - panel_w
 
-    avail_w = sheet_w * 0.88
-    avail_h = H * 0.88
-    scale = min(avail_w / mW, avail_h / mH)
-    target_w = mW * scale
-    target_h = mH * scale
-    off_x = sheet_x + (sheet_w - target_w) / 2
-    off_y = (H - target_h) / 2
-
-    stroke_color = c["icon_stroke"]
-    stroke_scale = float(c["stroke_scale"])
-    paths_svg_group = _render_paths_svg(model.paths, stroke_color, stroke_scale, scale, off_x, off_y)
+    paths_svg_group = _render_adaptive_sheet_icons(
+        model, icons_meta, c,
+        sheet_x=sheet_x if 'sheet_x' in locals() else (pad if 'pad' in locals() else 0),
+        sheet_y=banner_h if 'banner_h' in locals() else (pad if 'pad' in locals() else 0),
+        sheet_w=sheet_w if 'sheet_w' in locals() else (W - pad * 2 if 'pad' in locals() else W),
+        sheet_h=H - banner_h if 'banner_h' in locals() else (H - dock_h if 'dock_h' in locals() else (H - pad * 2 if 'pad' in locals() else H))
+    )
 
     artboard_bg = c.get("artboard_bg", "checkered")
     defs_svg = ""
@@ -1172,17 +1249,13 @@ def _build_eco_leaf(model: Model, icons_meta: list[dict], c: dict, W: int, H: in
     sheet_x = int(bw * 0.85)
     sheet_w = W - sheet_x
 
-    avail_w = sheet_w * 0.88
-    avail_h = H * 0.88
-    scale = min(avail_w / mW, avail_h / mH)
-    target_w = mW * scale
-    target_h = mH * scale
-    off_x = sheet_x + (sheet_w - target_w) / 2
-    off_y = (H - target_h) / 2
-
-    stroke_color = c["icon_stroke"]
-    stroke_scale = float(c["stroke_scale"])
-    paths_svg_group = _render_paths_svg(model.paths, stroke_color, stroke_scale, scale, off_x, off_y)
+    paths_svg_group = _render_adaptive_sheet_icons(
+        model, icons_meta, c,
+        sheet_x=sheet_x if 'sheet_x' in locals() else (pad if 'pad' in locals() else 0),
+        sheet_y=banner_h if 'banner_h' in locals() else (pad if 'pad' in locals() else 0),
+        sheet_w=sheet_w if 'sheet_w' in locals() else (W - pad * 2 if 'pad' in locals() else W),
+        sheet_h=H - banner_h if 'banner_h' in locals() else (H - dock_h if 'dock_h' in locals() else (H - pad * 2 if 'pad' in locals() else H))
+    )
 
     artboard_bg = c.get("artboard_bg", "checkered")
     defs_svg = ""
@@ -1245,17 +1318,13 @@ def _build_droplet_flow(model: Model, icons_meta: list[dict], c: dict, W: int, H
     sheet_x = int(bw * 0.85)
     sheet_w = W - sheet_x
 
-    avail_w = sheet_w * 0.88
-    avail_h = H * 0.88
-    scale = min(avail_w / mW, avail_h / mH)
-    target_w = mW * scale
-    target_h = mH * scale
-    off_x = sheet_x + (sheet_w - target_w) / 2
-    off_y = (H - target_h) / 2
-
-    stroke_color = c["icon_stroke"]
-    stroke_scale = float(c["stroke_scale"])
-    paths_svg_group = _render_paths_svg(model.paths, stroke_color, stroke_scale, scale, off_x, off_y)
+    paths_svg_group = _render_adaptive_sheet_icons(
+        model, icons_meta, c,
+        sheet_x=sheet_x if 'sheet_x' in locals() else (pad if 'pad' in locals() else 0),
+        sheet_y=banner_h if 'banner_h' in locals() else (pad if 'pad' in locals() else 0),
+        sheet_w=sheet_w if 'sheet_w' in locals() else (W - pad * 2 if 'pad' in locals() else W),
+        sheet_h=H - banner_h if 'banner_h' in locals() else (H - dock_h if 'dock_h' in locals() else (H - pad * 2 if 'pad' in locals() else H))
+    )
 
     artboard_bg = c.get("artboard_bg", "checkered")
     defs_svg = ""
@@ -1318,17 +1387,13 @@ def _build_halftone_burst(model: Model, icons_meta: list[dict], c: dict, W: int,
     sheet_x = panel_w
     sheet_w = W - panel_w
 
-    avail_w = sheet_w * 0.88
-    avail_h = H * 0.88
-    scale = min(avail_w / mW, avail_h / mH)
-    target_w = mW * scale
-    target_h = mH * scale
-    off_x = sheet_x + (sheet_w - target_w) / 2
-    off_y = (H - target_h) / 2
-
-    stroke_color = c["icon_stroke"]
-    stroke_scale = float(c["stroke_scale"])
-    paths_svg_group = _render_paths_svg(model.paths, stroke_color, stroke_scale, scale, off_x, off_y)
+    paths_svg_group = _render_adaptive_sheet_icons(
+        model, icons_meta, c,
+        sheet_x=sheet_x if 'sheet_x' in locals() else (pad if 'pad' in locals() else 0),
+        sheet_y=banner_h if 'banner_h' in locals() else (pad if 'pad' in locals() else 0),
+        sheet_w=sheet_w if 'sheet_w' in locals() else (W - pad * 2 if 'pad' in locals() else W),
+        sheet_h=H - banner_h if 'banner_h' in locals() else (H - dock_h if 'dock_h' in locals() else (H - pad * 2 if 'pad' in locals() else H))
+    )
 
     artboard_bg = c.get("artboard_bg", "checkered")
     defs_svg = ""
@@ -1402,17 +1467,13 @@ def _build_pixel_matrix(model: Model, icons_meta: list[dict], c: dict, W: int, H
     sheet_x = panel_w
     sheet_w = W - panel_w
 
-    avail_w = sheet_w * 0.88
-    avail_h = H * 0.88
-    scale = min(avail_w / mW, avail_h / mH)
-    target_w = mW * scale
-    target_h = mH * scale
-    off_x = sheet_x + (sheet_w - target_w) / 2
-    off_y = (H - target_h) / 2
-
-    stroke_color = c["icon_stroke"]
-    stroke_scale = float(c["stroke_scale"])
-    paths_svg_group = _render_paths_svg(model.paths, stroke_color, stroke_scale, scale, off_x, off_y)
+    paths_svg_group = _render_adaptive_sheet_icons(
+        model, icons_meta, c,
+        sheet_x=sheet_x if 'sheet_x' in locals() else (pad if 'pad' in locals() else 0),
+        sheet_y=banner_h if 'banner_h' in locals() else (pad if 'pad' in locals() else 0),
+        sheet_w=sheet_w if 'sheet_w' in locals() else (W - pad * 2 if 'pad' in locals() else W),
+        sheet_h=H - banner_h if 'banner_h' in locals() else (H - dock_h if 'dock_h' in locals() else (H - pad * 2 if 'pad' in locals() else H))
+    )
 
     artboard_bg = c.get("artboard_bg", "checkered")
     defs_svg = ""
@@ -1480,6 +1541,7 @@ def _build_pixel_matrix(model: Model, icons_meta: list[dict], c: dict, W: int, H
 # Layout 12: Top Header Magazine Bar (Shutterstock Style)
 # =========================================================================
 def _build_top_banner(model: Model, icons_meta: list[dict], c: dict, W: int, H: int) -> str:
+    stroke_scale = float(c.get("stroke_scale", 1.0))
     count_val = str(c.get("count") or (len(icons_meta) if icons_meta else "24"))
     mW, mH = max(10, model.width), max(10, model.height)
 
@@ -1487,17 +1549,13 @@ def _build_top_banner(model: Model, icons_meta: list[dict], c: dict, W: int, H: 
     sheet_y = top_h
     sheet_h = H - top_h
 
-    avail_w = W * 0.90
-    avail_h = sheet_h * 0.86
-    scale = min(avail_w / mW, avail_h / mH)
-    target_w = mW * scale
-    target_h = mH * scale
-    off_x = (W - target_w) / 2
-    off_y = sheet_y + (sheet_h - target_h) / 2
-
-    stroke_color = c["icon_stroke"]
-    stroke_scale = float(c["stroke_scale"])
-    paths_svg_group = _render_paths_svg(model.paths, stroke_color, stroke_scale, scale, off_x, off_y)
+    paths_svg_group = _render_adaptive_sheet_icons(
+        model, icons_meta, c,
+        sheet_x=sheet_x if 'sheet_x' in locals() else (pad if 'pad' in locals() else 0),
+        sheet_y=banner_h if 'banner_h' in locals() else (pad if 'pad' in locals() else 0),
+        sheet_w=sheet_w if 'sheet_w' in locals() else (W - pad * 2 if 'pad' in locals() else W),
+        sheet_h=H - banner_h if 'banner_h' in locals() else (H - dock_h if 'dock_h' in locals() else (H - pad * 2 if 'pad' in locals() else H))
+    )
 
     artboard_bg = c.get("artboard_bg", "checkered")
     defs_svg = ""
@@ -1593,17 +1651,13 @@ def _build_bottom_dock(model: Model, icons_meta: list[dict], c: dict, W: int, H:
     dock_h = int(round(H * 0.18))
     sheet_h = H - dock_h
 
-    avail_w = W * 0.90
-    avail_h = sheet_h * 0.86
-    scale = min(avail_w / mW, avail_h / mH)
-    target_w = mW * scale
-    target_h = mH * scale
-    off_x = (W - target_w) / 2
-    off_y = (sheet_h - target_h) / 2
-
-    stroke_color = c["icon_stroke"]
-    stroke_scale = float(c["stroke_scale"])
-    paths_svg_group = _render_paths_svg(model.paths, stroke_color, stroke_scale, scale, off_x, off_y)
+    paths_svg_group = _render_adaptive_sheet_icons(
+        model, icons_meta, c,
+        sheet_x=sheet_x if 'sheet_x' in locals() else (pad if 'pad' in locals() else 0),
+        sheet_y=banner_h if 'banner_h' in locals() else (pad if 'pad' in locals() else 0),
+        sheet_w=sheet_w if 'sheet_w' in locals() else (W - pad * 2 if 'pad' in locals() else W),
+        sheet_h=H - banner_h if 'banner_h' in locals() else (H - dock_h if 'dock_h' in locals() else (H - pad * 2 if 'pad' in locals() else H))
+    )
 
     artboard_bg = c.get("artboard_bg", "checkered")
     defs_svg = ""
@@ -1740,20 +1794,17 @@ def _build_split_duo(model: Model, icons_meta: list[dict], c: dict, W: int, H: i
 # Layout 15: Floating Modern Card (Dribbble / Minimal)
 # =========================================================================
 def _build_floating_card(model: Model, icons_meta: list[dict], c: dict, W: int, H: int) -> str:
+    stroke_scale = float(c.get("stroke_scale", 1.0))
     count_val = str(c.get("count") or (len(icons_meta) if icons_meta else "24"))
     mW, mH = max(10, model.width), max(10, model.height)
 
-    avail_w = W * 0.90
-    avail_h = H * 0.88
-    scale = min(avail_w / mW, avail_h / mH)
-    target_w = mW * scale
-    target_h = mH * scale
-    off_x = (W - target_w) / 2
-    off_y = (H - target_h) / 2
-
-    stroke_color = c["icon_stroke"]
-    stroke_scale = float(c["stroke_scale"])
-    paths_svg_group = _render_paths_svg(model.paths, stroke_color, stroke_scale, scale, off_x, off_y)
+    paths_svg_group = _render_adaptive_sheet_icons(
+        model, icons_meta, c,
+        sheet_x=sheet_x if 'sheet_x' in locals() else (pad if 'pad' in locals() else 0),
+        sheet_y=banner_h if 'banner_h' in locals() else (pad if 'pad' in locals() else 0),
+        sheet_w=sheet_w if 'sheet_w' in locals() else (W - pad * 2 if 'pad' in locals() else W),
+        sheet_h=H - banner_h if 'banner_h' in locals() else (H - dock_h if 'dock_h' in locals() else (H - pad * 2 if 'pad' in locals() else H))
+    )
 
     artboard_bg = c.get("artboard_bg", "checkered")
     defs_svg = ""
@@ -1835,17 +1886,13 @@ def _build_framed_editorial(model: Model, icons_meta: list[dict], c: dict, W: in
     mW, mH = max(10, model.width), max(10, model.height)
 
     pad = int(W * 0.04)
-    avail_w = (W - pad * 2) * 0.86
-    avail_h = (H - pad * 2) * 0.74
-    scale = min(avail_w / mW, avail_h / mH)
-    target_w = mW * scale
-    target_h = mH * scale
-    off_x = (W - target_w) / 2
-    off_y = (H - target_h) / 2 + 10
-
-    stroke_color = c["icon_stroke"]
-    stroke_scale = float(c["stroke_scale"])
-    paths_svg_group = _render_paths_svg(model.paths, stroke_color, stroke_scale, scale, off_x, off_y)
+    paths_svg_group = _render_adaptive_sheet_icons(
+        model, icons_meta, c,
+        sheet_x=sheet_x if 'sheet_x' in locals() else (pad if 'pad' in locals() else 0),
+        sheet_y=banner_h if 'banner_h' in locals() else (pad if 'pad' in locals() else 0),
+        sheet_w=sheet_w if 'sheet_w' in locals() else (W - pad * 2 if 'pad' in locals() else W),
+        sheet_h=H - banner_h if 'banner_h' in locals() else (H - dock_h if 'dock_h' in locals() else (H - pad * 2 if 'pad' in locals() else H))
+    )
 
     artboard_bg = c.get("artboard_bg", "checkered")
     defs_svg = ""
@@ -1899,6 +1946,7 @@ def _build_framed_editorial(model: Model, icons_meta: list[dict], c: dict, W: in
 # Layout 17: Hero Spotlight (Large Highlight Icon Circle)
 # =========================================================================
 def _build_hero_spotlight(model: Model, icons_meta: list[dict], c: dict, W: int, H: int) -> str:
+    stroke_scale = float(c.get("stroke_scale", 1.0))
     count_val = str(c.get("count") or (len(icons_meta) if icons_meta else "24"))
     mW, mH = max(10, model.width), max(10, model.height)
 
@@ -1907,17 +1955,10 @@ def _build_hero_spotlight(model: Model, icons_meta: list[dict], c: dict, W: int,
     sheet_w = W - panel_w
     sheet_h = H
 
-    avail_w = sheet_w * 0.88
-    avail_h = sheet_h * 0.88
-    scale = min(avail_w / mW, avail_h / mH)
-    target_w = mW * scale
-    target_h = mH * scale
-    off_x = sheet_x + (sheet_w - target_w) / 2
-    off_y = (sheet_h - target_h) / 2
-
-    stroke_color = c["icon_stroke"]
-    stroke_scale = float(c["stroke_scale"])
-    paths_svg_group = _render_paths_svg(model.paths, stroke_color, stroke_scale, scale, off_x, off_y)
+    paths_svg_group = _render_adaptive_sheet_icons(
+        model, icons_meta, c,
+        sheet_x=sheet_x, sheet_y=0, sheet_w=sheet_w, sheet_h=sheet_h
+    )
 
     artboard_bg = c.get("artboard_bg", "checkered")
     defs_svg = ""

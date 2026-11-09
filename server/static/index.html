@@ -1,288 +1,576 @@
 <!doctype html>
 
+
+
 <html lang="en">
+
+
 
 <head>
 
+
+
 <meta charset="utf-8">
+
+
 
 <meta name="viewport" content="width=device-width,initial-scale=1">
 
+
+
 <title>Linework AI — Redraw · Vector · Perfect</title>
+
+
 
 <meta name="description" content="Turn raster line art and icons into clean single-centerline SVGs with luxury AI-powered precision.">
 
+
+
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%2305080c'/%3E%3Cpath d='M8 24 L16 8 L24 24 M11 19 L21 19' fill='none' stroke='%2300f5a0' stroke-width='2.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
+
+
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
 
+
+
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+
+
 
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 
-<link rel="stylesheet" href="/static/style.css?v=3.8.0">
+
+
+<link rel="stylesheet" href="/static/style.css?v=3.9.0">
+
+
 
 </head>
 
+
+
 <body class="luxury-theme">
+
+
 
 <div class="app-layout">
 
 
 
+
+
+
+
   <!-- ================= Left Navigation Sidebar ================= -->
+
+
 
   <aside class="sidebar" id="sidebar">
 
+
+
     <div class="brand-zone">
+
+
 
       <a class="brand" href="/" aria-label="Linework AI home">
 
+
+
         <div class="brand-glyph">
+
+
 
           <svg viewBox="0 0 32 32" width="24" height="24">
 
+
+
             <defs>
+
+
 
               <linearGradient id="glyphGrad" x1="0%" y1="0%" x2="100%" y2="100%">
 
+
+
                 <stop offset="0%" stop-color="#00ffd5"/>
+
+
 
                 <stop offset="100%" stop-color="#00e599"/>
 
+
+
               </linearGradient>
+
+
 
             </defs>
 
+
+
             <path d="M7 25 L16 7 L25 25 M10 20 L22 20" fill="none" stroke="url(#glyphGrad)" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"/>
+
+
 
           </svg>
 
+
+
         </div>
+
+
 
         <div class="brand-text">
 
+
+
           <span class="brand-title">Linework AI</span>
+
+
 
           <span class="brand-sub">Redraw · Vector · Perfect</span>
 
+
+
         </div>
+
+
 
       </a>
 
+
+
     </div>
+
+
+
+
 
 
 
     <nav class="nav-menu" aria-label="Main Navigation">
 
+
+
       <a href="/" class="nav-item" id="navHome" title="Home">
+
+
 
         <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
 
+
+
         <span>Home</span>
 
+
+
       </a>
+
+
 
       <a href="#redraw" class="nav-item active" id="navRedraw" title="Redraw Workspace">
 
+
+
         <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/><path d="M16 21h5v-5"/></svg>
+
+
 
         <span>Redraw</span>
 
+
+
       </a>
+
+
 
       <a href="#bgstudio" class="nav-item" id="navBgStudio" title="BG Studio">
 
+
+
         <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="m4.93 4.93 4.24 4.24M14.83 9.17l4.24-4.24M14.83 14.83l4.24 4.24M9.17 14.83l-4.24 4.24"/></svg>
+
+
 
         <span>BG Studio</span>
 
+
+
       </a>
+
+
 
       <a href="#projects" class="nav-item" id="navProjects" title="My Projects">
 
+
+
         <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.93a2 2 0 0 1-1.66-.9l-.82-1.2A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13c0 1.1.9 2 2 2Z"/></svg>
+
+
 
         <span>My Projects</span>
 
+
+
       </a>
+
+
 
       <a href="#templates" class="nav-item" id="navTemplates" title="Templates">
 
+
+
         <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M3 9h18"/><path d="M9 21V9"/></svg>
+
+
 
         <span>Templates</span>
 
+
+
       </a>
+
+
 
       <a href="#pricing" class="nav-item" id="navPricing" title="Pro Pricing & Plans">
 
+
+
         <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+
+
 
         <span>Upgrade Pro</span>
 
+
+
       </a>
+
+
 
       <a href="#support" class="nav-item" id="navSupport" title="Support & Assistance (01794590310)">
 
+
+
         <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
+
+
 
         <span>Support</span>
 
+
+
       </a>
+
+
 
       <a href="/admin" target="_blank" class="nav-item" id="navAdminSide" title="Admin Controller Sub-App" style="display:none; color:#ffb300;">
 
+
+
         <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="#ffb300" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M9 17V7l7 5-7 5z"/></svg>
+
+
 
         <span>Controller</span>
 
+
+
       </a>
+
+
 
       <a href="#settings" class="nav-item" id="navSettings" title="Settings">
 
+
+
         <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>
+
+
 
         <span>Settings</span>
 
+
+
       </a>
+
+
 
     </nav>
 
 
 
+
+
+
+
     <!-- Bottom Promo / Mission Card -->
+
+
 
     <div class="sidebar-promo">
 
+
+
       <div class="promo-icon">
+
+
 
         <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="#00f5a0" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
 
+
+
       </div>
+
+
 
       <div class="promo-title">Turn Your Line Art into Perfect Vectors</div>
 
+
+
       <div class="promo-desc">Fast. Accurate. Beautiful.</div>
+
+
 
       <div class="promo-waves"></div>
 
+
+
     </div>
+
+
 
   </aside>
 
 
 
+
+
+
+
   <!-- ================= Main Body Area ================= -->
+
+
 
   <div class="main-column">
 
 
 
+
+
+
+
     <!-- Top App Header -->
+
+
 
     <header class="app-header">
 
+
+
       <div class="header-left">
+
+
 
         <button class="icon-btn back-btn" id="newJob" title="Return to new upload" aria-label="Return to upload">
 
+
+
           <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+
+
 
         </button>
 
+
+
         <div class="project-info">
+
+
 
           <div class="project-title-row">
 
+
+
             <span class="project-title" id="jobName">Minimal Black Outline UI Icon Set</span>
+
+
 
             <span class="edit-icon" title="Project name"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg></span>
 
+
+
           </div>
+
+
 
           <div class="project-sub" id="jobMeta">6 icons · 1024 × 1024</div>
 
+
+
         </div>
 
+
+
       </div>
+
+
+
+
 
 
 
       <div class="header-right">
 
+
+
         <button class="status-pill" id="btnClearCacheDirect" title="Clear all stored icon cache & memory" style="cursor:pointer; background:rgba(255,80,80,0.08); border:1px solid rgba(255,80,80,0.25);">
+
+
 
           <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="#ff6b6b" stroke-width="2"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M10 11v6M14 11v6"/></svg>
 
+
+
           <span class="status-text" style="color:#ff6b6b;">Clear Cache</span>
 
+
+
         </button>
+
+
 
         <button class="status-pill" id="btnLessons" title="View AI Lessons & Defect Memory" style="cursor:pointer; background:rgba(0,245,160,0.08); border:1px solid rgba(0,245,160,0.25);">
 
+
+
           <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="var(--accent)" stroke-width="2.2"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg>
+
+
 
           <span class="status-text" style="color:var(--accent);">AI Memory</span>
 
+
+
         </button>
+
+
 
         <span class="status-pill" id="health">
 
+
+
           <span class="status-dot"></span>
+
+
 
           <span class="status-text">AI Engine Online</span>
 
+
+
         </span>
+
+
 
         <button class="icon-btn" title="Settings" aria-label="Settings">
 
+
+
           <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
 
+
+
         </button>
+
+
 
         <span class="status-pill" id="userQuotaPill" title="Your Current Quota" style="background:rgba(255,255,255,0.04); border:1px solid var(--line-mid); display:none;">
 
+
+
           <span class="status-text" id="userQuotaText" style="font-family:var(--font-mono, monospace); font-size:12px;">Icons: 0/3 · BG: 0/10</span>
+
+
 
         </span>
 
+
+
         <span class="badge" id="userPlanBadge" style="background:rgba(0,245,160,0.12); color:#00f5a0; border:1px solid rgba(0,245,160,0.3); font-weight:700; padding:5px 9px; border-radius:6px; font-size:11px; text-transform:uppercase; letter-spacing:0.5px; display:none;">Free Trial</span>
+
+
 
         <button class="btn" id="btnHeaderUpgrade" style="background:linear-gradient(135deg, #00f5a0, #00b4d8); color:#050508; font-weight:700; padding:6px 12px; border-radius:7px; border:none; cursor:pointer; font-size:12px; display:inline-flex; align-items:center; gap:5px; transition:transform 0.2s;">
 
+
+
           ⚡ Upgrade
 
+
+
         </button>
+
+
 
         <button class="btn" id="btnHeaderSupport" title="Customer Support: 01794590310" style="background:rgba(255,255,255,0.06); color:#fff; font-weight:600; padding:6px 11px; border-radius:7px; border:1px solid var(--line-mid); cursor:pointer; font-size:12px; display:inline-flex; align-items:center; gap:5px;">
 
+
+
           📞 Support
+
+
 
         </button>
 
+
+
         <a href="/admin" target="_blank" class="btn" id="btnHeaderAdmin" style="display:none; background:rgba(255,179,0,0.15); color:#ffb300; font-weight:700; padding:6px 11px; border-radius:7px; border:1px solid rgba(255,179,0,0.4); text-decoration:none; font-size:12px;">
+
+
 
           ⚡ Controller
 
+
+
         </a>
+
+
 
         <div class="user-avatar" id="userAvatarBtn" title="Account & Profile" style="cursor:pointer; font-weight:700; font-size:12px;">
 
+
+
           Sign In
+
+
 
         </div>
 
+
+
       </div>
+
+
 
     </header>
 
 
 
+
+
+
+
     <!-- Global Progress Bar Indicator -->
 
+
+
     <div class="global-progress" id="prog"><i class="prog-bar-fill"></i></div>
+
+
+
+
 
 
 
@@ -290,539 +578,1079 @@
 
 
 
+
+
+
+
       <!-- ============ Landing / Upload View ============ -->
 
+
+
       <section id="landing" class="landing-view">
+
+
 
         <div class="landing-grid">
 
 
 
+
+
+
+
           <!-- Left Column: Upload Hero & Dropzone -->
+
+
 
           <div class="landing-main">
 
+
+
             <div class="section-heading">
+
+
 
               <div class="heading-icon">
 
+
+
                 <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="#00f5a0" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 14.899A7 7 0 1 1 15.71 8h1.79a4.5 4.5 0 0 1 2.5 8.242"/><path d="M12 12v9"/><path d="m16 16-4-4-4 4"/></svg>
 
+
+
               </div>
+
+
 
               <div>
 
+
+
                 <h2>Upload Your Line Art</h2>
+
+
 
                 <p>Drop your image here or click to browse. We'll turn it into clean, scalable vectors with perfect precision.</p>
 
+
+
               </div>
 
+
+
             </div>
+
+
+
+
 
 
 
             <!-- Luxury Glass Dropzone -->
 
+
+
             <div class="card dropzone-card">
+
+
 
               <label class="drop-zone" id="drop" tabindex="0">
 
+
+
                 <input id="file" type="file" accept="image/png,image/jpeg,image/webp,image/bmp,image/svg+xml,.svg,.zip" hidden>
+
+
 
                 <div class="drop-cloud-icon">
 
+
+
                   <svg viewBox="0 0 24 24" width="46" height="46" fill="none" stroke="#00f5a0" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+
+
 
                     <path d="M4 14.899A7 7 0 1 1 15.71 8h1.79a4.5 4.5 0 0 1 2.5 8.242"/>
 
+
+
                     <path d="M12 12v9"/>
+
+
 
                     <path d="m16 16-4-4-4 4"/>
 
+
+
                   </svg>
 
+
+
                 </div>
+
+
 
                 <div class="drop-primary-text">Drag &amp; Drop Your Image Here</div>
 
+
+
                 <div class="drop-secondary-text">or click to browse</div>
+
+
 
                 <div class="format-badges">
 
+
+
                   <span class="fmt-label">Supported formats:</span>
+
+
 
                   <span class="fmt-tag">PNG</span>
 
+
+
                   <span class="fmt-tag">JPG</span>
+
+
 
                   <span class="fmt-tag">SVG</span>
 
+
+
                   <span class="fmt-tag">WEBP</span>
+
+
 
                   <span class="fmt-tag">BMP</span>
 
+
+
                 </div>
+
+
 
               </label>
 
 
 
+
+
+
+
               <!-- Upload Configuration Options -->
+
+
 
               <div class="upload-options">
 
+
+
                 <div class="opt-group">
+
+
 
                   <div class="opt-header">
 
+
+
                     <span>Quality Mode</span>
+
+
 
                     <span class="opt-badge">AI Precision</span>
 
+
+
                   </div>
+
+
 
                   <div class="seg quality-seg" id="quality" role="radiogroup">
 
+
+
                     <button type="button" data-v="fast" role="radio">Fast</button>
+
+
 
                     <button type="button" data-v="standard" role="radio" class="on">Standard</button>
 
+
+
                     <button type="button" data-v="precise" role="radio">Precise</button>
+
+
 
                   </div>
 
+
+
                 </div>
+
+
+
+
 
 
 
                 <div class="opt-group grow">
 
+
+
                   <div class="opt-header">
+
+
 
                     <span>Path Optimization</span>
 
+
+
                     <span class="opt-val" id="cleanHint">Balanced</span>
 
+
+
                   </div>
+
+
 
                   <div class="range-wrap">
 
+
+
                     <span class="range-min">Exact match</span>
+
+
 
                     <input id="clean" type="range" min="0" max="1" step="0.05" value="0.5">
 
+
+
                     <span class="range-max">Cleanest paths</span>
+
+
 
                   </div>
 
+
+
                 </div>
+
+
+
+
 
 
 
                 <div class="opt-group">
 
+
+
                   <div class="opt-header">
+
+
 
                     <span>Cache Mode</span>
 
+
+
                     <span class="opt-badge" id="freshBadge" style="color:var(--accent);">Fresh (No Cache)</span>
+
+
 
                   </div>
 
+
+
                   <label style="display:flex; align-items:center; gap:8px; cursor:pointer; font-size:12.5px; color:var(--text-main); margin-top:8px; user-select:none;">
+
+
 
                     <input id="freshRun" type="checkbox" checked style="cursor:pointer; width:16px; height:16px; accent-color:var(--accent);">
 
+
+
                     <span>Bypass Cache (Force fresh run)</span>
+
+
 
                   </label>
 
+
+
                 </div>
+
+
 
               </div>
 
+
+
             </div>
+
+
+
+
 
 
 
             <!-- Samples Selector -->
 
+
+
             <div class="samples-row">
+
+
 
               <span class="samples-label">or try a sample:</span>
 
+
+
               <button class="sample-chip" data-sample="home-icons">
 
+
+
                 <span class="chip-dot"></span>
+
+
 
                 <b>Home &amp; living</b>
 
+
+
                 <em>12 icons</em>
 
+
+
               </button>
+
+
 
               <button class="sample-chip" data-sample="basic-set">
 
+
+
                 <span class="chip-dot"></span>
+
+
 
                 <b>Basic UI set</b>
 
+
+
                 <em>6 icons</em>
+
+
 
               </button>
 
+
+
             </div>
+
+
+
+
 
 
 
             <!-- Lower Capabilities & Features Cards -->
 
+
+
             <div class="capabilities-grid">
 
+
+
               <div class="cap-card">
+
+
 
                 <div class="cap-icon"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="#00f5a0" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/></svg></div>
 
+
+
                 <div class="cap-body">
+
+
 
                   <b>Smart Path Detection</b>
 
+
+
                   <span>Identifies and traces clean vector centerlines.</span>
+
+
 
                 </div>
 
+
+
               </div>
 
+
+
               <div class="cap-card">
+
+
 
                 <div class="cap-icon"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="#00f5a0" stroke-width="2"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg></div>
 
+
+
                 <div class="cap-body">
+
+
 
                   <b>Node Optimization</b>
 
+
+
                   <span>Removes extra nodes and smooths curvature kinks.</span>
+
+
 
                 </div>
 
+
+
               </div>
 
+
+
               <div class="cap-card">
+
+
 
                 <div class="cap-icon"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="#00f5a0" stroke-width="2"><rect width="8" height="8" x="3" y="3" rx="2"/><path d="m7 11 4-4 4 4"/><rect width="8" height="8" x="13" y="13" rx="2"/></svg></div>
 
+
+
                 <div class="cap-body">
+
+
 
                   <b>Duplicate Centerlines</b>
 
+
+
                   <span>Detects and removes double lines &amp; overlaps.</span>
+
+
 
                 </div>
 
+
+
               </div>
+
+
 
               <div class="cap-card">
 
+
+
                 <div class="cap-icon"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="#00f5a0" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg></div>
+
+
 
                 <div class="cap-body">
 
+
+
                   <b>High Precision Output</b>
+
+
 
                   <span>Doctor engine verifies every change against your image.</span>
 
+
+
                 </div>
+
+
 
               </div>
 
+
+
             </div>
 
+
+
           </div>
+
+
+
+
 
 
 
           <!-- Right Column: Info & Stats Showcase -->
 
+
+
           <div class="landing-aside">
+
+
 
             <div class="card showcase-card">
 
+
+
               <div class="showcase-glow"></div>
+
+
 
               <div class="showcase-art">
 
+
+
                 <svg viewBox="0 0 120 120" width="80" height="80">
+
+
 
                   <circle cx="60" cy="60" r="50" fill="none" stroke="rgba(0,229,153,0.15)" stroke-width="1.5" stroke-dasharray="4 4"/>
 
+
+
                   <circle cx="60" cy="60" r="36" fill="none" stroke="rgba(0,255,213,0.3)" stroke-width="1.5"/>
+
+
 
                   <path d="M60 22 L72 50 L60 85 L48 50 Z" fill="rgba(0,229,153,0.08)" stroke="#00f5a0" stroke-width="2" stroke-linejoin="round"/>
 
+
+
                   <circle cx="60" cy="50" r="4" fill="#00ffd5"/>
+
+
 
                   <circle cx="48" cy="50" r="3" fill="#00e599"/>
 
+
+
                   <circle cx="72" cy="50" r="3" fill="#00e599"/>
+
+
 
                 </svg>
 
+
+
               </div>
+
+
 
               <h3>From Line Art to Vector</h3>
 
+
+
               <p>Our AI analyzes your image, detects paths, removes imperfections and creates a clean, editable vector file.</p>
+
+
 
               
 
+
+
               <ul class="feature-bullets">
+
+
 
                 <li><span class="f-dot"></span><b>Perfect for Icons</b> — Keep your icons sharp &amp; clean</li>
 
+
+
                 <li><span class="f-dot"></span><b>Ideal for Logos</b> — Professional quality results</li>
 
+
+
                 <li><span class="f-dot"></span><b>Works with Any Line Art</b> — Hand-drawn, sketch, or simple outlines</li>
+
+
 
               </ul>
 
 
 
+
+
+
+
               <!-- AI Engine Specs -->
+
+
 
               <div class="specs-block">
 
+
+
                 <div class="spec-header">
+
+
 
                   <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="#00f5a0" stroke-width="2"><path d="M13 2 3 14h9l-1 8 10-12h-9l1-8z"/></svg>
 
+
+
                   <span>AI Redraw Engine</span>
 
+
+
                 </div>
+
+
 
                 <div class="spec-metrics">
 
+
+
                   <div class="sm-item">
+
+
 
                     <span class="sm-val">&lt; 5s</span>
 
+
+
                     <span class="sm-lbl">Avg. time</span>
+
+
 
                   </div>
 
+
+
                   <div class="sm-item">
+
+
 
                     <span class="sm-val">99.8%</span>
 
+
+
                     <span class="sm-lbl">Accuracy</span>
 
+
+
                   </div>
+
+
 
                   <div class="sm-item">
 
+
+
                     <span class="sm-val">24/7</span>
+
+
 
                     <span class="sm-lbl">Available</span>
 
+
+
                   </div>
+
+
 
                 </div>
 
+
+
               </div>
 
+
+
             </div>
+
+
 
           </div>
 
 
 
+
+
+
+
         </div>
+
+
 
       </section>
 
 
 
+
+
+
+
       <!-- ============ Redraw Workspace View ============ -->
+
+
 
       <section id="work" class="work-view" hidden>
 
+
+
         
 
+
+
         <!-- Workspace Main Grid (Canvas on Left, Engine & Metrics on Right) -->
+
+
 
         <div class="workspace-grid">
 
 
 
+
+
+
+
           <!-- Left Column: Main Canvas & Tools -->
+
+
 
           <div class="canvas-column">
 
 
 
+
+
+
+
             <!-- Canvas Top Toolbar -->
+
+
 
             <div class="canvas-topbar">
 
+
+
               <div class="view-switcher seg" id="view" role="tablist">
+
+
 
                 <button data-v="original" role="tab">Original</button>
 
+
+
                 <button data-v="vector" role="tab" class="on">Vector</button>
+
+
 
                 <button data-v="overlay" role="tab">Overlay</button>
 
+
+
                 <button data-v="diff" role="tab">Diff</button>
 
+
+
               </div>
+
+
+
+
 
 
 
               <!-- Dedicated Artboard Background Switcher (White / Grid / Dark) -->
 
+
+
               <div class="artboard-switcher seg" id="artboardSwitcher">
+
+
 
                 <span class="ab-label">Artboard</span>
 
+
+
                 <button type="button" class="ab-btn on" data-bg="#ffffff" title="Crisp White Artboard (Black Strokes)">
+
+
 
                   <i class="ab-dot white"></i><span>White</span>
 
+
+
                 </button>
+
+
 
                 <button type="button" class="ab-btn" data-bg="grid" title="Transparent Checkerboard Grid">
 
+
+
                   <i class="ab-dot grid"></i><span>Transparent</span>
 
+
+
                 </button>
+
+
 
                 <button type="button" class="ab-btn" data-bg="#0c131d" title="Dark Artboard (Glowing White/Neon Strokes)">
 
+
+
                   <i class="ab-dot dark"></i><span>Black</span>
+
+
 
                 </button>
 
+
+
               </div>
+
+
+
+
 
 
 
               <div class="topbar-right">
 
+
+
                 <div class="tool-strip">
+
+
 
                   <button class="tool-btn active" title="Pointer select tool"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="m3 3 7.07 16.97 2.51-7.39 7.39-2.51L3 3z"/></svg></button>
 
+
+
                   <button class="tool-btn" title="Path editor"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="m12 19 7-7 3 3-7 7-3-3z"/><path d="m18 13-1.5-7.5L2 2l3.5 14.5L13 18l5-5z"/></svg></button>
+
+
 
                   <button class="tool-btn" title="Nodes view"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><circle cx="6" cy="6" r="3"/><circle cx="18" cy="18" r="3"/><line x1="8.5" y1="8.5" x2="15.5" y2="15.5"/></svg></button>
 
+
+
                 </div>
+
+
 
               </div>
 
+
+
             </div>
+
+
+
+
 
 
 
             <!-- Stage & Canvas Frame -->
 
+
+
             <div class="stage-frame">
+
+
 
               <!-- Artboard Floating Indicator -->
 
+
+
               <div class="artboard-indicator" id="artboardIndicator">
+
+
 
                 <span class="ab-tag">ARTBOARD</span>
 
+
+
                 <span class="ab-size" id="artboardDims">-- × -- px</span>
 
+
+
               </div>
+
+
+
+
 
 
 
               <div class="stage" id="stage">
 
+
+
                 <!-- Checkered Canvas Canvas Wrapper -->
+
+
 
                 <div class="canvas ab-white" id="canvas">
 
+
+
                   <img id="imgOrig" alt="Original raster image">
+
+
 
                   <div id="vec"></div>
 
+
+
                   <img id="imgDiff" alt="Diff image">
+
+
 
                   <div id="focus" class="focus" hidden></div>
 
+
+
                 </div>
+
+
+
+
 
 
 
                 <!-- Laser Scanning Beam Overlay (Processing Animation) -->
 
+
+
                 <div class="scan-beam" id="scanBeam"></div>
 
+
+
                 <!-- Node Points Grid Overlay (Processing Animation) -->
+
+
 
                 <div class="node-grid-overlay" id="nodeOverlay"></div>
 
 
 
+
+
+
+
                 <!-- Canvas Legend for Diff Mode -->
+
+
 
                 <div class="legend" id="legend" hidden>
 
+
+
                   <span><i style="background:#22c55e"></i>match</span>
+
+
 
                   <span><i style="background:#ef4444"></i>missing</span>
 
+
+
                   <span><i style="background:#3b82f6"></i>extra</span>
+
+
 
                 </div>
 
+
+
               </div>
+
+
+
+
 
 
 
               <!-- Canvas Bottom Floating Control Strip -->
 
+
+
               <div class="canvas-footer-bar">
+
+
 
                 <div class="footer-status-pill" id="canvasStatusPill">
 
+
+
                   <span class="pulse-dot"></span>
+
+
 
                   <span class="status-msg" id="canvasStatusMsg">Ready</span>
 
+
+
                   <div class="mini-prog-track" id="miniProgTrack"><div class="mini-prog-fill" id="miniProgFill"></div></div>
 
+
+
                 </div>
+
+
 
                 
 
+
+
                 <div class="footer-counters">
+
+
 
                   <span class="counter-badge" id="canvasPathsCount"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg> Paths <b id="countPathsVal">--</b></span>
 
+
+
                   <span class="counter-badge" id="canvasNodesCount"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><circle cx="6" cy="6" r="2"/><circle cx="18" cy="18" r="2"/><circle cx="12" cy="12" r="2"/></svg> Nodes <b id="countNodesVal">--</b></span>
 
+
+
                 </div>
+
+
+
+
 
 
 
                 <div class="zoom-cluster">
 
+
+
                   <button id="zout" class="zoom-btn" aria-label="Zoom out">−</button>
+
+
 
                   <button id="zfit" class="zoom-btn zoom-fit">Fit</button>
 
+
+
                   <button id="zin" class="zoom-btn" aria-label="Zoom in">+</button>
+
+
 
                 </div>
 
+
+
               </div>
 
+
+
             </div>
+
+
+
+
 
 
 
@@ -830,517 +1658,1035 @@
 
 
 
+
+
+
+
           </div>
+
+
+
+
 
 
 
           <!-- Right Column: AI Processing, Stages & Metrics -->
 
+
+
           <div class="sidebar-column">
+
+
+
+
 
 
 
             <!-- AI Engine Processing Status Card -->
 
+
+
             <div class="card status-panel" id="processingCard">
+
+
 
               <div class="status-card-top">
 
+
+
                 <div class="radar-wrap" id="radarWrap">
+
+
 
                   <div class="radar-pulse"></div>
 
+
+
                   <div class="radar-ring"></div>
+
+
 
                   <div class="radar-core">
 
+
+
                     <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="#00ffd5" stroke-width="2.5" stroke-linecap="round"><path d="m12 3 8 4.5v9L12 21l-8-4.5v-9L12 3z"/></svg>
+
+
 
                   </div>
 
+
+
                 </div>
+
+
 
                 <div class="status-card-text">
 
+
+
                   <h3 class="status-title" id="procTitle">Processing...</h3>
+
+
 
                   <p class="status-sub" id="procSub">AI is analyzing and redrawing your image into clean vector paths.</p>
 
+
+
                 </div>
 
+
+
               </div>
+
+
+
+
 
 
 
               <!-- Main Percentage Progress Bar -->
 
+
+
               <div class="progress-section">
+
+
 
                 <div class="prog-track">
 
+
+
                   <div class="prog-fill" id="procBarFill" style="width: 4%;"></div>
 
+
+
                 </div>
+
+
 
                 <div class="prog-meta">
 
+
+
                   <span class="prog-label">Overall Progress</span>
+
+
 
                   <span class="prog-percent" id="procPercent">0%</span>
 
+
+
                 </div>
+
+
 
                 <div class="proc-cancel-wrap">
 
+
+
                   <button type="button" class="btn-cancel-job" id="btnCancelJob" title="Cancel current redraw process">
+
+
 
                     <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M18 6 6 18M6 6l12 12"/></svg>
 
+
+
                     <span>Cancel Redraw</span>
+
+
 
                   </button>
 
+
+
                 </div>
 
+
+
               </div>
+
+
+
+
 
 
 
               <!-- Processing Stages Checklist -->
 
+
+
               <div class="stages-list">
+
+
 
                 <div class="stage-row" id="stageImageAnalysis" data-stage="split">
 
+
+
                   <span class="stage-state-icon"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg></span>
+
+
 
                   <div class="stage-info">
 
+
+
                     <div class="stage-name">Image Analysis</div>
+
+
 
                     <div class="stage-desc">Detecting shapes and details...</div>
 
+
+
                   </div>
+
+
 
                   <span class="stage-time" id="timeAnalysis">0.8s</span>
 
+
+
                 </div>
+
+
+
+
 
 
 
                 <div class="stage-row" id="stagePathTracing" data-stage="trace">
 
+
+
                   <span class="stage-state-icon"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/></svg></span>
+
+
 
                   <div class="stage-info">
 
+
+
                     <div class="stage-name">Path Tracing</div>
+
+
 
                     <div class="stage-desc">Creating vector paths...</div>
 
+
+
                   </div>
+
+
 
                   <span class="stage-time" id="timeTracing">--</span>
 
+
+
                 </div>
+
+
+
+
 
 
 
                 <div class="stage-row" id="stageCurveOpt" data-stage="edit">
 
+
+
                   <span class="stage-state-icon"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/></svg></span>
+
+
 
                   <div class="stage-info">
 
+
+
                     <div class="stage-name">Curve Optimization</div>
+
+
 
                     <div class="stage-desc">Smoothing and refining curves...</div>
 
+
+
                   </div>
+
+
 
                   <span class="stage-time" id="timeCurve">--</span>
 
+
+
                 </div>
+
+
+
+
 
 
 
                 <div class="stage-row" id="stageOutputGen" data-stage="output">
 
+
+
                   <span class="stage-state-icon"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/></svg></span>
+
+
 
                   <div class="stage-info">
 
+
+
                     <div class="stage-name">Output Generation</div>
+
+
 
                     <div class="stage-desc">Finalizing vector file...</div>
 
+
+
                   </div>
+
+
 
                   <span class="stage-time" id="timeOutput">--</span>
 
+
+
                 </div>
 
+
+
               </div>
+
+
+
+
 
 
 
               <!-- Processing Metrics 2x2 Grid -->
 
+
+
               <div class="metrics-grid">
 
+
+
                 <div class="metric-tile">
+
+
 
                   <div class="tile-icon"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="#00f5a0" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></div>
 
+
+
                   <div class="tile-body">
+
+
 
                     <span class="tile-label">Processing Time</span>
 
+
+
                     <b class="tile-val" id="metricTime">0.0s</b>
 
+
+
                   </div>
+
+
 
                 </div>
 
 
 
+
+
+
+
                 <div class="metric-tile">
+
+
 
                   <div class="tile-icon"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="#00ffd5" stroke-width="2"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg></div>
 
+
+
                   <div class="tile-body">
+
+
 
                     <span class="tile-label">Total Paths</span>
 
+
+
                     <b class="tile-val" id="metricPaths">--</b>
 
+
+
                   </div>
+
+
 
                 </div>
 
 
 
+
+
+
+
                 <div class="metric-tile">
+
+
 
                   <div class="tile-icon"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="#00e599" stroke-width="2"><circle cx="6" cy="6" r="3"/><circle cx="18" cy="18" r="3"/><line x1="8.5" y1="8.5" x2="15.5" y2="15.5"/></svg></div>
 
+
+
                   <div class="tile-body">
+
+
 
                     <span class="tile-label">Total Nodes</span>
 
+
+
                     <b class="tile-val" id="metricNodes">--</b>
+
+
 
                   </div>
 
+
+
                 </div>
+
+
+
+
 
 
 
                 <div class="metric-tile">
 
+
+
                   <div class="tile-icon"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="#38bdf8" stroke-width="2"><rect width="8" height="8" x="3" y="3" rx="2"/><rect width="8" height="8" x="13" y="13" rx="2"/></svg></div>
+
+
 
                   <div class="tile-body">
 
+
+
                     <span class="tile-label">Duplicate Centerlines</span>
+
+
 
                     <b class="tile-val" id="metricDupes">0</b>
 
+
+
                   </div>
 
+
+
                 </div>
+
+
 
               </div>
 
 
 
+
+
+
+
             </div>
+
+
+
+
 
 
 
             <!-- Style & Export Accordion / Panel -->
 
+
+
             <div class="card panel" id="stylePanel">
+
+
 
               <div class="panel-header">
 
+
+
                 <h3>Restyle &amp; Settings <span class="badge-live">Live</span></h3>
 
+
+
               </div>
+
+
 
               <div class="panel-body">
 
+
+
                 <label class="param-row">
+
+
 
                   <span>Stroke colour</span>
 
+
+
                   <input type="color" id="stroke" value="#111111">
+
+
 
                 </label>
 
+
+
                 <label class="param-row">
+
+
 
                   <span>Stroke weight <b id="scaleV">100%</b></span>
 
+
+
                   <input type="range" id="scale" min="0.5" max="1.6" step="0.02" value="1">
 
+
+
                 </label>
+
+
 
                 <label class="param-row">
 
+
+
                   <span>Background</span>
+
+
 
                   <select id="bg">
 
+
+
                     <option value="#ffffff">White</option>
+
+
 
                     <option value="none" selected>Transparent</option>
 
+
+
                     <option value="#0b0b0c">Dark</option>
+
+
 
                   </select>
 
+
+
                 </label>
+
+
 
               </div>
 
+
+
             </div>
+
+
+
+
 
 
 
             <!-- Export Buttons Panel -->
 
+
+
             <div class="card panel" id="exportPanel">
+
+
 
               <div class="panel-header">
 
+
+
                 <h3>Export Vector Output</h3>
 
+
+
               </div>
+
+
 
               <div class="panel-body">
 
+
+
                 <div class="export-btns-list">
+
+
 
                   <button class="btn template-action-btn" id="btnSendToTemplate">
 
+
+
                     <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.3"><rect width="18" height="18" x="3" y="3" rx="3"/><path d="M9 3v18M3 9h6M14 9h7M14 15h7"/></svg>
+
+
 
                     <span>Send to Template Studio</span>
 
+
+
                   </button>
+
+
 
                   <a class="btn primary-action-btn" id="dlSvg" href="#">
 
+
+
                     <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+
+
 
                     <span>Download Sheet SVG</span>
 
+
+
                   </a>
+
+
 
                   <a class="btn secondary-action-btn" id="dlEps" href="#" title="Download Clean Centerlines as PostScript EPS">
 
+
+
                     <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><path d="M8 13h4M8 17h6"/></svg>
+
+
 
                     <span>Download Sheet EPS</span>
 
+
+
                   </a>
+
+
 
                   <a class="btn secondary-action-btn" id="dlZip" href="#">
 
+
+
                     <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="m3.3 7 8.7 5 8.7-5"/><path d="M12 22V12"/></svg>
+
+
 
                     <span>All Icons (.ZIP)</span>
 
+
+
                   </a>
+
+
 
                   <button class="btn secondary-action-btn" id="copy">
 
+
+
                     <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><rect width="14" height="14" x="8" y="8" rx="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>
+
+
 
                     <span>Copy SVG</span>
 
+
+
                   </button>
+
+
 
                 </div>
 
+
+
               </div>
 
+
+
             </div>
+
+
+
+
 
 
 
             <!-- Engine Activity Drawer -->
 
+
+
             <details class="card panel log-drawer" id="logBox">
+
+
 
               <summary class="log-summary">
 
+
+
                 <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>
+
+
 
                 <span>Engine Activity Log</span>
 
+
+
                 <span class="count-pill" id="iconCount"></span>
+
+
 
               </summary>
 
+
+
               <div class="engines-pills" id="engines" hidden>
+
+
 
                 <div class="eng" data-e="edit"><i></i><b>Edit</b><em></em></div>
 
+
+
                 <div class="eng" data-e="output"><i></i><b>Output</b><em></em></div>
+
+
 
                 <div class="eng" data-e="doctor"><i></i><b>Doctor</b><em></em></div>
 
+
+
               </div>
 
+
+
               <ol class="log-entries" id="log"></ol>
+
+
 
             </details>
 
 
 
+
+
+
+
           </div>
 
 
 
+
+
+
+
         </div>
+
+
+
+
 
 
 
         <!-- ================= Bottom Section: Icon Match Results & Comparison ================= -->
 
+
+
         <div class="bottom-analysis-row">
+
+
 
           
 
+
+
           <!-- Left: Icon Match Results Cards -->
+
+
 
           <div class="card icon-results-card">
 
+
+
             <div class="results-header">
+
+
 
               <div class="target-glyph">
 
+
+
                 <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="#00f5a0" stroke-width="2"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>
 
+
+
               </div>
+
+
 
               <div class="results-title-group">
 
+
+
                 <h3>Icon Match Results</h3>
+
+
 
                 <span class="results-sub" id="matchSubText">Detected icons · Calculating match...</span>
 
+
+
               </div>
 
+
+
             </div>
+
+
+
+
 
 
 
             <!-- Scrollable list of icon cards -->
 
+
+
             <div class="icon-cards-carousel" id="icons">
+
+
 
               <!-- Dynamically populated icon cards -->
 
+
+
             </div>
 
+
+
           </div>
+
+
+
+
 
 
 
           <!-- Right: Selected Icon Comparison (Original -> Vector) -->
 
+
+
           <div class="card comparison-card" id="comparisonCard">
+
+
 
             <div class="comp-box">
 
+
+
               <div class="comp-label">Original</div>
+
+
 
               <div class="comp-preview-frame" id="compOrigFrame">
 
+
+
                 <img id="compOrigImg" alt="Original icon crop" src="">
+
+
 
               </div>
 
+
+
             </div>
+
+
+
+
 
 
 
             <div class="comp-arrow">
 
+
+
               <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="#00f5a0" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
 
+
+
             </div>
+
+
+
+
 
 
 
             <div class="comp-box active-vector-box">
 
+
+
               <div class="comp-header-row">
+
+
 
                 <div class="comp-label">Vector</div>
 
+
+
                 <div class="comp-badges">
+
+
 
                   <span class="match-badge" id="compMatchBadge" title="Pixel IoU (blurry raster match)">98.1% Match</span>
 
+
+
                   <span class="clean-badge clean-ok" id="compCleanBadge" title="Structural Match (1 - hard/ink_area)">100% Clean ✓</span>
+
+
 
                 </div>
 
+
+
               </div>
+
+
 
               <div class="comp-preview-frame" id="compVecFrame">
 
+
+
                 <img id="compVecImg" alt="Vector icon preview" src="">
 
+
+
               </div>
+
+
 
               <div class="comp-overlay-bar">
 
+
+
                 <button type="button" class="comp-overlay-btn" id="btnCompOverlayToggle" title="Toggle Decision Residual Overlay">
+
+
 
                   <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
 
+
+
                   <span id="compOverlayBtnLabel">Residual Overlay</span>
 
+
+
                 </button>
+
+
 
                 <div class="comp-overlay-legend" id="compOverlayLegend" hidden>
 
+
+
                   <span class="leg-item"><span class="leg-dot dot-grey"></span>Match</span>
+
+
 
                   <span class="leg-item"><span class="leg-dot dot-red"></span>Missing</span>
 
+
+
                   <span class="leg-item"><span class="leg-dot dot-orange"></span>Extra</span>
+
+
 
                 </div>
 
+
+
               </div>
+
+
 
               <div class="why-panel" id="whyPanel">
 
+
+
                 <button type="button" class="why-toggle-btn" id="btnWhyToggle">
+
+
 
                   <span>Why not 100%?</span>
 
+
+
                   <svg class="why-arrow" viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
+
+
 
                 </button>
 
+
+
                 <div class="why-content" id="whyContent" hidden>
+
+
 
                   <div class="why-list" id="whyList"></div>
 
+
+
                 </div>
+
+
 
               </div>
 
+
+
             </div>
 
+
+
           </div>
+
+
+
+
 
 
 
@@ -1348,511 +2694,1040 @@
 
 
 
+
+
+
+
       </section>
+
+
+
+
 
 
 
       <!-- ============ Template Studio View ============ -->
 
+
+
       <section id="templateStudio" class="template-studio-view" hidden>
+
+
 
         
 
+
+
         <!-- Top Toolbar -->
+
+
 
         <div class="template-topbar">
 
+
+
           <div class="topbar-left">
+
+
 
             <button class="btn secondary-action-btn back-btn" id="btnBackToWork">
 
+
+
               <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2"><path d="m15 18-6-6 6-6"/></svg>
+
+
 
               <span>Back to Redraw</span>
 
+
+
             </button>
+
+
 
             <div class="template-title-group">
 
+
+
               <h2>Presentation Template Studio</h2>
+
+
 
               <span class="template-sub" id="tplMetaSub">Adobe Stock / Vectuz Style Merged Presentation</span>
 
+
+
             </div>
 
+
+
           </div>
+
+
+
+
 
 
 
           <div class="topbar-right">
 
+
+
             <button class="btn secondary-action-btn" id="btnSaveCustomTemplate" title="Save current colors & layout as a reusable preset">
+
+
 
               <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
 
+
+
               <span>Save Template</span>
+
+
 
             </button>
 
+
+
             <a class="btn primary-action-btn" id="btnDlTemplateSvg" href="#" download="stock-presentation.svg">
+
+
 
               <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
 
+
+
               <span>Download SVG</span>
 
+
+
             </a>
+
+
 
             <a class="btn primary-action-btn png-btn" id="btnDlTemplatePng" href="#" download="stock-presentation.png">
 
+
+
               <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2"><rect width="18" height="18" x="3" y="3" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg>
+
+
 
               <span>4K Stock PNG</span>
 
+
+
             </a>
+
+
 
             <a class="btn primary-action-btn eps-btn" id="btnDlTemplateEps" href="#" download="stock-presentation.eps">
 
+
+
               <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><path d="M8 13h4M8 17h6"/></svg>
+
+
 
               <span>Download EPS</span>
 
+
+
             </a>
+
+
 
             <a class="btn secondary-action-btn" id="btnDlTemplateZip" href="#">
 
+
+
               <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="m3.3 7 8.7 5 8.7-5"/><path d="M12 22V12"/></svg>
+
+
 
               <span>All Assets (.ZIP)</span>
 
+
+
             </a>
+
+
 
           </div>
 
+
+
         </div>
+
+
+
+
 
 
 
         <!-- Studio Main Workspace Grid -->
 
+
+
         <div class="template-grid">
+
+
+
+
 
 
 
           <!-- Left Controls Column -->
 
+
+
           <div class="template-controls-sidebar">
+
+
+
+
 
 
 
             <!-- Template Design Styles (17 Visual Layouts in 3 Families) -->
 
+
+
             <div class="card panel tpl-panel" id="designLayoutsPanel">
+
+
 
               <div class="panel-header">
 
+
+
                 <h3>Template Design Layout</h3>
+
+
 
                 <span class="badge-live" id="designCountBadge">17 Styles</span>
 
+
+
               </div>
+
+
 
               <div class="panel-body">
 
+
+
                 <!-- Design Families Filter Tabs -->
+
+
 
                 <div class="design-filter-tabs" id="designFilterTabs">
 
+
+
                   <button type="button" class="design-tab-btn active" data-f="all">All (17)</button>
+
+
 
                   <button type="button" class="design-tab-btn" data-f="bestsellers">⭐ Bestsellers (8)</button>
 
+
+
                   <button type="button" class="design-tab-btn" data-f="organic">🌊 Waves (3)</button>
+
+
 
                   <button type="button" class="design-tab-btn" data-f="geometric">🔷 Tech (6)</button>
 
+
+
                 </div>
+
+
 
                 <div class="design-cards-grid" id="designList">
 
+
+
                   <!-- Populated dynamically with visual thumbnail preview cards -->
+
+
 
                 </div>
 
+
+
               </div>
 
+
+
             </div>
+
+
+
+
 
 
 
             <!-- Presets Section -->
 
+
+
             <div class="card panel tpl-panel">
+
+
 
               <div class="panel-header">
 
+
+
                 <h3>Stock Style Presets</h3>
+
+
 
                 <span class="badge-live">1-Click</span>
 
+
+
               </div>
+
+
 
               <div class="panel-body">
 
+
+
                 <div class="preset-cards-grid" id="presetList">
+
+
 
                   <!-- Populated dynamically with swatches -->
 
+
+
                 </div>
+
+
 
               </div>
 
+
+
             </div>
+
+
+
+
 
 
 
             <!-- Saved Templates Section -->
 
+
+
             <div class="card panel tpl-panel" id="savedTemplatesPanel">
+
+
 
               <div class="panel-header">
 
+
+
                 <h3>My Saved Templates</h3>
+
+
 
                 <span class="opt-val" id="savedCountBadge">0 saved</span>
 
+
+
               </div>
+
+
 
               <div class="panel-body">
 
+
+
                 <div class="saved-templates-list" id="savedTemplatesList">
+
+
 
                   <div class="saved-empty-msg">No custom templates saved yet. Click "Save Template" above to save your custom styles.</div>
 
+
+
                 </div>
+
+
 
               </div>
 
+
+
             </div>
+
+
+
+
 
 
 
             <!-- Set Content & Typography Section -->
 
+
+
             <div class="card panel tpl-panel">
+
+
 
               <div class="panel-header">
 
+
+
                 <h3>Content &amp; Typography</h3>
 
+
+
               </div>
+
+
 
               <div class="panel-body">
 
+
+
                 <label class="param-row text-input-row">
+
+
 
                   <span>Category / Title</span>
 
+
+
                   <input type="text" id="tplTitle" value="TECHNOLOGY" placeholder="e.g. TECHNOLOGY, BUSINESS, HEALTHCARE">
 
+
+
                 </label>
+
+
 
                 <div class="param-row text-input-row">
 
+
+
                   <div style="display:flex; justify-content:space-between; align-items:center;">
+
+
 
                     <span>Icon Count Number</span>
 
+
+
                     <button type="button" class="btn btn-tiny" id="btnAutoCount" title="Auto-detect from sheet" style="font-size:11px; padding:2px 8px; border-radius:6px; background:rgba(0,245,160,0.15); color:var(--accent); border:1px solid rgba(0,245,160,0.3); cursor:pointer;">
+
+
 
                       ⚡ Auto Detect
 
+
+
                     </button>
 
+
+
                   </div>
+
+
 
                   <input type="text" id="tplCount" value="24" placeholder="e.g. 24, 30, 40">
 
+
+
                 </div>
+
+
 
                 <label class="param-row text-input-row">
 
+
+
                   <span>Subtitle / Features</span>
+
+
 
                   <input type="text" id="tplSubtitle" value="Editable Line Icons" placeholder="e.g. Editable Line Icons">
 
+
+
                 </label>
+
+
 
               </div>
 
-                <div class="param-row" style="margin-top:8px; flex-direction:column; gap:6px; align-items:flex-start;">
-                  <span style="font-size:12px; font-weight:600; color:var(--text-muted);">Font Style &amp; Family:</span>
-                  <div class="seg tpl-font-seg" id="tplFontSeg" style="width:100%; display:grid; grid-template-columns: repeat(2, 1fr); gap:4px;">
-                    <button type="button" data-v="bebas" class="on" style="font-size:11px; padding:6px 2px; font-weight:800;">Bebas Grotesk (Stock)</button>
-                    <button type="button" data-v="jakarta" style="font-size:11px; padding:6px 2px; font-weight:700;">Plus Jakarta Sans</button>
-                    <button type="button" data-v="montserrat" style="font-size:11px; padding:6px 2px; font-weight:800;">Montserrat Heavy</button>
-                    <button type="button" data-v="space" style="font-size:11px; padding:6px 2px; font-weight:700;">Space Tech / Grotesk</button>
-                    <button type="button" data-v="playfair" style="font-size:11px; padding:6px 2px; font-style:italic;">Playfair Luxury Serif</button>
-                    <button type="button" data-v="mono" style="font-size:11px; padding:6px 2px; font-family:monospace;">JetBrains Mono</button>
-                  </div>
-                </div>
+
 
                 <div class="param-row" style="margin-top:8px; flex-direction:column; gap:6px; align-items:flex-start;">
-                  <span style="font-size:12px; font-weight:600; color:var(--text-muted);">Title Highlight Element:</span>
-                  <div class="seg tpl-title-hl-seg" id="tplTitleHlSeg" style="width:100%; display:grid; grid-template-columns: repeat(2, 1fr); gap:4px;">
-                    <button type="button" data-v="pill" class="on" style="font-size:11px; padding:6px 2px;">🏷️ Frosted Pill Plate</button>
-                    <button type="button" data-v="glow_bar" style="font-size:11px; padding:6px 2px;">✨ Accent Glow Bar</button>
-                    <button type="button" data-v="brackets" style="font-size:11px; padding:6px 2px;">⌜ Corner Brackets ⌟</button>
-                    <button type="button" data-v="ribbon" style="font-size:11px; padding:6px 2px;">★ Spec Tag Ribbon</button>
-                    <button type="button" data-v="clean" style="font-size:11px; padding:6px 2px; grid-column: span 2;">Plain Clean Typography</button>
+
+                  <span style="font-size:12px; font-weight:600; color:var(--text-muted);">Font Style &amp; Family:</span>
+
+                  <div class="seg tpl-font-seg" id="tplFontSeg" style="width:100%; display:grid; grid-template-columns: repeat(2, 1fr); gap:4px;">
+
+                    <button type="button" data-v="bebas" class="on" style="font-size:11px; padding:6px 2px; font-weight:800;">Bebas Grotesk (Stock)</button>
+
+                    <button type="button" data-v="jakarta" style="font-size:11px; padding:6px 2px; font-weight:700;">Plus Jakarta Sans</button>
+
+                    <button type="button" data-v="montserrat" style="font-size:11px; padding:6px 2px; font-weight:800;">Montserrat Heavy</button>
+
+                    <button type="button" data-v="space" style="font-size:11px; padding:6px 2px; font-weight:700;">Space Tech / Grotesk</button>
+
+                    <button type="button" data-v="playfair" style="font-size:11px; padding:6px 2px; font-style:italic;">Playfair Luxury Serif</button>
+
+                    <button type="button" data-v="mono" style="font-size:11px; padding:6px 2px; font-family:monospace;">JetBrains Mono</button>
+
                   </div>
+
                 </div>
+
+
+
+                <div class="param-row" style="margin-top:8px; flex-direction:column; gap:6px; align-items:flex-start;">
+
+                  <span style="font-size:12px; font-weight:600; color:var(--text-muted);">Title Highlight Element:</span>
+
+                  <div class="seg tpl-title-hl-seg" id="tplTitleHlSeg" style="width:100%; display:grid; grid-template-columns: repeat(2, 1fr); gap:4px;">
+
+                    <button type="button" data-v="pill" class="on" style="font-size:11px; padding:6px 2px;">🏷️ Frosted Pill Plate</button>
+
+                    <button type="button" data-v="glow_bar" style="font-size:11px; padding:6px 2px;">✨ Accent Glow Bar</button>
+
+                    <button type="button" data-v="brackets" style="font-size:11px; padding:6px 2px;">⌜ Corner Brackets ⌟</button>
+
+                    <button type="button" data-v="ribbon" style="font-size:11px; padding:6px 2px;">★ Spec Tag Ribbon</button>
+
+                    <button type="button" data-v="clean" style="font-size:11px; padding:6px 2px; grid-column: span 2;">Plain Clean Typography</button>
+
+                  </div>
+
+                </div>
+
+
 
             </div>
+
+
+
+
 
 
 
             <!-- Custom Colors Section -->
 
+
+
             <div class="card panel tpl-panel">
+
+
 
               <div class="panel-header">
 
+
+
                 <h3>Colors &amp; Theme</h3>
+
+
 
                 <span class="opt-val" id="customColorHint">Live Edit</span>
 
+
+
               </div>
+
+
 
               <div class="panel-body">
 
+
+
                 <label class="param-row">
+
+
 
                   <span>Cover Banner Color</span>
 
+
+
                   <input type="color" id="tplBannerBg" value="#F5B800">
 
+
+
                 </label>
+
+
 
                 <div class="param-row" style="display:flex; justify-content:space-between; align-items:center;">
 
+
+
                   <span>Banner Text Color</span>
+
+
 
                   <div class="seg seg-compact" id="tplBannerTextSeg">
 
+
+
                     <button type="button" data-v="#1E1E1E" class="on">Dark</button>
+
+
 
                     <button type="button" data-v="#FFFFFF">Light</button>
 
+
+
                   </div>
+
+
 
                 </div>
 
+
+
                 <label class="param-row">
+
+
 
                   <span>Dark Showcase Box</span>
 
+
+
                   <input type="color" id="tplHighlightBg" value="#181B24">
+
+
 
                 </label>
 
+
+
                 <label class="param-row">
+
+
 
                   <span>Showcase Icons Color</span>
 
+
+
                   <input type="color" id="tplHighlightStroke" value="#FFFFFF">
 
+
+
                 </label>
+
+
 
                 <div class="param-row" style="flex-direction:column; gap:6px; align-items:flex-start;">
 
+
+
                   <span>Artboard Background</span>
+
+
 
                   <div class="seg tpl-bg-seg" id="tplArtboardBgSeg" style="width:100%; display:grid; grid-template-columns: repeat(4, 1fr); gap:4px;">
 
+
+
                     <button type="button" data-v="checkered" class="on" style="font-size:11px; padding:6px 2px;">🏁 Checkered</button>
+
+
 
                     <button type="button" data-v="#FFFFFF" style="font-size:11px; padding:6px 2px;">⬜ White</button>
 
+
+
                     <button type="button" data-v="#0F172A" style="font-size:11px; padding:6px 2px;">⬛ Dark</button>
+
+
 
                     <button type="button" data-v="#F8FAFC" style="font-size:11px; padding:6px 2px;">◽ Slate</button>
 
+
+
                   </div>
+
+
 
                 </div>
 
+
+
                 <label class="param-row">
+
+
 
                   <span>Icon Sheet Stroke</span>
 
+
+
                   <input type="color" id="tplStrokeColor" value="#181B24">
 
+
+
                 </label>
+
+
 
                 <label class="param-row">
 
+
+
                   <span>Stroke Weight <b id="tplScaleVal">100%</b></span>
+
+
 
                   <input type="range" id="tplStrokeScale" min="0.5" max="2.0" step="0.05" value="1.0">
 
+
+
                 </label>
+
+
 
               </div>
 
+
+
             </div>
+
+
+
+
 
 
 
             <!-- Aspect Ratio & Auto-Merge Section -->
 
+
+
             <div class="card panel tpl-panel">
+
+
 
               <div class="panel-header">
 
+
+
                 <h3>Artboard Ratio &amp; Merge</h3>
 
+
+
               </div>
+
+
 
               <div class="panel-body">
 
+
+
                 <div class="seg tpl-layout-seg" id="tplLayoutSeg" style="display:grid; grid-template-columns: repeat(3, 1fr); gap:4px;">
+
+
 
                   <button type="button" data-v="landscape_16_9" class="on" style="font-size:11.5px; padding:6px 2px;">16:9 (4K)</button>
 
+
+
                   <button type="button" data-v="landscape_16_10" style="font-size:11.5px; padding:6px 2px;">16:10</button>
+
+
 
                   <button type="button" data-v="landscape_4_3" style="font-size:11.5px; padding:6px 2px;">4:3 Stock</button>
 
+
+
                   <button type="button" data-v="square" style="font-size:11.5px; padding:6px 2px;">1:1 Square</button>
+
+
 
                   <button type="button" data-v="auto_dock" style="font-size:11.5px; padding:6px 2px; grid-column: span 2;">⚡ Auto-Dock to Sheet</button>
 
+
+
                 </div>
+
+                <div class="param-row" style="margin-top:12px; flex-direction:column; gap:6px; align-items:flex-start;">
+                  <span style="font-size:12px; color:var(--text-muted); font-weight:600;">Icon Sheet Grid &amp; Auto-Fix:</span>
+                  <div class="seg tpl-icon-layout-seg" id="tplIconLayoutSeg" style="width:100%; display:grid; grid-template-columns: repeat(3, 1fr); gap:4px;">
+                    <button type="button" data-v="auto_grid" class="on" style="font-size:11px; padding:6px 2px;">⚡ Auto-Grid Pro</button>
+                    <button type="button" data-v="tight_fit" style="font-size:11px; padding:6px 2px;">📐 Tight Trim</button>
+                    <button type="button" data-v="preserve" style="font-size:11px; padding:6px 2px;">🔒 Original</button>
+                  </div>
+                </div>
+
+                <div class="param-row" style="margin-top:10px; flex-direction:column; gap:6px; align-items:flex-start;">
+                  <div style="display:flex; justify-content:space-between; width:100%; align-items:center;">
+                    <span style="font-size:12px; color:var(--text-muted); font-weight:600;">Artboard Edge Margin:</span>
+                    <b id="tplMarginVal" style="font-size:11.5px; color:var(--accent);">6% (Stock Standard)</b>
+                  </div>
+                  <input type="range" id="tplMarginRange" min="0.02" max="0.16" step="0.01" value="0.06" style="width:100%;">
+                </div>
+
+
 
               </div>
 
+
+
             </div>
+
+
+
+
 
 
 
             <!-- Showcase / Highlight Box Section -->
 
+
+
             <div class="card panel tpl-panel">
+
+
 
               <div class="panel-header">
 
+
+
                 <h3>Showcase Feature Box</h3>
 
+
+
               </div>
+
+
 
               <div class="panel-body">
 
+
+
                 <label class="checkbox-row" style="display:flex; align-items:center; gap:8px; font-size:12.5px; cursor:pointer;">
+
+
 
                   <input type="checkbox" id="tplShowHighlight" checked style="accent-color:var(--accent);">
 
+
+
                   <span>Show dark showcase box</span>
+
+
 
                 </label>
 
+
+
                 <div class="param-row" style="margin-top:10px; flex-direction:column; gap:6px; align-items:flex-start;">
+
+
 
                   <span style="font-size:12px; color:var(--text-muted);">Showcase Mode:</span>
 
+
+
                   <div class="seg tpl-hl-mode-seg" id="tplHighlightModeSeg" style="width:100%; display:grid; grid-template-columns: repeat(3, 1fr); gap:4px;">
+
+
 
                     <button type="button" data-v="mini_4" class="on" style="font-size:11px; padding:6px 2px;">4 Mini Icons</button>
 
+
+
                     <button type="button" data-v="mini_6" style="font-size:11px; padding:6px 2px;">6 Mini Icons</button>
+
+
 
                     <button type="button" data-v="hero_1" style="font-size:11px; padding:6px 2px;">1 Hero Icon</button>
 
+
+
                   </div>
 
+
+
                 </div>
+
+
 
                 <div class="param-row" style="margin-top:10px; flex-direction:column; gap:6px; align-items:flex-start;">
+
                   <span style="font-size:12px; color:var(--text-muted); font-weight:600;">Showcase Card Design:</span>
+
                   <div class="seg tpl-sc-shape-seg" id="tplShowcaseShapeSeg" style="width:100%; display:grid; grid-template-columns: repeat(3, 1fr); gap:4px;">
+
                     <button type="button" data-v="card" class="on" style="font-size:11px; padding:6px 2px;">🔲 Squircle Card</button>
+
                     <button type="button" data-v="circle" style="font-size:11px; padding:6px 2px;">🪐 Orbital Ring</button>
+
                     <button type="button" data-v="hexagon" style="font-size:11px; padding:6px 2px;">🛡️ Cyber Hexagon</button>
+
                   </div>
+
                 </div>
 
+
+
               </div>
+
+
 
             </div>
 
 
 
+
+
+
+
           </div>
+
+
+
+
 
 
 
           <!-- Right Preview Column -->
 
+
+
           <div class="template-preview-column">
+
+
 
             <div class="stage-frame template-stage-frame">
 
+
+
               <div class="artboard-indicator">
+
+
 
                 <span class="ab-tag">MICROSTOCK ARTBOARD</span>
 
+
+
                 <span class="ab-size" id="tplDimsBadge">3840 × 2160 px · 16:9 Ultra-HD</span>
+
+
 
                 <span class="ab-zoom-badge" id="tplZoomBadge">100%</span>
 
+
+
               </div>
+
+
+
+
 
 
 
               <!-- Main scrollable / zoomable preview canvas -->
 
+
+
               <div class="template-stage" id="templateStage">
+
+
 
                 <div class="template-artboard-container" id="templateSvgContainer">
 
+
+
                   <!-- The merged SVG renders here live -->
+
+
 
                 </div>
 
+
+
               </div>
+
+
+
+
 
 
 
               <!-- Bottom zoom & pan control bar -->
 
+
+
               <div class="canvas-footer-bar">
+
+
 
                 <div class="footer-status-pill">
 
+
+
                   <span class="pulse-dot"></span>
+
+
 
                   <span id="tplFooterHint">Adobe Stock Standard Presentation · Drag to pan · Scroll wheel to zoom</span>
 
+
+
                 </div>
+
+
 
                 <div class="zoom-cluster">
 
+
+
                   <button id="tplZout" class="zoom-btn" title="Zoom Out (−)">−</button>
+
+
 
                   <button id="tplZfit" class="zoom-btn zoom-fit" title="Fit to View">Fit</button>
 
+
+
                   <button id="tplZ100" class="zoom-btn zoom-100" title="100% Actual Size">1:1</button>
+
+
 
                   <button id="tplZin" class="zoom-btn" title="Zoom In (+)">+</button>
 
+
+
                   <span class="zoom-readout" id="tplZoomReadout">100%</span>
+
+
 
                 </div>
 
+
+
               </div>
+
+
 
             </div>
 
+
+
           </div>
+
+
+
+
 
 
 
@@ -1860,17 +3735,35 @@
 
 
 
+
+
+
+
       </section>
+
+
+
+
 
 
 
       <!-- ============ BG Studio View ============ -->
 
+
+
       <section id="bgStudio" class="bg-studio-view" hidden>
+
+
 
         <div id="bgstudio-root"></div>
 
+
+
       </section>
+
+
+
+
 
 
 
@@ -1878,55 +3771,113 @@
 
 
 
+
+
+
+
   </div>
 
 
 
+
+
+
+
 </div>
+
+
+
+
 
 
 
 <!-- AI Lessons Modal -->
 
+
+
 <div class="modal-backdrop" id="lessonsModal" style="display:none;">
+
+
 
   <div class="modal-card">
 
+
+
     <div class="modal-header">
+
+
 
       <h3>
 
+
+
         <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="var(--accent)" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
+
+
 
         What Keeps Going Wrong (AI Lessons & Defect Census)
 
+
+
       </h3>
+
+
 
       <div style="display:flex; align-items:center; gap:10px;">
 
+
+
         <button class="btn" id="btnClearLessons" style="background:rgba(255,80,80,0.12); border:1px solid rgba(255,80,80,0.3); color:#ff6b6b; padding:5px 10px; font-size:12px; border-radius:6px; cursor:pointer; display:flex; align-items:center; gap:5px;">
+
+
 
           <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
 
+
+
           Clear Cache
+
+
 
         </button>
 
+
+
         <button class="icon-btn" id="closeLessonsModal" title="Close" style="color:var(--text-muted); font-size:16px;">✕</button>
+
+
 
       </div>
 
+
+
     </div>
+
+
 
     <div class="modal-body" id="lessonsContent">
 
+
+
       <div style="text-align:center; padding:30px; color:var(--text-dim);">Loading memory data...</div>
+
+
 
     </div>
 
+
+
   </div>
 
+
+
 </div>
+
+
+
+
+
+
 
 
 
@@ -1934,1171 +3885,2341 @@
 
 <!-- ===========================================================================
 
+
+
      SaaS Modals: Auth Gate, Pricing, bKash Payment & Support
+
+
 
      =========================================================================== -->
 
 
 
+
+
+
+
 <style id="saas-custom-styles">
+
+
 
   .saas-modal-card {
 
+
+
     background: #0f131c;
+
+
 
     border: 1px solid #1e2536;
 
+
+
     border-radius: 18px;
+
+
 
     width: 100%;
 
+
+
     max-width: 520px;
+
+
 
     box-shadow: 0 25px 70px rgba(0,0,0,0.8), 0 0 35px rgba(0,245,160,0.08);
 
+
+
     display: flex;
 
+
+
     flex-direction: column;
+
+
 
     overflow: hidden;
 
+
+
     animation: modalPop 0.22s cubic-bezier(0.16, 1, 0.3, 1);
 
+
+
   }
+
+
 
   .saas-modal-card.wide {
 
+
+
     max-width: 820px;
 
+
+
   }
+
+
 
   .saas-modal-head {
 
+
+
     padding: 20px 24px;
+
+
 
     border-bottom: 1px solid #1b2130;
 
+
+
     display: flex;
 
+
+
     align-items: center;
+
+
 
     justify-content: space-between;
 
+
+
   }
+
+
 
   .saas-modal-head h3 {
 
+
+
     font-size: 18px;
+
+
 
     font-weight: 700;
 
+
+
     color: #fff;
+
+
 
     display: flex;
 
+
+
     align-items: center;
+
+
 
     gap: 8px;
 
+
+
   }
+
+
 
   .saas-modal-body {
 
+
+
     padding: 24px;
+
+
 
     display: flex;
 
+
+
     flex-direction: column;
+
+
 
     gap: 18px;
 
+
+
     max-height: 80vh;
+
+
 
     overflow-y: auto;
 
+
+
   }
+
+
 
   .saas-tabs {
 
+
+
     display: flex;
 
+
+
     background: #090c12;
+
+
 
     border: 1px solid #1a202e;
 
+
+
     border-radius: 10px;
+
+
 
     padding: 4px;
 
+
+
     gap: 4px;
 
+
+
   }
+
+
 
   .saas-tab {
 
+
+
     flex: 1;
+
+
 
     padding: 9px 14px;
 
+
+
     border: none;
+
+
 
     background: transparent;
 
+
+
     color: #8492a6;
 
+
+
     font-weight: 600;
+
+
 
     font-size: 13px;
 
+
+
     border-radius: 7px;
+
+
 
     cursor: pointer;
 
+
+
     transition: all 0.2s;
 
+
+
   }
+
+
 
   .saas-tab.active {
 
+
+
     background: #19202f;
+
+
 
     color: #00f5a0;
 
+
+
     box-shadow: 0 2px 8px rgba(0,0,0,0.4);
 
+
+
   }
+
+
 
   .saas-form-group {
 
+
+
     display: flex;
+
+
 
     flex-direction: column;
 
+
+
     gap: 6px;
 
+
+
   }
+
+
 
   .saas-form-group label {
 
+
+
     font-size: 12px;
+
+
 
     font-weight: 600;
 
+
+
     color: #94a3b8;
 
+
+
   }
+
+
 
   .saas-input {
 
+
+
     background: #090c12;
+
+
 
     border: 1px solid #1f2739;
 
+
+
     border-radius: 9px;
+
+
 
     padding: 11px 14px;
 
+
+
     color: #fff;
 
+
+
     font-size: 14px;
+
+
 
     font-family: inherit;
 
+
+
     transition: border-color 0.2s;
 
+
+
   }
+
+
 
   .saas-input:focus {
 
+
+
     outline: none;
+
+
 
     border-color: #00f5a0;
 
+
+
     box-shadow: 0 0 10px rgba(0,245,160,0.15);
 
+
+
   }
+
+
 
   .saas-btn-submit {
 
+
+
     background: linear-gradient(135deg, #00f5a0, #00b4d8);
+
+
 
     color: #050508;
 
+
+
     font-weight: 700;
+
+
 
     font-size: 14px;
 
+
+
     padding: 12px;
+
+
 
     border: none;
 
+
+
     border-radius: 10px;
+
+
 
     cursor: pointer;
 
+
+
     transition: all 0.2s;
+
+
 
     display: flex;
 
+
+
     align-items: center;
+
+
 
     justify-content: center;
 
+
+
     gap: 8px;
 
+
+
   }
+
+
 
   .saas-btn-submit:hover {
 
+
+
     box-shadow: 0 0 20px rgba(0,245,160,0.35);
+
+
 
     transform: translateY(-1px);
 
+
+
   }
+
+
+
+
 
 
 
   /* Pricing Cards */
 
+
+
   .saas-pricing-grid {
+
+
 
     display: grid;
 
+
+
     grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+
+
 
     gap: 16px;
 
+
+
     margin-top: 6px;
 
+
+
   }
+
+
 
   .saas-plan-card {
 
+
+
     background: #111520;
+
+
 
     border: 1px solid #1f2637;
 
+
+
     border-radius: 14px;
+
+
 
     padding: 22px 18px;
 
+
+
     display: flex;
 
+
+
     flex-direction: column;
+
+
 
     gap: 14px;
 
+
+
     position: relative;
+
+
 
     transition: all 0.2s;
 
+
+
   }
+
+
 
   .saas-plan-card:hover {
 
+
+
     border-color: #2e394f;
+
+
 
     transform: translateY(-2px);
 
+
+
   }
+
+
 
   .saas-plan-card.highlight {
 
+
+
     background: linear-gradient(180deg, rgba(0,245,160,0.08) 0%, #111520 100%);
+
+
 
     border-color: rgba(0,245,160,0.5);
 
+
+
     box-shadow: 0 0 25px rgba(0,245,160,0.12);
 
+
+
   }
+
+
 
   .saas-plan-title {
 
+
+
     font-size: 16px;
+
+
 
     font-weight: 700;
 
+
+
     color: #fff;
 
+
+
   }
+
+
 
   .saas-plan-price {
 
+
+
     font-size: 28px;
+
+
 
     font-weight: 800;
 
+
+
     color: #fff;
+
+
 
     font-family: var(--font-mono, monospace);
 
+
+
   }
+
+
 
   .saas-plan-price span {
 
+
+
     font-size: 13px;
+
+
 
     color: #8492a6;
 
+
+
     font-weight: 500;
 
+
+
   }
+
+
 
   .saas-plan-features {
 
+
+
     list-style: none;
+
+
 
     padding: 0;
 
+
+
     margin: 0;
 
+
+
     display: flex;
+
+
 
     flex-direction: column;
 
+
+
     gap: 9px;
 
+
+
     font-size: 13px;
+
+
 
     color: #cbd5e1;
 
+
+
     flex: 1;
 
+
+
   }
+
+
 
   .saas-plan-features li {
 
+
+
     display: flex;
+
+
 
     align-items: center;
 
+
+
     gap: 8px;
 
+
+
   }
+
+
 
   .saas-plan-features li svg {
 
+
+
     color: #00f5a0;
+
+
 
     flex-shrink: 0;
 
+
+
   }
+
+
 
   .saas-plan-btn {
 
+
+
     padding: 11px;
+
+
 
     border-radius: 8px;
 
+
+
     font-weight: 700;
+
+
 
     font-size: 13px;
 
+
+
     cursor: pointer;
+
+
 
     border: 1px solid transparent;
 
+
+
     transition: all 0.2s;
+
+
 
     text-align: center;
 
+
+
   }
+
+
 
   .saas-plan-btn.primary {
 
+
+
     background: #00f5a0;
+
+
 
     color: #050508;
 
+
+
   }
+
+
 
   .saas-plan-btn.primary:hover {
 
+
+
     background: #00d98e;
+
+
 
     box-shadow: 0 0 16px rgba(0,245,160,0.4);
 
+
+
   }
+
+
 
   .saas-plan-btn.outline {
 
+
+
     background: transparent;
+
+
 
     border-color: #2b3548;
 
+
+
     color: #fff;
 
+
+
   }
+
+
 
   .saas-plan-btn.outline:hover {
 
+
+
     border-color: #00f5a0;
+
+
 
     background: rgba(0,245,160,0.06);
 
+
+
   }
+
+
+
+
 
 
 
   /* bKash Payment Box */
 
+
+
   .bkash-badge {
+
+
 
     background: #e2136e;
 
+
+
     color: #fff;
+
+
 
     padding: 4px 10px;
 
+
+
     border-radius: 6px;
 
+
+
     font-size: 12px;
+
+
 
     font-weight: 800;
 
+
+
     letter-spacing: 0.5px;
+
+
 
     display: inline-block;
 
+
+
   }
+
+
 
   .copy-box {
 
+
+
     background: #090c12;
+
+
 
     border: 1px dashed rgba(0,245,160,0.4);
 
+
+
     border-radius: 10px;
+
+
 
     padding: 12px 16px;
 
+
+
     display: flex;
+
+
 
     align-items: center;
 
+
+
     justify-content: space-between;
+
+
 
     font-family: var(--font-mono, monospace);
 
+
+
   }
+
+
 
   .support-strip {
 
+
+
     background: rgba(255,255,255,0.03);
+
+
 
     border: 1px solid #1c2230;
 
+
+
     border-radius: 10px;
+
+
 
     padding: 12px 16px;
 
+
+
     display: flex;
+
+
 
     align-items: center;
 
+
+
     justify-content: space-between;
+
+
 
     font-size: 12px;
 
+
+
     color: #94a3b8;
 
+
+
   }
+
+
 
 </style>
 
 
 
+
+
+
+
 <!-- 1. Mandatory Auth Modal -->
+
+
 
 <div class="modal-backdrop" id="authModal" style="display:none;">
 
 
 
+
+
+
+
 <script>
+
+
 
   (function() {
 
+
+
     try {
+
+
 
       if (!localStorage.getItem('lw_token') && !localStorage.getItem('lw_saved_ident')) {
 
+
+
         var m = document.getElementById('authModal');
+
+
 
         if (m) {
 
+
+
           m.style.display = 'flex';
+
+
 
           var c = document.getElementById('closeAuthModal');
 
+
+
           if (c) c.style.display = 'none';
+
+
 
         }
 
+
+
       }
+
+
 
     } catch(e) {}
 
+
+
   })();
+
+
 
 </script>
 
 
 
+
+
+
+
   <div class="saas-modal-card">
+
+
 
     <div class="saas-modal-head">
 
+
+
       <h3>
+
+
 
         <span style="display:inline-block; width:10px; height:10px; border-radius:50%; background:#00f5a0; box-shadow:0 0 8px #00f5a0;"></span>
 
+
+
         <span id="authModalTitle">Welcome to Linework AI</span>
+
+
 
       </h3>
 
+
+
       <button class="icon-btn" id="closeAuthModal" title="Close" style="color:var(--text-muted); font-size:16px;">✕</button>
+
+
 
     </div>
 
 
 
+
+
+
+
     <div class="saas-modal-body">
+
+
 
       <!-- Trial Incentive Header -->
 
+
+
       <div style="background:linear-gradient(135deg, rgba(0,245,160,0.1), rgba(0,180,216,0.1)); border:1px solid rgba(0,245,160,0.25); border-radius:10px; padding:12px 16px; font-size:13px; color:#e2e8f0; line-height:1.5;">
+
+
 
         🎉 <b>Free Trial Included:</b> Sign up now to get <b style="color:#00f5a0;">3 Full Icon Sets</b> in Redraw + <b style="color:#00b4d8;">10 Backgrounds</b> in BG Studio!
 
+
+
       </div>
+
+
+
+
 
 
 
       <!-- Auth Tabs -->
 
+
+
       <div class="saas-tabs">
+
+
 
         <button type="button" class="saas-tab active" id="tabRegister">Create Account</button>
 
+
+
         <button type="button" class="saas-tab" id="tabLogin">Sign In</button>
 
+
+
       </div>
+
+
+
+
 
 
 
       <!-- Register Form -->
 
+
+
       <form id="registerForm" style="display:flex; flex-direction:column; gap:12px;">
 
+
+
         <div class="saas-form-group">
+
+
 
           <label>Full Name</label>
 
+
+
           <input type="text" id="regName" class="saas-input" placeholder="e.g. Khanezaz" required>
+
+
 
         </div>
 
+
+
         <div class="saas-form-group">
+
+
 
           <label>Phone Number (11-digit mobile)</label>
 
+
+
           <input type="tel" id="regPhone" class="saas-input" placeholder="017XXXXXXXX" required>
+
+
 
         </div>
 
+
+
         <div class="saas-form-group">
+
+
 
           <label>WhatsApp Number</label>
 
+
+
           <input type="tel" id="regWhatsapp" class="saas-input" placeholder="017XXXXXXXX (for support & updates)">
 
+
+
         </div>
+
+
 
         <div class="saas-form-group">
 
+
+
           <label>Password</label>
+
+
 
           <input type="password" id="regPass" class="saas-input" placeholder="•••••••• (at least 4 characters)" required>
 
+
+
         </div>
+
+
 
         <button type="submit" class="saas-btn-submit" id="btnSubmitRegister">
 
+
+
           Start Free Trial (3 Icons + 10 BG)
+
+
 
         </button>
 
+
+
       </form>
+
+
+
+
 
 
 
       <!-- Login Form -->
 
+
+
       <form id="loginForm" style="display:none; flex-direction:column; gap:12px;">
 
+
+
         <div class="saas-form-group">
+
+
 
           <label>Phone Number or Username</label>
 
+
+
           <input type="text" id="loginIdent" class="saas-input" placeholder="017XXXXXXXX or username" required>
 
+
+
         </div>
+
+
 
         <div class="saas-form-group">
 
+
+
           <label>Password</label>
+
+
 
           <input type="password" id="loginPass" class="saas-input" placeholder="••••••••" required>
 
+
+
         </div>
+
+
 
         <button type="submit" class="saas-btn-submit" id="btnSubmitLogin">
 
+
+
           Sign In
+
+
 
         </button>
 
+
+
       </form>
+
+
+
+
 
 
 
       <!-- Support Footer -->
 
+
+
       <div class="support-strip">
+
+
 
         <span>Need help signing in?</span>
 
+
+
         <a href="https://wa.me/8801794590310" target="_blank" style="color:#00f5a0; text-decoration:none; font-weight:600;">
+
+
 
           💬 WhatsApp Support: 01794590310
 
+
+
         </a>
+
+
 
       </div>
 
+
+
     </div>
+
+
 
   </div>
 
+
+
 </div>
+
+
+
+
 
 
 
 <!-- 2. Pricing & Plans Modal -->
 
+
+
 <div class="modal-backdrop" id="pricingModal" style="display:none;">
+
+
 
   <div class="saas-modal-card wide">
 
+
+
     <div class="saas-modal-head">
+
+
 
       <div>
 
+
+
         <h3>⚡ Upgrade to Linework AI Pro</h3>
+
+
 
         <p style="font-size:12px; color:#8492a6; margin-top:2px;">
 
+
+
           Choose your plan for unlimited vector generation. Instant activation via bKash.
+
+
 
         </p>
 
+
+
       </div>
 
+
+
       <button class="icon-btn" id="closePricingModal" title="Close" style="color:var(--text-muted); font-size:16px;">✕</button>
+
+
 
     </div>
 
 
 
+
+
+
+
     <div class="saas-modal-body">
+
+
 
       <div class="saas-pricing-grid">
 
 
 
+
+
+
+
         <!-- Plan 1: Redraw Pro -->
+
+
 
         <div class="saas-plan-card" id="cardPlanRedraw">
 
+
+
           <div class="saas-plan-title">Icon Redraw Pro</div>
+
+
 
           <div class="saas-plan-price">৳ 300 <span>/ month</span></div>
 
+
+
           <ul class="saas-plan-features">
+
+
 
             <li><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg> <b>Unlimited</b> Icon Redraws</li>
 
+
+
             <li><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg> Full SVG & EPS Vector Exports</li>
+
+
 
             <li><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg> 4K Precision & Curve Guard</li>
 
+
+
             <li><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg> AI Defect Fixer & Audit</li>
+
+
 
           </ul>
 
+
+
           <button type="button" class="saas-plan-btn outline" onclick="window.LineworkAuth.openPaymentModal('redraw_pro', 300)">
+
+
 
             Choose Redraw Pro (৳300)
 
+
+
           </button>
 
+
+
         </div>
+
+
+
+
 
 
 
         <!-- Plan 2: BG Studio Pro -->
 
+
+
         <div class="saas-plan-card" id="cardPlanBg">
+
+
 
           <div class="saas-plan-title">BG Studio Pro</div>
 
+
+
           <div class="saas-plan-price">৳ 200 <span>/ month</span></div>
+
+
 
           <ul class="saas-plan-features">
 
+
+
             <li><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg> <b>Unlimited</b> Studio Backgrounds</li>
+
+
 
             <li><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg> All 188 Vector Patterns</li>
 
+
+
             <li><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg> 2,820 Ready Color Presets</li>
+
+
 
             <li><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg> ZIP Pack Bulk Downloads</li>
 
+
+
           </ul>
+
+
 
           <button type="button" class="saas-plan-btn outline" onclick="window.LineworkAuth.openPaymentModal('bg_pro', 200)">
 
+
+
             Choose BG Studio Pro (৳200)
+
+
 
           </button>
 
+
+
         </div>
+
+
+
+
 
 
 
         <!-- Plan 3: Bundle Pro (Highlighted) -->
 
+
+
         <div class="saas-plan-card highlight" id="cardPlanBundle">
+
+
 
           <div style="position:absolute; top:-10px; right:16px; background:#00f5a0; color:#050508; font-weight:800; font-size:10px; padding:3px 8px; border-radius:4px; text-transform:uppercase; letter-spacing:0.5px;">
 
+
+
             BEST VALUE
+
+
 
           </div>
 
+
+
           <div class="saas-plan-title" style="color:#00f5a0;">All-In-One Bundle Pro</div>
+
+
 
           <div class="saas-plan-price">৳ 500 <span>/ month</span></div>
 
+
+
           <ul class="saas-plan-features">
+
+
 
             <li><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg> <b>Everything Unlimited</b></li>
 
+
+
             <li><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg> Unlimited Icon Redraw Engine</li>
+
+
 
             <li><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg> Unlimited BG Studio & Packs</li>
 
+
+
             <li><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg> Priority Processing Queue</li>
+
+
 
             <li><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg> Commercial Use License</li>
 
+
+
           </ul>
+
+
 
           <button type="button" class="saas-plan-btn primary" onclick="window.LineworkAuth.openPaymentModal('bundle_pro', 500)">
 
+
+
             Choose Bundle Pro (৳500)
 
+
+
           </button>
+
+
 
         </div>
 
 
 
+
+
+
+
       </div>
+
+
+
+
 
 
 
       <!-- Emergency Support -->
 
+
+
       <div class="support-strip">
+
+
 
         <span>Emergency contact & Instant verification:</span>
 
+
+
         <a href="https://wa.me/8801794590310" target="_blank" style="color:#00f5a0; text-decoration:none; font-weight:700;">
+
+
 
           📞 01794590310 (Call / WhatsApp)
 
+
+
         </a>
+
+
 
       </div>
 
+
+
     </div>
+
+
 
   </div>
 
+
+
 </div>
+
+
+
+
 
 
 
 <!-- 3. bKash Payment Submission Modal -->
 
+
+
 <div class="modal-backdrop" id="paymentModal" style="display:none;">
+
+
 
   <div class="saas-modal-card">
 
+
+
     <div class="saas-modal-head">
+
+
 
       <h3>
 
+
+
         <span class="bkash-badge">bKash</span>
+
+
 
         <span>Send Money Verification</span>
 
+
+
       </h3>
 
+
+
       <button class="icon-btn" id="closePaymentModal" title="Close" style="color:var(--text-muted); font-size:16px;">✕</button>
+
+
 
     </div>
 
 
 
+
+
+
+
     <div class="saas-modal-body">
+
+
 
       <!-- bKash Instructions Card -->
 
+
+
       <div style="background:#131722; border:1px solid #232b3e; border-radius:12px; padding:16px; display:flex; flex-direction:column; gap:10px;">
 
+
+
         <div style="display:flex; justify-content:space-between; align-items:center;">
+
+
 
           <span style="font-size:13px; color:#8492a6;">Selected Plan:</span>
 
+
+
           <b id="payPlanName" style="color:#00f5a0;">All-In-One Bundle Pro</b>
 
+
+
         </div>
+
+
 
         <div style="display:flex; justify-content:space-between; align-items:center;">
 
+
+
           <span style="font-size:13px; color:#8492a6;">Total Amount:</span>
+
+
 
           <b id="payPlanAmount" style="font-size:18px; font-family:var(--font-mono, monospace); color:#fff;">৳ 500</b>
 
+
+
         </div>
 
+
+
         
+
+
 
         <hr style="border:none; border-top:1px solid #1c2230;">
 
 
 
+
+
+
+
         <div style="font-size:13px; color:#cbd5e1; line-height:1.6;">
+
+
 
           <b>বিকাশ পাঠানোর নিয়ম:</b><br>
 
+
+
           ১. বিকাশ অ্যাপের <b>Send Money</b> অপশনে যান।<br>
+
+
 
           ২. নিচে দেওয়া পার্সোনাল নম্বরে সঠিক পরিমাণ টাকা পাঠান।<br>
 
+
+
           ৩. সফল লেনদেনের পর TrxID ও প্রেরক নম্বর নিচে লিখে সাবমিট করুন।
 
+
+
         </div>
+
+
+
+
 
 
 
         <div class="copy-box">
 
+
+
           <div>
+
+
 
             <div style="font-size:11px; color:#8492a6;">bKash Personal Number:</div>
 
+
+
             <div style="font-size:18px; font-weight:800; color:#00f5a0; letter-spacing:1px;" id="bkashNumberDisplay">01794590310</div>
+
+
 
           </div>
 
+
+
           <button type="button" class="btn btn-sm btn-outline" onclick="navigator.clipboard.writeText('01794590310'); window.LineworkApp.toast('bKash number copied: 01794590310');">
+
+
 
             Copy
 
+
+
           </button>
+
+
 
         </div>
 
+
+
       </div>
+
+
+
+
 
 
 
       <!-- Payment Submission Form -->
 
+
+
       <form id="paymentSubmitForm" style="display:flex; flex-direction:column; gap:12px;">
 
+
+
         <input type="hidden" id="paySelectedPlan" value="bundle_pro">
+
+
 
         <input type="hidden" id="paySelectedAmount" value="500">
 
 
 
+
+
+
+
         <div class="saas-form-group">
+
+
 
           <label>Your bKash Sender Phone Number</label>
 
+
+
           <input type="tel" id="paySenderPhone" class="saas-input" placeholder="017XXXXXXXX (যে নম্বর থেকে পাঠিয়েছেন)" required>
+
+
 
         </div>
 
 
 
+
+
+
+
         <div class="saas-form-group">
+
+
 
           <label>Transaction ID (TrxID)</label>
 
+
+
           <input type="text" id="payTrxId" class="saas-input" placeholder="e.g. BL9A8B7C6" style="text-transform:uppercase; font-family:var(--font-mono, monospace);" required>
 
+
+
         </div>
+
+
+
+
 
 
 
         <div class="saas-form-group">
 
+
+
           <label>Payment Proof Screenshot (Optional)</label>
+
+
 
           <input type="file" id="payScreenshot" class="saas-input" accept="image/*">
 
+
+
         </div>
+
+
+
+
 
 
 
         <button type="submit" class="saas-btn-submit" id="btnSubmitPayment">
 
+
+
           Submit Payment for Verification
 
+
+
         </button>
+
+
 
       </form>
 
 
 
+
+
+
+
       <!-- Emergency Help -->
+
+
 
       <div class="support-strip">
 
+
+
         <span>জরুরী সহায়তা বা ইনস্ট্যান্ট এক্টিভেশন:</span>
+
+
 
         <a href="https://wa.me/8801794590310" target="_blank" style="color:#00f5a0; text-decoration:none; font-weight:700;">
 
+
+
           📞 01794590310
+
+
 
         </a>
 
+
+
       </div>
+
+
 
     </div>
 
+
+
   </div>
 
+
+
 </div>
+
+
+
+
 
 
 
 <!-- 4. Support Modal -->
 
+
+
 <div class="modal-backdrop" id="supportModal" style="display:none;">
+
+
 
   <div class="saas-modal-card">
 
+
+
     <div class="saas-modal-head">
+
+
 
       <h3>
 
+
+
         <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="#00f5a0" stroke-width="2.2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
+
+
 
         Customer Support & Assistance
 
+
+
       </h3>
 
+
+
       <button class="icon-btn" id="closeSupportModal" title="Close" style="color:var(--text-muted); font-size:16px;">✕</button>
+
+
 
     </div>
 
 
 
+
+
+
+
     <div class="saas-modal-body">
+
+
 
       <p style="font-size:13px; color:#cbd5e1; line-height:1.6;">
 
+
+
         যেকোনো সমস্যা, সাবস্ক্রিপশন এক্টিভেশন বা তথ্যের জন্য সরাসরি আমাদের সাথে কল বা হোয়াটসঅ্যাপে যোগাযোগ করুন:
+
+
 
       </p>
 
 
 
+
+
+
+
       <div class="copy-box">
+
+
 
         <div>
 
+
+
           <div style="font-size:11px; color:#8492a6;">Official Support & bKash Hotline:</div>
+
+
 
           <div style="font-size:20px; font-weight:800; color:#00f5a0; letter-spacing:1px;">01794590310</div>
 
+
+
         </div>
+
+
 
         <button type="button" class="btn btn-sm btn-outline" onclick="navigator.clipboard.writeText('01794590310'); window.LineworkApp.toast('Hotline copied: 01794590310');">
 
+
+
           Copy
+
+
 
         </button>
 
+
+
       </div>
+
+
+
+
 
 
 
       <div style="display:flex; flex-direction:column; gap:10px;">
 
+
+
         <a href="https://wa.me/8801794590310" target="_blank" class="saas-btn-submit" style="background:#25d366; color:#050508; text-decoration:none;">
+
+
 
           💬 Chat on WhatsApp (01794590310)
 
+
+
         </a>
+
+
 
         <a href="tel:01794590310" class="btn btn-outline" style="justify-content:center; padding:11px; text-decoration:none;">
 
+
+
           📞 Direct Phone Call (01794590310)
+
+
 
         </a>
 
+
+
       </div>
+
+
+
+
 
 
 
       <div style="font-size:12px; color:#8492a6; text-align:center;">
 
+
+
         Available 24/7 for account approval, troubleshooting, and vector assistance.
+
+
 
       </div>
 
+
+
     </div>
+
+
 
   </div>
 
+
+
 </div>
+
+
+
+
 
 
 
 <!-- 5. User Account / Profile Modal -->
 
+
+
 <div class="modal-backdrop" id="profileModal" style="display:none;">
+
+
 
   <div class="saas-modal-card">
 
+
+
     <div class="saas-modal-head">
+
+
 
       <h3>
 
+
+
         <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="#00f5a0" stroke-width="2.2"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+
+
 
         My Account
 
+
+
       </h3>
+
+
 
       <button class="icon-btn" id="closeProfileModal" title="Close" style="color:var(--text-muted); font-size:16px;">✕</button>
 
+
+
     </div>
+
+
+
+
 
 
 
     <div class="saas-modal-body">
 
+
+
       <div style="display:flex; align-items:center; gap:14px;">
+
+
 
         <div style="width:52px; height:52px; border-radius:50%; background:linear-gradient(135deg, #00f5a0, #00b4d8); display:flex; align-items:center; justify-content:center; color:#050508; font-weight:800; font-size:20px;" id="profileAvatarBig">
 
+
+
           U
 
+
+
         </div>
+
+
 
         <div>
 
+
+
           <h4 id="profileName" style="font-size:16px; font-weight:700; color:#fff;">User</h4>
+
+
 
           <p id="profilePhone" style="font-size:13px; color:#8492a6; font-family:var(--font-mono, monospace);">017XXXXXXXX</p>
 
+
+
         </div>
 
+
+
       </div>
+
+
+
+
 
 
 
       <div style="background:#131722; border:1px solid #232b3e; border-radius:12px; padding:16px; display:flex; flex-direction:column; gap:8px;">
 
+
+
         <div style="display:flex; justify-content:space-between; align-items:center;">
+
+
 
           <span style="font-size:13px; color:#8492a6;">Subscription Plan:</span>
 
+
+
           <span class="badge" id="profilePlanBadge" style="background:rgba(0,245,160,0.12); color:#00f5a0; border:1px solid rgba(0,245,160,0.3); font-weight:700; padding:4px 8px; border-radius:6px; font-size:12px;">Free Trial</span>
+
+
 
         </div>
 
+
+
         <div style="display:flex; justify-content:space-between; align-items:center;">
+
+
 
           <span style="font-size:13px; color:#8492a6;">Icon Redraw Quota:</span>
 
+
+
           <b id="profileQuotaRedraw" style="font-family:var(--font-mono, monospace); color:#fff;">0 / 3 Sets Used</b>
 
+
+
         </div>
+
+
 
         <div style="display:flex; justify-content:space-between; align-items:center;">
 
+
+
           <span style="font-size:13px; color:#8492a6;">BG Studio Quota:</span>
+
+
 
           <b id="profileQuotaBg" style="font-family:var(--font-mono, monospace); color:#fff;">0 / 10 Used</b>
 
+
+
         </div>
+
+
 
         <div style="display:flex; justify-content:space-between; align-items:center;" id="profileExpiryRow">
 
+
+
           <span style="font-size:13px; color:#8492a6;">Plan Expiry:</span>
+
+
 
           <span id="profileExpiryDate" style="font-family:var(--font-mono, monospace); font-size:12px; color:#8492a6;">--</span>
 
+
+
         </div>
 
+
+
       </div>
+
+
+
+
 
 
 
       <div style="display:flex; gap:10px;">
 
+
+
         <button type="button" class="saas-btn-submit" style="flex:1;" onclick="window.LineworkAuth.showPricing()">
+
+
 
           ⚡ Upgrade Subscription
 
+
+
         </button>
+
+
 
         <button type="button" class="btn btn-outline" style="border-color:#ff5252; color:#ff5252;" onclick="window.LineworkAuth.logout()">
 
+
+
           Sign Out
+
+
 
         </button>
 
+
+
       </div>
+
+
 
     </div>
 
+
+
   </div>
+
+
 
 </div>
 
 
 
+
+
+
+
 <!-- Notification Toast -->
+
+
 
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
 
 
+
+
+
+
 <!-- Application Script -->
 
-<script src="/static/app.js?v=3.8.0"></script>
+
+
+<script src="/static/app.js?v=3.9.0"></script>
+
+
 
 </body>
 
+
+
 </html>
+
+
 

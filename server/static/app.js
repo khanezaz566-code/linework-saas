@@ -1598,6 +1598,8 @@
     font_family: 'bebas',
     title_highlight: 'pill',
     showcase_shape: 'card',
+    icon_layout: 'auto_grid',
+    artboard_margin: 0.06,
   };
 
   let activeDesignFamily = 'all';
@@ -1737,6 +1739,10 @@
       font_family: S.template.font_family || 'bebas',
       title_highlight: S.template.title_highlight || 'pill',
       showcase_shape: S.template.showcase_shape || 'card',
+      icon_layout: S.template.icon_layout || 'auto_grid',
+      artboard_margin: S.template.artboard_margin !== undefined ? S.template.artboard_margin : 0.06,
+      icon_layout: S.template.icon_layout || 'auto_grid',
+      artboard_margin: S.template.artboard_margin !== undefined ? S.template.artboard_margin : 0.06,
       title: $('#tplTitle') ? $('#tplTitle').value : 'TECHNOLOGY',
       subtitle: $('#tplSubtitle') ? $('#tplSubtitle').value : 'Editable Line Icons',
       count: $('#tplCount') ? $('#tplCount').value : '24',
@@ -1814,6 +1820,16 @@
     if (item.showcase_shape) {
       S.template.showcase_shape = item.showcase_shape;
       $$('#tplShowcaseShapeSeg button').forEach(b => b.classList.toggle('on', b.dataset.v === item.showcase_shape));
+    }
+    if (item.icon_layout) {
+      S.template.icon_layout = item.icon_layout;
+      $$('#tplIconLayoutSeg button').forEach(b => b.classList.toggle('on', b.dataset.v === item.icon_layout));
+    }
+    if (item.artboard_margin !== undefined && $('#tplMarginRange')) {
+      S.template.artboard_margin = item.artboard_margin;
+      $('#tplMarginRange').value = item.artboard_margin;
+      const pct = Math.round(item.artboard_margin * 100);
+      if ($('#tplMarginVal')) $('#tplMarginVal').textContent = pct + '% ' + (pct === 6 ? '(Stock Standard)' : (pct < 6 ? '(Compact)' : '(Relaxed)'));
     }
 
     $$('#presetList .preset-card').forEach(c => c.classList.remove('active'));
@@ -1967,6 +1983,10 @@
       font_family: S.template.font_family || 'bebas',
       title_highlight: S.template.title_highlight || 'pill',
       showcase_shape: S.template.showcase_shape || 'card',
+      icon_layout: S.template.icon_layout || 'auto_grid',
+      artboard_margin: S.template.artboard_margin !== undefined ? S.template.artboard_margin : 0.06,
+      icon_layout: S.template.icon_layout || 'auto_grid',
+      artboard_margin: S.template.artboard_margin !== undefined ? S.template.artboard_margin : 0.06,
     });
 
     // Update download links
@@ -2192,6 +2212,28 @@
       toast(`Showcase design: ${b.textContent}`);
     });
   });
+
+  // Icon sheet auto-grid & layout switcher
+  $$('#tplIconLayoutSeg button').forEach(b => {
+    b.addEventListener('click', () => {
+      $$('#tplIconLayoutSeg button').forEach(x => x.classList.toggle('on', x === b));
+      S.template.icon_layout = b.dataset.v;
+      scheduleTemplateUpdate();
+      toast(`Icon layout: ${b.textContent}`);
+    });
+  });
+
+  // Artboard edge margin slider
+  const tplMarginRange = $('#tplMarginRange');
+  const tplMarginVal = $('#tplMarginVal');
+  if (tplMarginRange && tplMarginVal) {
+    tplMarginRange.addEventListener('input', () => {
+      const pct = Math.round(tplMarginRange.value * 100);
+      tplMarginVal.textContent = pct + '% ' + (pct === 6 ? '(Stock Standard)' : (pct < 6 ? '(Compact)' : '(Relaxed)'));
+      S.template.artboard_margin = parseFloat(tplMarginRange.value);
+      scheduleTemplateUpdate();
+    });
+  }
 
   // Zoom buttons
   const tplZin = $('#tplZin');
