@@ -1575,9 +1575,9 @@
     preset: 'vectuz_yellow',
     panel_pos: 'left',
     banner_shape: 'square_solid',
-    title_highlight: 'solid_square',
+    title_highlight: 'offset_shadow_box',
     showcase_shape: 'square_box',
-    decor_element: 'artboard_square_box',
+    decor_element: 'cell_rounded_cards',
     shape_accent: '#181B24',
     layout: 'landscape_16_9',
     banner_text: '#1E1E1E',
@@ -1969,9 +1969,13 @@
   function formatStockTitle(rawName) {
     if (!rawName) return 'TECHNOLOGY';
     let clean = rawName.replace(/\.[^/.]+$/, '').replace(/[-_]+/g, ' ');
-    clean = clean.replace(/\b(icons|icon|set|pack|collection|sheet|vector)\b/gi, '').trim();
-    if (!clean) clean = 'TECHNOLOGY';
-    return clean.toUpperCase();
+    clean = clean.replace(/\b[0-9a-f]{6,}\b/gi, ' ');
+    clean = clean.replace(/\b\d+[a-z]*\b/gi, ' ');
+    clean = clean.replace(/\b(icons|icon|set|pack|collection|sheet|vector|line|outline|stroke|style|image|img|copy|final|new)\b/gi, ' ');
+    clean = clean.replace(/\s+/g, ' ').trim();
+    if (!clean) return 'TECHNOLOGY';
+    const words = clean.split(' ').slice(0, 3);
+    return words.join(' ').toUpperCase();
   }
 
   function openTemplateStudio() {
@@ -2285,20 +2289,137 @@
     });
   });
 
+  // 1-Click Pro Master Agency Templates
+  const MASTER_TEMPLATES = {
+    adobe_gold: {
+      name: 'Adobe Gold Pro',
+      preset: 'vectuz_yellow',
+      panel_pos: 'left',
+      banner_shape: 'square_solid',
+      title_highlight: 'offset_shadow_box',
+      showcase_shape: 'square_box',
+      decor_element: 'cell_rounded_cards',
+      banner_bg: '#F5B800',
+      banner_text: '#1E1E1E',
+      shape_accent: '#181B24',
+      highlight_bg: '#181B24',
+      highlight_stroke: '#FFFFFF',
+      artboard_bg: 'checkered',
+      stroke: '#181B24',
+      highlight_mode: 'hero_1',
+      font_family: 'bebas',
+    },
+    envato_indigo: {
+      name: 'Envato Indigo Studio',
+      preset: 'envato_indigo',
+      panel_pos: 'left',
+      banner_shape: 'floating_card',
+      title_highlight: 'capsule_pill',
+      showcase_shape: 'glass_panel',
+      decor_element: 'cell_rounded_cards',
+      banner_bg: '#2563EB',
+      banner_text: '#FFFFFF',
+      shape_accent: '#0F172A',
+      highlight_bg: '#0F172A',
+      highlight_stroke: '#FFFFFF',
+      artboard_bg: '#F8FAFC',
+      stroke: '#0F172A',
+      highlight_mode: 'mini_4',
+      font_family: 'montserrat',
+    },
+    cyber_hud: {
+      name: 'Cyber HUD Neon',
+      preset: 'midnight_dark',
+      panel_pos: 'left',
+      banner_shape: 'notched_cyber',
+      title_highlight: 'cut_corner_tag',
+      showcase_shape: 'hud_corners_box',
+      decor_element: 'cell_corner_ticks',
+      banner_bg: '#18181B',
+      banner_text: '#FFFFFF',
+      shape_accent: '#00F5A0',
+      highlight_bg: '#09090B',
+      highlight_stroke: '#00F5A0',
+      artboard_bg: '#0F172A',
+      stroke: '#F4F4F5',
+      highlight_mode: 'hero_1',
+      font_family: 'oswald',
+    },
+    freepik_wave: {
+      name: 'Emerald Wave Studio',
+      preset: 'freepik_emerald',
+      panel_pos: 'left',
+      banner_shape: 'curved_wave',
+      title_highlight: 'solid_rounded',
+      showcase_shape: 'squircle_box',
+      decor_element: 'cell_soft_tint',
+      banner_bg: '#10B981',
+      banner_text: '#FFFFFF',
+      shape_accent: '#064E3B',
+      highlight_bg: '#064E3B',
+      highlight_stroke: '#FFFFFF',
+      artboard_bg: 'checkered',
+      stroke: '#111827',
+      highlight_mode: 'hero_1',
+      font_family: 'bebas',
+    },
+    coral_slash: {
+      name: 'Coral Split Pro',
+      preset: 'creative_coral',
+      panel_pos: 'left',
+      banner_shape: 'diagonal_slash',
+      title_highlight: 'offset_shadow_box',
+      showcase_shape: 'offset_3d_box',
+      decor_element: 'cell_rounded_cards',
+      banner_bg: '#FF5A36',
+      banner_text: '#FFFFFF',
+      shape_accent: '#18181B',
+      highlight_bg: '#18181B',
+      highlight_stroke: '#FFFFFF',
+      artboard_bg: 'checkered',
+      stroke: '#18181B',
+      highlight_mode: 'hero_1',
+      font_family: 'bebas',
+    },
+    editorial_top: {
+      name: 'Royal Top Header',
+      preset: 'royal_purple',
+      panel_pos: 'top',
+      banner_shape: 'square_solid',
+      title_highlight: 'capsule_pill',
+      showcase_shape: 'rounded_box',
+      decor_element: 'cell_rounded_cards',
+      banner_bg: '#7C3AED',
+      banner_text: '#FFFFFF',
+      shape_accent: '#1E1B4B',
+      highlight_bg: '#1E1B4B',
+      highlight_stroke: '#FFFFFF',
+      artboard_bg: 'checkered',
+      stroke: '#1E1B4B',
+      highlight_mode: 'hero_1',
+      font_family: 'montserrat',
+    },
+  };
+
+  $$('#masterTemplateStrip .master-tpl-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const key = btn.dataset.master;
+      const tpl = MASTER_TEMPLATES[key];
+      if (!tpl) return;
+      $$('#masterTemplateStrip .master-tpl-btn').forEach(b => {
+        b.classList.toggle('active', b === btn);
+        b.style.borderColor = (b === btn) ? 'var(--accent)' : '';
+      });
+      applySavedTemplate(tpl);
+    });
+  });
+
   // Reset to Clean Square Box button
   const btnResetMakerDefault = $('#btnResetMakerDefault');
   if (btnResetMakerDefault) {
     btnResetMakerDefault.addEventListener('click', () => {
-      S.template.design = 'modular_maker';
-      S.template.panel_pos = 'left';
-      S.template.banner_shape = 'square_solid';
-      S.template.title_highlight = 'solid_square';
-      S.template.showcase_shape = 'square_box';
-      S.template.decor_element = 'artboard_square_box';
-      $$('#tplPanelPosSeg button').forEach(b => b.classList.toggle('on', b.dataset.v === 'left'));
-      renderMakerElements(activeMakerCat);
-      scheduleTemplateUpdate();
-      toast('Reset to Clean Square Box Base!');
+      applySavedTemplate(MASTER_TEMPLATES.adobe_gold);
+      toast('Reset to Adobe Gold Pro Master Template!');
     });
   }
 

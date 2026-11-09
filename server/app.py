@@ -518,6 +518,40 @@ def _update_live_iou(job: dict):
         job["iou"] = round(float(np.mean(done_ious)), 4)
 
 
+def _harmonize_sheet_strokes_fast(job, d, jobs) -> int:
+    """Zero-RAM mathematical stroke width unification across all icons on a sheet."""
+    ok = [k for k, _, _ in jobs if (d / f"icon_local_{k}.json").exists()]
+    if not ok:
+        return 0
+    offs = {k: off for k, _, off in jobs}
+    mets = {k: job["icons"][k].get("metrics") or {} for k in ok}
+    models = {}
+    all_ws = []
+    for k in ok:
+        try:
+            m = Model.from_json((d / f"icon_local_{k}.json").read_text())
+            models[k] = m
+            for p in m.paths:
+                if p.w > 0:
+                    all_ws.append(float(p.w))
+        except Exception:
+            pass
+    if not all_ws:
+        return 0
+    sheet_med_w = round(float(np.median(all_ws)), 2)
+    changed = 0
+    for k, m in models.items():
+        mod_changed = False
+        for p in m.paths:
+            if abs(float(p.w) - sheet_med_w) > 0.05:
+                p.w = sheet_med_w
+                mod_changed = True
+        if mod_changed:
+            changed += 1
+            _store_icon(job, d, k, m.to_json(), offs[k], mets[k])
+    return changed
+
+
 def _set_pass(job_id, d, jobs, order):
     job = JOBS.get(job_id)
     if job is None or is_job_cancelled(job_id):
@@ -534,9 +568,11 @@ def _set_pass(job_id, d, jobs, order):
             for k, m0, m1 in zip(ok, models, new):
                 if m1 is not m0:
                     _store_icon(job, d, k, m1.to_json(), offs[k], mets[k])
-            job["set_pass"] = dict(weak=[], widths_changed=rep["changed"], classes=rep["classes"])
+            fast_chg = _harmonize_sheet_strokes_fast(job, d, jobs)
+            job["set_pass"] = dict(weak=[], widths_changed=max(rep["changed"], fast_chg), classes=1)
     else:
-        job["set_pass"] = dict(weak=[], widths_changed=0, classes=1)
+        fast_chg = _harmonize_sheet_strokes_fast(job, d, jobs)
+        job["set_pass"] = dict(weak=[], widths_changed=fast_chg, classes=1)
     _finish_composite(job_id)
 
 

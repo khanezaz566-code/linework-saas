@@ -305,6 +305,45 @@ def resolve_config(cfg: dict | None) -> dict[str, Any]:
 def sanitize_text(s: str) -> str:
     return str(s).replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace('"', "&quot;")
 
+
+def _clean_template_title(raw_title: str) -> str:
+    """Clean raw filename/hash artifacts from template titles so covers always look agency-grade."""
+    if not raw_title:
+        return "VECTOR ICONS"
+    s = str(raw_title).strip()
+    # Replace separators with spaces
+    s = re.sub(r'[_\-\./\\]+', ' ', s)
+    tokens = s.split()
+    cleaned = []
+    filler = {
+        "CREATE", "MAKE", "GENERATE", "ICON", "ICONS", "SET", "PACK", "SHEET",
+        "COLLECTION", "CO", "LINE", "OUTLINE", "VECTOR", "STOCK", "IMAGE",
+        "FILE", "RAW", "SCREENSHOT", "SAMPLE", "DEMO", "PNG", "JPG", "JPEG", "SVG"
+    }
+    for tok in tokens:
+        up = tok.upper()
+        # Strip hex hashes (e.g. D2A691F6, CF35B945) or resolution/version tags (2X, 2K, 4K, 1024, V1)
+        if re.fullmatch(r'[0-9A-F]{6,}', up):
+            continue
+        if re.fullmatch(r'\d+[A-Z]*|[A-Z]*\d+[A-Z]*', up):
+            continue
+        if len(up) <= 1:
+            continue
+        cleaned.append(up)
+    # Remove generic filler words if we have meaningful subject words
+    subject = [w for w in cleaned if w not in filler]
+    final_words = subject if subject else [w for w in cleaned if w not in ("CREATE", "MAKE", "CO", "PNG", "JPG")]
+    if not final_words:
+        return "VECTOR ICONS"
+    # Keep at most 3 punchy words so the cover headline is always bold and legible
+    if len(final_words) > 3 and final_words[0] == "MINIMAL":
+        final_words = final_words[1:4]
+    else:
+        final_words = final_words[:3]
+    res = " ".join(final_words)
+    return res if res else "VECTOR ICONS"
+
+
 def hex_to_rgb(hex_code: str) -> tuple[float, float, float]:
     h = hex_code.strip().lstrip("#")
     if len(h) == 3:
@@ -330,10 +369,19 @@ def _extract_icon_paths(model: Model, box: list[float] | tuple[float, ...], pad:
             matched.append(p)
     return matched
 
-def _render_paths_svg(paths: list[Path], stroke: str, stroke_scale: float, scale: float, ox: float, oy: float) -> str:
+def _render_paths_svg(
+    paths: list[Path], stroke: str, stroke_scale: float,
+    scale: float, ox: float, oy: float,
+    target_screen_sw: float | None = None
+) -> str:
     elems = []
+    safe_scale = max(scale, 1e-4)
     for p in paths:
-        sw = max(0.5, p.w * stroke_scale * scale)
+        if target_screen_sw is not None and target_screen_sw > 0:
+            # 100% uniform screen-space stroke thickness across all icons regardless of per-icon scale
+            sw = max(0.3, target_screen_sw / safe_scale)
+        else:
+            sw = max(0.5, p.w * stroke_scale)
         d = p.d()
         elems.append(
             f'<path d="{d}" stroke="{stroke}" stroke-width="{sw:.2f}" '
@@ -348,23 +396,23 @@ def _calc_dims(layout: str, mW: float, mH: float) -> tuple[int, int, int]:
         banner_w = max(380, int(round(H * 0.35)))
         W = banner_w + int(max(400, mW))
     elif layout == "square":
-        W, H, banner_w = 2400, 2400, 640
+        W, H, banner_w = 2400, 2400, 680
     elif layout == "landscape_4_3":
-        W, H, banner_w = 2400, 1800, 620
+        W, H, banner_w = 2400, 1800, 660
     elif layout == "landscape_16_10":
-        W, H, banner_w = 1920, 1200, 480
+        W, H, banner_w = 1920, 1200, 520
     else:  # landscape_16_9 (Default 4K Ultra-HD presentation: 3840 x 2160)
-        W, H, banner_w = 3840, 2160, 960
+        W, H, banner_w = 3840, 2160, 1020
     return W, H, banner_w
 
 def _get_checkered_defs(W: int) -> tuple[str, str]:
-    chk_size = max(16, int(round(W / 120)))
+    chk_size = max(18, int(round(W / 110)))
     chk_half = chk_size / 2
     defs = f"""
     <pattern id="stockCheckeredPattern" width="{chk_size}" height="{chk_size}" patternUnits="userSpaceOnUse">
       <rect width="{chk_size}" height="{chk_size}" fill="#ffffff"/>
-      <rect x="0" y="0" width="{chk_half}" height="{chk_half}" fill="#f1f3f6"/>
-      <rect x="{chk_half}" y="{chk_half}" width="{chk_half}" height="{chk_half}" fill="#f1f3f6"/>
+      <rect x="0" y="0" width="{chk_half}" height="{chk_half}" fill="#f3f5f8"/>
+      <rect x="{chk_half}" y="{chk_half}" width="{chk_half}" height="{chk_half}" fill="#f3f5f8"/>
     </pattern>"""
     return defs, 'url(#stockCheckeredPattern)'
 
@@ -407,57 +455,81 @@ def _render_artboard_outer_frame(
     bw = sheet_w - pad_x * 0.90
     bh = sheet_h - pad_y * 0.90
     frame_col = accent if accent else banner_bg
+    clean_t = sanitize_text(_clean_template_title(title))
+    meta_fs = max(12, int(round(sheet_h * 0.0082)))
+
+    sr, sg, sb = hex_to_rgb(stroke_color)
+    stk_txt = "#09090B" if (0.299 * sr + 0.587 * sg + 0.114 * sb) > 0.55 else "#FFFFFF"
+    fr, fg, fb = hex_to_rgb(frame_col)
+    frm_txt = "#09090B" if (0.299 * fr + 0.587 * fg + 0.114 * fb) > 0.55 else "#FFFFFF"
+
+    # Common top & bottom microstock editorial metadata strip inside the artboard frame
+    header_strip = f"""
+        <g opacity="0.72">
+          <rect x="{bx+24:.1f}" y="{by-meta_fs-6:.1f}" width="{len(clean_t)*meta_fs*0.72 + 160:.1f}" height="{meta_fs*2.0:.1f}" rx="6" fill="{stroke_color}"/>
+          <text x="{bx+42:.1f}" y="{by+meta_fs*0.38:.1f}" font-size="{meta_fs}" font-weight="800" letter-spacing="2.5" fill="{stk_txt}" class="mono">{clean_t} // {sanitize_text(count_val)} SET</text>
+          <rect x="{bx+bw-290:.1f}" y="{by-meta_fs-6:.1f}" width="266" height="{meta_fs*2.0:.1f}" rx="6" fill="{frame_col}"/>
+          <text x="{bx+bw-157:.1f}" y="{by+meta_fs*0.38:.1f}" font-size="{meta_fs}" font-weight="800" letter-spacing="2" fill="{frm_txt}" text-anchor="middle" class="mono">100% UNIFORM VECTOR</text>
+        </g>"""
 
     if decor == "artboard_double_frame":
         return f"""
-      <g id="artboardDoubleFrame" opacity="0.85">
-        <rect x="{bx:.1f}" y="{by:.1f}" width="{bw:.1f}" height="{bh:.1f}" rx="8" fill="none" stroke="{frame_col}" stroke-width="4"/>
-        <rect x="{bx+14:.1f}" y="{by+14:.1f}" width="{bw-28:.1f}" height="{bh-28:.1f}" rx="4" fill="none" stroke="{stroke_color}" stroke-opacity="0.28" stroke-width="1.5" stroke-dasharray="12,6"/>
+      <g id="artboardDoubleFrame" opacity="0.92">
+        <rect x="{bx:.1f}" y="{by:.1f}" width="{bw:.1f}" height="{bh:.1f}" rx="14" fill="none" stroke="{frame_col}" stroke-width="4.5"/>
+        <rect x="{bx+14:.1f}" y="{by+14:.1f}" width="{bw-28:.1f}" height="{bh-28:.1f}" rx="8" fill="none" stroke="{stroke_color}" stroke-opacity="0.24" stroke-width="1.8" stroke-dasharray="12,6"/>
+        {header_strip}
       </g>"""
     elif decor == "artboard_corner_ticks":
-        t = 28
+        t = 36
         return f"""
-      <g id="artboardCornerTicks" stroke="{stroke_color}" stroke-width="2.5" opacity="0.55" fill="none">
-        <rect x="{bx:.1f}" y="{by:.1f}" width="{bw:.1f}" height="{bh:.1f}" stroke-opacity="0.18" stroke-width="1.5"/>
-        <path d="M{bx-12:.1f},{by:.1f} h{t} M{bx:.1f},{by-12:.1f} v{t}"/>
-        <path d="M{bx+bw-t+12:.1f},{by:.1f} h{t} M{bx+bw:.1f},{by-12:.1f} v{t}"/>
-        <path d="M{bx-12:.1f},{by+bh:.1f} h{t} M{bx:.1f},{by+bh-t+12:.1f} v{t}"/>
-        <path d="M{bx+bw-t+12:.1f},{by+bh:.1f} h{t} M{bx+bw:.1f},{by+bh-t+12:.1f} v{t}"/>
+      <g id="artboardCornerTicks" fill="none">
+        <rect x="{bx:.1f}" y="{by:.1f}" width="{bw:.1f}" height="{bh:.1f}" rx="8" stroke="{stroke_color}" stroke-opacity="0.18" stroke-width="2"/>
+        <g stroke="{stroke_color}" stroke-width="3.5" opacity="0.65">
+          <path d="M{bx-14:.1f},{by:.1f} h{t} M{bx:.1f},{by-14:.1f} v{t}"/>
+          <path d="M{bx+bw-t+14:.1f},{by:.1f} h{t} M{bx+bw:.1f},{by-14:.1f} v{t}"/>
+          <path d="M{bx-14:.1f},{by+bh:.1f} h{t} M{bx:.1f},{by+bh-t+14:.1f} v{t}"/>
+          <path d="M{bx+bw-t+14:.1f},{by+bh:.1f} h{t} M{bx+bw:.1f},{by+bh-t+14:.1f} v{t}"/>
+        </g>
+        {header_strip}
       </g>"""
     elif decor == "artboard_hud_corners":
-        L = 48
+        L = 56
         return f"""
       <g id="artboardHudCorners" fill="none">
-        <rect x="{bx:.1f}" y="{by:.1f}" width="{bw:.1f}" height="{bh:.1f}" stroke="{stroke_color}" stroke-opacity="0.15" stroke-width="1.5"/>
-        <path d="M{bx:.1f},{by+L:.1f} V{by:.1f} H{bx+L:.1f}" stroke="{frame_col}" stroke-width="6"/>
-        <path d="M{bx+bw-L:.1f},{by:.1f} H{bx+bw:.1f} V{by+L:.1f}" stroke="{frame_col}" stroke-width="6"/>
-        <path d="M{bx:.1f},{by+bh-L:.1f} V{by+bh:.1f} H{bx+L:.1f}" stroke="{frame_col}" stroke-width="6"/>
-        <path d="M{bx+bw-L:.1f},{by+bh:.1f} H{bx+bw:.1f} V{by+bh-L:.1f}" stroke="{frame_col}" stroke-width="6"/>
+        <rect x="{bx:.1f}" y="{by:.1f}" width="{bw:.1f}" height="{bh:.1f}" stroke="{stroke_color}" stroke-opacity="0.16" stroke-width="2"/>
+        <path d="M{bx:.1f},{by+L:.1f} V{by:.1f} H{bx+L:.1f}" stroke="{frame_col}" stroke-width="7"/>
+        <path d="M{bx+bw-L:.1f},{by:.1f} H{bx+bw:.1f} V{by+L:.1f}" stroke="{frame_col}" stroke-width="7"/>
+        <path d="M{bx:.1f},{by+bh-L:.1f} V{by+bh:.1f} H{bx+L:.1f}" stroke="{frame_col}" stroke-width="7"/>
+        <path d="M{bx+bw-L:.1f},{by+bh:.1f} H{bx+bw:.1f} V{by+bh-L:.1f}" stroke="{frame_col}" stroke-width="7"/>
+        {header_strip}
       </g>"""
     elif decor == "artboard_dashed_frame":
         return f"""
       <g id="artboardDashedFrame">
-        <rect x="{bx:.1f}" y="{by:.1f}" width="{bw:.1f}" height="{bh:.1f}" rx="12" fill="none" stroke="{stroke_color}" stroke-opacity="0.35" stroke-width="3" stroke-dasharray="16,10"/>
+        <rect x="{bx:.1f}" y="{by:.1f}" width="{bw:.1f}" height="{bh:.1f}" rx="16" fill="none" stroke="{stroke_color}" stroke-opacity="0.32" stroke-width="3.5" stroke-dasharray="16,10"/>
+        {header_strip}
       </g>"""
     elif decor == "artboard_header_footer":
         return f"""
       <g id="artboardHeaderFooter">
-        <rect x="{bx:.1f}" y="{by:.1f}" width="{bw:.1f}" height="{bh:.1f}" rx="8" fill="none" stroke="{stroke_color}" stroke-opacity="0.22" stroke-width="2"/>
-        <line x1="{bx+24:.1f}" y1="{by+42:.1f}" x2="{bx+bw-24:.1f}" y2="{by+42:.1f}" stroke="{stroke_color}" stroke-opacity="0.18" stroke-width="1.5"/>
-        <text x="{bx+28:.1f}" y="{by+28:.1f}" font-size="13" font-weight="800" letter-spacing="2" fill="{stroke_color}" opacity="0.55" class="mono">{sanitize_text(title)} // {sanitize_text(count_val)} ICONS</text>
-        <text x="{bx+bw-28:.1f}" y="{by+28:.1f}" font-size="13" font-weight="800" letter-spacing="2" fill="{stroke_color}" opacity="0.55" text-anchor="end" class="mono">100% VECTOR GRID</text>
-        <line x1="{bx+24:.1f}" y1="{by+bh-38:.1f}" x2="{bx+bw-24:.1f}" y2="{by+bh-38:.1f}" stroke="{stroke_color}" stroke-opacity="0.18" stroke-width="1.5"/>
-        <text x="{bx+bw/2:.1f}" y="{by+bh-14:.1f}" font-size="12" font-weight="700" letter-spacing="3" fill="{stroke_color}" opacity="0.5" text-anchor="middle" class="mono">PIXEL PERFECT &#8226; EDITABLE STROKE &#8226; SCALABLE</text>
+        <rect x="{bx:.1f}" y="{by:.1f}" width="{bw:.1f}" height="{bh:.1f}" rx="12" fill="none" stroke="{stroke_color}" stroke-opacity="0.22" stroke-width="2.5"/>
+        <line x1="{bx+24:.1f}" y1="{by+48:.1f}" x2="{bx+bw-24:.1f}" y2="{by+48:.1f}" stroke="{stroke_color}" stroke-opacity="0.16" stroke-width="1.8"/>
+        <text x="{bx+32:.1f}" y="{by+32:.1f}" font-size="{meta_fs}" font-weight="800" letter-spacing="2.5" fill="{stroke_color}" opacity="0.65" class="mono">{clean_t} // {sanitize_text(count_val)} VECTOR ICONS</text>
+        <text x="{bx+bw-32:.1f}" y="{by+32:.1f}" font-size="{meta_fs}" font-weight="800" letter-spacing="2.5" fill="{stroke_color}" opacity="0.65" text-anchor="end" class="mono">100% PRECISION GRID</text>
+        <line x1="{bx+24:.1f}" y1="{by+bh-44:.1f}" x2="{bx+bw-24:.1f}" y2="{by+bh-44:.1f}" stroke="{stroke_color}" stroke-opacity="0.16" stroke-width="1.8"/>
+        <text x="{bx+bw/2:.1f}" y="{by+bh-16:.1f}" font-size="{max(11, meta_fs-1)}" font-weight="700" letter-spacing="3.5" fill="{stroke_color}" opacity="0.55" text-anchor="middle" class="mono">PIXEL PERFECT &#8226; UNIFORM STROKE &#8226; INFINITE SCALE</text>
       </g>"""
     else:
-        # Default crisp Square Box around the Icon Set artboard
+        # Default Pro Studio Artboard Frame with corner nodes + spec badges
         return f"""
       <g id="artboardSquareBox">
-        <rect x="{bx:.1f}" y="{by:.1f}" width="{bw:.1f}" height="{bh:.1f}" rx="6" fill="none" stroke="{stroke_color}" stroke-opacity="0.22" stroke-width="2.5"/>
-        <rect x="{bx-4:.1f}" y="{by-4:.1f}" width="10" height="10" fill="{frame_col}"/>
-        <rect x="{bx+bw-6:.1f}" y="{by-4:.1f}" width="10" height="10" fill="{frame_col}"/>
-        <rect x="{bx-4:.1f}" y="{by+bh-6:.1f}" width="10" height="10" fill="{frame_col}"/>
-        <rect x="{bx+bw-6:.1f}" y="{by+bh-6:.1f}" width="10" height="10" fill="{frame_col}"/>
+        <rect x="{bx:.1f}" y="{by:.1f}" width="{bw:.1f}" height="{bh:.1f}" rx="12" fill="none" stroke="{stroke_color}" stroke-opacity="0.20" stroke-width="2.5"/>
+        <rect x="{bx+10:.1f}" y="{by+10:.1f}" width="{bw-20:.1f}" height="{bh-20:.1f}" rx="8" fill="none" stroke="{stroke_color}" stroke-opacity="0.08" stroke-width="1.5"/>
+        <rect x="{bx-5:.1f}" y="{by-5:.1f}" width="12" height="12" rx="2" fill="{frame_col}" stroke="{stroke_color}" stroke-width="2"/>
+        <rect x="{bx+bw-7:.1f}" y="{by-5:.1f}" width="12" height="12" rx="2" fill="{frame_col}" stroke="{stroke_color}" stroke-width="2"/>
+        <rect x="{bx-5:.1f}" y="{by+bh-7:.1f}" width="12" height="12" rx="2" fill="{frame_col}" stroke="{stroke_color}" stroke-width="2"/>
+        <rect x="{bx+bw-7:.1f}" y="{by+bh-7:.1f}" width="12" height="12" rx="2" fill="{frame_col}" stroke="{stroke_color}" stroke-width="2"/>
+        {header_strip}
       </g>"""
 
 
@@ -471,41 +543,55 @@ def _render_cell_box_svg(
     col = accent if accent else banner_bg
 
     if decor == "cell_square_boxes":
-        return f'<rect x="{x:.1f}" y="{y:.1f}" width="{s:.1f}" height="{s:.1f}" rx="4" fill="#ffffff" fill-opacity="0.65" stroke="{stroke_color}" stroke-opacity="0.24" stroke-width="2"/>'
-    elif decor == "cell_rounded_cards":
-        rx = min(22, int(s * 0.14))
         return (
-            f'<rect x="{x+3:.1f}" y="{y+5:.1f}" width="{s:.1f}" height="{s:.1f}" rx="{rx}" fill="#000000" fill-opacity="0.06"/>'
-            f'<rect x="{x:.1f}" y="{y:.1f}" width="{s:.1f}" height="{s:.1f}" rx="{rx}" fill="#ffffff" fill-opacity="0.85" stroke="{stroke_color}" stroke-opacity="0.18" stroke-width="1.8"/>'
+            f'<rect x="{x+4:.1f}" y="{y+6:.1f}" width="{s:.1f}" height="{s:.1f}" rx="8" fill="#000000" fill-opacity="0.05"/>'
+            f'<rect x="{x:.1f}" y="{y:.1f}" width="{s:.1f}" height="{s:.1f}" rx="8" fill="#ffffff" fill-opacity="0.88" stroke="{stroke_color}" stroke-opacity="0.20" stroke-width="2"/>'
+        )
+    elif decor == "cell_rounded_cards":
+        rx = min(28, int(s * 0.16))
+        return (
+            f'<rect x="{x+4:.1f}" y="{y+8:.1f}" width="{s:.1f}" height="{s:.1f}" rx="{rx}" fill="#000000" fill-opacity="0.07"/>'
+            f'<rect x="{x:.1f}" y="{y:.1f}" width="{s:.1f}" height="{s:.1f}" rx="{rx}" fill="#ffffff" fill-opacity="0.92" stroke="{stroke_color}" stroke-opacity="0.14" stroke-width="2"/>'
+            f'<circle cx="{x+s-18:.1f}" cy="{y+18:.1f}" r="3.5" fill="{col}" fill-opacity="0.55"/>'
         )
     elif decor == "cell_dashed_boxes":
-        return f'<rect x="{x:.1f}" y="{y:.1f}" width="{s:.1f}" height="{s:.1f}" rx="6" fill="none" stroke="{stroke_color}" stroke-opacity="0.32" stroke-width="2" stroke-dasharray="8,6"/>'
+        return f'<rect x="{x:.1f}" y="{y:.1f}" width="{s:.1f}" height="{s:.1f}" rx="10" fill="#ffffff" fill-opacity="0.55" stroke="{stroke_color}" stroke-opacity="0.30" stroke-width="2.2" stroke-dasharray="10,7"/>'
     elif decor == "cell_full_table_grid":
         gx = cx - cell_w / 2
         gy = cy - cell_h / 2
-        return f'<rect x="{gx:.1f}" y="{gy:.1f}" width="{cell_w:.1f}" height="{cell_h:.1f}" fill="none" stroke="{stroke_color}" stroke-opacity="0.18" stroke-width="1.5"/>'
+        return f'<rect x="{gx:.1f}" y="{gy:.1f}" width="{cell_w:.1f}" height="{cell_h:.1f}" fill="none" stroke="{stroke_color}" stroke-opacity="0.16" stroke-width="1.6"/>'
     elif decor == "cell_corner_brackets":
-        L = max(10, int(s * 0.16))
+        L = max(12, int(s * 0.17))
         return (
+            f'<rect x="{x:.1f}" y="{y:.1f}" width="{s:.1f}" height="{s:.1f}" fill="{col}" fill-opacity="0.04"/>'
             f'<path d="M{x:.1f},{y+L:.1f} V{y:.1f} H{x+L:.1f} M{x+s-L:.1f},{y:.1f} H{x+s:.1f} V{y+L:.1f} '
             f'M{x:.1f},{y+s-L:.1f} V{y+s:.1f} H{x+L:.1f} M{x+s-L:.1f},{y+s:.1f} H{x+s:.1f} V{y+s-L:.1f}" '
-            f'fill="none" stroke="{stroke_color}" stroke-opacity="0.38" stroke-width="2.2"/>'
+            f'fill="none" stroke="{stroke_color}" stroke-opacity="0.42" stroke-width="2.5"/>'
         )
     elif decor == "cell_soft_tint_squares":
-        return f'<rect x="{x:.1f}" y="{y:.1f}" width="{s:.1f}" height="{s:.1f}" rx="12" fill="{col}" fill-opacity="0.12" stroke="{col}" stroke-opacity="0.32" stroke-width="1.5"/>'
+        return f'<rect x="{x:.1f}" y="{y:.1f}" width="{s:.1f}" height="{s:.1f}" rx="18" fill="{col}" fill-opacity="0.12" stroke="{col}" stroke-opacity="0.35" stroke-width="2"/>'
     elif decor == "cell_circle_badges":
         r = s * 0.48
-        return f'<circle cx="{cx:.1f}" cy="{cy:.1f}" r="{r:.1f}" fill="#ffffff" fill-opacity="0.6" stroke="{stroke_color}" stroke-opacity="0.22" stroke-width="2"/>'
+        return (
+            f'<circle cx="{cx+3:.1f}" cy="{cy+6:.1f}" r="{r:.1f}" fill="#000000" fill-opacity="0.06"/>'
+            f'<circle cx="{cx:.1f}" cy="{cy:.1f}" r="{r:.1f}" fill="#ffffff" fill-opacity="0.88" stroke="{stroke_color}" stroke-opacity="0.20" stroke-width="2"/>'
+        )
     elif decor == "cell_hex_frames":
         r = s * 0.50
         pts = " ".join(f"{cx + r * math.cos(math.radians(60 * k - 30)):.1f},{cy + r * math.sin(math.radians(60 * k - 30)):.1f}" for k in range(6))
-        return f'<polygon points="{pts}" fill="#ffffff" fill-opacity="0.6" stroke="{stroke_color}" stroke-opacity="0.24" stroke-width="2"/>'
+        return f'<polygon points="{pts}" fill="#ffffff" fill-opacity="0.82" stroke="{stroke_color}" stroke-opacity="0.24" stroke-width="2.2"/>'
     elif decor == "cell_brutal_squares":
         return (
-            f'<rect x="{x+6:.1f}" y="{y+6:.1f}" width="{s:.1f}" height="{s:.1f}" fill="{stroke_color}" fill-opacity="0.85"/>'
-            f'<rect x="{x:.1f}" y="{y:.1f}" width="{s:.1f}" height="{s:.1f}" fill="#ffffff" stroke="{stroke_color}" stroke-width="2.5"/>'
+            f'<rect x="{x+8:.1f}" y="{y+8:.1f}" width="{s:.1f}" height="{s:.1f}" rx="6" fill="{stroke_color}" fill-opacity="0.88"/>'
+            f'<rect x="{x:.1f}" y="{y:.1f}" width="{s:.1f}" height="{s:.1f}" rx="6" fill="#ffffff" stroke="{stroke_color}" stroke-width="3"/>'
         )
-    return ""
+    else:
+        # Subtle Studio Swiss-Grid Cell Pedestal even when an artboard_* frame is active
+        rx = min(20, int(s * 0.12))
+        return (
+            f'<rect x="{x:.1f}" y="{y:.1f}" width="{s:.1f}" height="{s:.1f}" rx="{rx}" '
+            f'fill="{stroke_color}" fill-opacity="0.025" stroke="{stroke_color}" stroke-opacity="0.10" stroke-width="1.4"/>'
+        )
 
 
 def _render_adaptive_sheet_icons(
@@ -539,8 +625,8 @@ def _render_adaptive_sheet_icons(
 
     has_cell_box = decor.startswith("cell_")
     # Extra inner padding so icons sit comfortably inside outer frame
-    inner_pad_x = pad_x * 1.15
-    inner_pad_y = pad_y * 1.15
+    inner_pad_x = pad_x * 1.18
+    inner_pad_y = pad_y * 1.18
 
     # Mode 1: Auto-Grid by Icon Count (Adobe Stock standard)
     if layout_mode == "auto_grid" and N >= 1:
@@ -552,8 +638,10 @@ def _render_adaptive_sheet_icons(
 
         cell_w = grid_w / cols
         cell_h = grid_h / rows
-        fill_ratio = 0.50 if has_cell_box else 0.68
+        fill_ratio = 0.50 if has_cell_box else 0.56
         target_size = min(cell_w * fill_ratio, cell_h * fill_ratio)
+        # 100% uniform screen-space stroke width across every single icon in the grid!
+        uniform_grid_sw = max(3.5, target_size * 0.044 * stroke_scale)
 
         rendered = [outer_frame_svg] if outer_frame_svg else []
         for i, ic in enumerate(avail_icons):
@@ -562,7 +650,7 @@ def _render_adaptive_sheet_icons(
             cell_cx = sheet_x + inner_pad_x + col_i * cell_w + cell_w / 2
             cell_cy = sheet_y + inner_pad_y + row_i * cell_h + cell_h / 2
 
-            if has_cell_box:
+            if decor != "none":
                 rendered.append(_render_cell_box_svg(decor, cell_cx, cell_cy, cell_w, cell_h, banner_bg, stroke_color, accent, i))
 
             paths = _extract_icon_paths(model, ic["box"], icon_obj=ic)
@@ -576,10 +664,12 @@ def _render_adaptive_sheet_icons(
             else:
                 bx1, by1, bx2, by2 = ic["box"]
             bw, bh = max(1.0, bx2 - bx1), max(1.0, by2 - by1)
-            s = target_size / max(bw, bh)
+            # Optical balance so wide/flat and tall/narrow icons look visually harmonious
+            optical_span = 0.78 * max(bw, bh) + 0.22 * math.sqrt(bw * bh)
+            s = min(target_size / max(bw, bh), (target_size * 0.94) / max(1.0, optical_span))
             ox = cell_cx - (bw * s) / 2 - bx1 * s
             oy = cell_cy - (bh * s) / 2 - by1 * s
-            rendered.append(_render_paths_svg(paths, stroke_color, stroke_scale, s, ox, oy))
+            rendered.append(_render_paths_svg(paths, stroke_color, stroke_scale, s, ox, oy, target_screen_sw=uniform_grid_sw))
         if rendered:
             return "\n    ".join(rendered)
 
@@ -592,9 +682,11 @@ def _render_adaptive_sheet_icons(
         min_y, max_y = float(np.min(all_ys)), float(np.max(all_ys))
         t_w = max(10.0, max_x - min_x)
         t_h = max(10.0, max_y - min_y)
+        med_w = float(np.median([p.w for p in valid_paths if p.w > 0] or [4.0]))
     else:
         min_x, min_y = 0.0, 0.0
         t_w, t_h = max(10.0, model.width), max(10.0, model.height)
+        med_w = 4.0
 
     avail_w = sheet_w - 2 * inner_pad_x
     avail_h = sheet_h - 2 * inner_pad_y
@@ -603,8 +695,11 @@ def _render_adaptive_sheet_icons(
     target_h = t_h * scale
     off_x = sheet_x + inner_pad_x + (avail_w - target_w) / 2 - min_x * scale
     off_y = sheet_y + inner_pad_y + (avail_h - target_h) / 2 - min_y * scale
+    uniform_sheet_sw = max(3.2, med_w * scale * stroke_scale)
 
-    return (outer_frame_svg + "\n    " if outer_frame_svg else "") + _render_paths_svg(model.paths, stroke_color, stroke_scale, scale, off_x, off_y)
+    return (outer_frame_svg + "\n    " if outer_frame_svg else "") + _render_paths_svg(
+        model.paths, stroke_color, stroke_scale, scale, off_x, off_y, target_screen_sw=uniform_sheet_sw
+    )
 
 
 def _get_font_css(font_family: str = "bebas") -> tuple[str, str, str, str]:
@@ -659,160 +754,199 @@ def _render_title_highlight(
     style: str = "solid_square",
     is_centered: bool = True,
     max_w: float = 600,
-    accent: str = ""
+    accent: str = "",
+    hl_bg: str = "#181B24"
 ) -> str:
-    title_clean = sanitize_text(title)
-    sub_clean = sanitize_text(subtitle)
+    cleaned_raw = _clean_template_title(title)
+    title_clean = sanitize_text(cleaned_raw)
+    sub_clean = sanitize_text(subtitle.upper() if subtitle else "EDITABLE LINE ICONS")
     anchor = "middle" if is_centered else "start"
     style = str(style or "solid_square").lower()
 
-    est_w = min(max_w, max(260, int(len(title) * title_fs * 0.64) + 64))
+    # Auto-fit title font size so headline is always large & bold without overflowing box
+    is_condensed = ("Bebas" in title_font) or ("Oswald" in title_font)
+    char_ratio = 0.56 if is_condensed else 0.78
+    est_w = min(max_w, max(max_w * 0.84, int(len(cleaned_raw) * title_fs * char_ratio) + 84))
+    max_fit_fs = int((est_w - 64) / max(1.0, len(cleaned_raw) * char_ratio))
+    eff_title_fs = max(34, min(title_fs, max_fit_fs))
+
     rect_x = cx - est_w / 2 if is_centered else cx
-    box_h = int(title_fs * 1.48)
-    box_y = cy - int(title_fs * 0.92)
-    hl_fill = accent if accent else "rgba(0,0,0,0.22)"
-    hl_text = "#FFFFFF" if accent else banner_text
+    box_h = max(72, int(eff_title_fs * (1.46 if is_condensed else 1.62)))
+    box_y = cy - int(eff_title_fs * 0.88)
+    text_y = box_y + int(box_h * (0.72 if is_condensed else 0.68))
+
+    hl_fill = hl_bg
+    if accent and accent.upper() not in ("#F5B800", "#00D2A0", "#FF4757", "#8B5CF6", "#10B981", "#F97316", "#2563EB", "#F4F4F5"):
+        hl_fill = accent
+    hr, hg, hb = hex_to_rgb(hl_fill)
+    hl_text = "#09090B" if (0.299 * hr + 0.587 * hg + 0.114 * hb) > 0.55 else "#FFFFFF"
+
+    # Top micro-pill tag above main headline
+    tag_fs = max(13, int(sub_fs * 0.56))
+    tag_w = min(est_w * 0.78, max(220, tag_fs * 18))
+    tag_h = int(tag_fs * 2.1)
+    tag_y = box_y - tag_h - 14
+    top_tag_svg = f"""
+      <rect x="{cx - tag_w/2:.1f}" y="{tag_y:.1f}" width="{tag_w:.1f}" height="{tag_h:.1f}" rx="{tag_h//2}"
+            fill="{banner_text}" fill-opacity="0.12" stroke="{banner_text}" stroke-opacity="0.22" stroke-width="1.5"/>
+      <text x="{cx:.1f}" y="{tag_y + tag_h*0.68:.1f}" font-size="{tag_fs}" font-weight="800" letter-spacing="3"
+            fill="{banner_text}" text-anchor="middle" class="mono">&#9733; PREMIUM VECTOR PACK &#9733;</text>"""
 
     # 25 Distinct Highlighter Geometries
     bg_shape = ""
     if style in ("solid_square", "square"):
-        bg_shape = f'<rect x="{rect_x:.1f}" y="{box_y:.1f}" width="{est_w:.1f}" height="{box_h:.1f}" fill="{hl_fill}" stroke="{banner_text}" stroke-opacity="0.35" stroke-width="2.5"/>'
+        bg_shape = (
+            f'<rect x="{rect_x+8:.1f}" y="{box_y+8:.1f}" width="{est_w:.1f}" height="{box_h:.1f}" rx="8" fill="#000000" fill-opacity="0.20"/>'
+            f'<rect x="{rect_x:.1f}" y="{box_y:.1f}" width="{est_w:.1f}" height="{box_h:.1f}" rx="8" fill="{hl_fill}" stroke="#ffffff" stroke-opacity="0.28" stroke-width="2.5"/>'
+        )
     elif style in ("frosted_pill", "pill"):
         rx = box_h // 2
-        bg_shape = f'<rect x="{rect_x:.1f}" y="{box_y:.1f}" width="{est_w:.1f}" height="{box_h:.1f}" rx="{rx}" fill="{hl_fill}" stroke="rgba(255,255,255,0.35)" stroke-width="2"/>'
+        bg_shape = (
+            f'<rect x="{rect_x+6:.1f}" y="{box_y+8:.1f}" width="{est_w:.1f}" height="{box_h:.1f}" rx="{rx}" fill="#000000" fill-opacity="0.18"/>'
+            f'<rect x="{rect_x:.1f}" y="{box_y:.1f}" width="{est_w:.1f}" height="{box_h:.1f}" rx="{rx}" fill="{hl_fill}" stroke="rgba(255,255,255,0.4)" stroke-width="2.5"/>'
+        )
     elif style == "rounded_badge":
-        bg_shape = f'<rect x="{rect_x:.1f}" y="{box_y:.1f}" width="{est_w:.1f}" height="{box_h:.1f}" rx="14" fill="{hl_fill}" stroke="{banner_text}" stroke-opacity="0.25" stroke-width="2"/>'
+        bg_shape = (
+            f'<rect x="{rect_x+6:.1f}" y="{box_y+8:.1f}" width="{est_w:.1f}" height="{box_h:.1f}" rx="16" fill="#000000" fill-opacity="0.18"/>'
+            f'<rect x="{rect_x:.1f}" y="{box_y:.1f}" width="{est_w:.1f}" height="{box_h:.1f}" rx="16" fill="{hl_fill}" stroke="#ffffff" stroke-opacity="0.3" stroke-width="2.5"/>'
+        )
     elif style in ("ribbon_tails", "ribbon"):
-        notch = 18
+        notch = 20
         pts = f"{rect_x-12:.1f},{box_y:.1f} {rect_x+est_w+12:.1f},{box_y:.1f} {rect_x+est_w-notch+12:.1f},{box_y+box_h/2:.1f} {rect_x+est_w+12:.1f},{box_y+box_h:.1f} {rect_x-12:.1f},{box_y+box_h:.1f} {rect_x+notch-12:.1f},{box_y+box_h/2:.1f}"
-        bg_shape = f'<polygon points="{pts}" fill="{hl_fill}" stroke="{banner_text}" stroke-opacity="0.3" stroke-width="2"/>'
+        bg_shape = f'<polygon points="{pts}" fill="{hl_fill}" stroke="#ffffff" stroke-opacity="0.3" stroke-width="2.5"/>'
     elif style == "skew_parallelogram":
         sk = 18
         pts = f"{rect_x+sk:.1f},{box_y:.1f} {rect_x+est_w+sk:.1f},{box_y:.1f} {rect_x+est_w-sk:.1f},{box_y+box_h:.1f} {rect_x-sk:.1f},{box_y+box_h:.1f}"
-        bg_shape = f'<polygon points="{pts}" fill="{hl_fill}" stroke="{banner_text}" stroke-opacity="0.35" stroke-width="2"/>'
+        bg_shape = f'<polygon points="{pts}" fill="{hl_fill}" stroke="#ffffff" stroke-opacity="0.35" stroke-width="2.5"/>'
     elif style == "hex_tag":
-        p = 22
+        p = 24
         pts = f"{rect_x+p:.1f},{box_y:.1f} {rect_x+est_w-p:.1f},{box_y:.1f} {rect_x+est_w:.1f},{box_y+box_h/2:.1f} {rect_x+est_w-p:.1f},{box_y+box_h:.1f} {rect_x+p:.1f},{box_y+box_h:.1f} {rect_x:.1f},{box_y+box_h/2:.1f}"
-        bg_shape = f'<polygon points="{pts}" fill="{hl_fill}" stroke="{banner_text}" stroke-opacity="0.4" stroke-width="2.2"/>'
+        bg_shape = f'<polygon points="{pts}" fill="{hl_fill}" stroke="#ffffff" stroke-opacity="0.4" stroke-width="2.5"/>'
     elif style == "chamfer_plate":
-        c_cut = 14
+        c_cut = 16
         x1, y1, x2, y2 = rect_x, box_y, rect_x + est_w, box_y + box_h
         pts = f"{x1+c_cut:.1f},{y1:.1f} {x2-c_cut:.1f},{y1:.1f} {x2:.1f},{y1+c_cut:.1f} {x2:.1f},{y2-c_cut:.1f} {x2-c_cut:.1f},{y2:.1f} {x1+c_cut:.1f},{y2:.1f} {x1:.1f},{y2-c_cut:.1f} {x1:.1f},{y1+c_cut:.1f}"
-        bg_shape = f'<polygon points="{pts}" fill="{hl_fill}" stroke="{banner_text}" stroke-opacity="0.45" stroke-width="2.5"/>'
+        bg_shape = f'<polygon points="{pts}" fill="{hl_fill}" stroke="#ffffff" stroke-opacity="0.45" stroke-width="2.5"/>'
     elif style in ("neon_underline", "glow_bar"):
         hl_text = banner_text
-        bar_h = 8
+        bar_h = 10
         bg_shape = (
-            f'<rect x="{rect_x:.1f}" y="{cy+10:.1f}" width="{est_w:.1f}" height="{bar_h}" rx="4" fill="{accent or banner_text}"/>'
-            f'<circle cx="{cx:.1f}" cy="{cy+14:.1f}" r="6" fill="#ffffff"/>'
+            f'<rect x="{rect_x:.1f}" y="{box_y+box_h-6:.1f}" width="{est_w:.1f}" height="{bar_h}" rx="5" fill="{accent or banner_text}"/>'
+            f'<circle cx="{cx:.1f}" cy="{box_y+box_h-1:.1f}" r="7" fill="#ffffff"/>'
         )
     elif style == "double_rule":
         hl_text = banner_text
         bg_shape = (
-            f'<line x1="{rect_x:.1f}" y1="{box_y:.1f}" x2="{rect_x+est_w:.1f}" y2="{box_y:.1f}" stroke="{banner_text}" stroke-width="3.5"/>'
-            f'<line x1="{rect_x+20:.1f}" y1="{box_y+6:.1f}" x2="{rect_x+est_w-20:.1f}" y2="{box_y+6:.1f}" stroke="{banner_text}" stroke-width="1.5" opacity="0.6"/>'
-            f'<line x1="{rect_x:.1f}" y1="{box_y+box_h:.1f}" x2="{rect_x+est_w:.1f}" y2="{box_y+box_h:.1f}" stroke="{banner_text}" stroke-width="3.5"/>'
+            f'<line x1="{rect_x:.1f}" y1="{box_y:.1f}" x2="{rect_x+est_w:.1f}" y2="{box_y:.1f}" stroke="{banner_text}" stroke-width="4"/>'
+            f'<line x1="{rect_x+24:.1f}" y1="{box_y+8:.1f}" x2="{rect_x+est_w-24:.1f}" y2="{box_y+8:.1f}" stroke="{banner_text}" stroke-width="1.8" opacity="0.6"/>'
+            f'<line x1="{rect_x:.1f}" y1="{box_y+box_h:.1f}" x2="{rect_x+est_w:.1f}" y2="{box_y+box_h:.1f}" stroke="{banner_text}" stroke-width="4"/>'
         )
     elif style in ("corner_brackets", "brackets"):
         hl_text = banner_text
-        t = 20
+        t = 24
         x1, y1, x2, y2 = rect_x, box_y, rect_x + est_w, box_y + box_h
         bg_shape = (
+            f'<rect x="{x1:.1f}" y="{y1:.1f}" width="{est_w:.1f}" height="{box_h:.1f}" fill="{banner_text}" fill-opacity="0.08"/>'
             f'<path d="M{x1+t:.1f},{y1:.1f} H{x1:.1f} V{y1+t:.1f} M{x2-t:.1f},{y1:.1f} H{x2:.1f} V{y1+t:.1f} '
             f'M{x1+t:.1f},{y2:.1f} H{x1:.1f} V{y2-t:.1f} M{x2-t:.1f},{y2:.1f} H{x2:.1f} V{y2-t:.1f}" '
-            f'fill="none" stroke="{accent or banner_text}" stroke-width="4"/>'
+            f'fill="none" stroke="{accent or banner_text}" stroke-width="5"/>'
         )
     elif style == "left_accent_bar":
         bg_shape = (
-            f'<rect x="{rect_x:.1f}" y="{box_y:.1f}" width="{est_w:.1f}" height="{box_h:.1f}" fill="{hl_fill}" fill-opacity="0.7"/>'
-            f'<rect x="{rect_x:.1f}" y="{box_y:.1f}" width="12" height="{box_h:.1f}" fill="{accent or banner_text}"/>'
+            f'<rect x="{rect_x:.1f}" y="{box_y:.1f}" width="{est_w:.1f}" height="{box_h:.1f}" rx="8" fill="{hl_fill}"/>'
+            f'<rect x="{rect_x:.1f}" y="{box_y:.1f}" width="16" height="{box_h:.1f}" rx="4" fill="{accent or banner_text}"/>'
         )
     elif style == "brush_stroke":
         d = f"M{rect_x-8:.1f},{box_y+8:.1f} Q{cx:.1f},{box_y-6:.1f} {rect_x+est_w+10:.1f},{box_y+4:.1f} L{rect_x+est_w-4:.1f},{box_y+box_h-4:.1f} Q{cx:.1f},{box_y+box_h+8:.1f} {rect_x+4:.1f},{box_y+box_h-2:.1f} Z"
         bg_shape = f'<path d="{d}" fill="{hl_fill}"/>'
     elif style == "offset_shadow_box":
         bg_shape = (
-            f'<rect x="{rect_x+8:.1f}" y="{box_y+8:.1f}" width="{est_w:.1f}" height="{box_h:.1f}" fill="#09090B"/>'
-            f'<rect x="{rect_x:.1f}" y="{box_y:.1f}" width="{est_w:.1f}" height="{box_h:.1f}" fill="{hl_fill}" stroke="#09090B" stroke-width="3"/>'
+            f'<rect x="{rect_x+10:.1f}" y="{box_y+10:.1f}" width="{est_w:.1f}" height="{box_h:.1f}" rx="6" fill="#09090B" fill-opacity="0.85"/>'
+            f'<rect x="{rect_x:.1f}" y="{box_y:.1f}" width="{est_w:.1f}" height="{box_h:.1f}" rx="6" fill="{hl_fill}" stroke="#ffffff" stroke-opacity="0.4" stroke-width="3"/>'
         )
     elif style == "dotted_coupon":
-        bg_shape = f'<rect x="{rect_x:.1f}" y="{box_y:.1f}" width="{est_w:.1f}" height="{box_h:.1f}" rx="8" fill="{hl_fill}" stroke="{banner_text}" stroke-width="2.5" stroke-dasharray="8,6"/>'
+        bg_shape = f'<rect x="{rect_x:.1f}" y="{box_y:.1f}" width="{est_w:.1f}" height="{box_h:.1f}" rx="10" fill="{hl_fill}" stroke="#ffffff" stroke-width="2.5" stroke-dasharray="10,7"/>'
     elif style == "gradient_glow_pill":
         rx = box_h // 2
         bg_shape = (
-            f'<rect x="{rect_x-5:.1f}" y="{box_y-5:.1f}" width="{est_w+10:.1f}" height="{box_h+10:.1f}" rx="{rx+5}" fill="none" stroke="{accent or banner_text}" stroke-opacity="0.45" stroke-width="2"/>'
+            f'<rect x="{rect_x-6:.1f}" y="{box_y-6:.1f}" width="{est_w+12:.1f}" height="{box_h+12:.1f}" rx="{rx+6}" fill="none" stroke="{accent or banner_text}" stroke-opacity="0.45" stroke-width="2.5"/>'
             f'<rect x="{rect_x:.1f}" y="{box_y:.1f}" width="{est_w:.1f}" height="{box_h:.1f}" rx="{rx}" fill="{hl_fill}" stroke="#ffffff" stroke-opacity="0.5" stroke-width="2"/>'
         )
     elif style == "ticket_stub":
         x1, y1, x2, y2 = rect_x, box_y, rect_x + est_w, box_y + box_h
         my = (y1 + y2) / 2
-        d = f"M{x1:.1f},{y1:.1f} H{x2:.1f} V{my-10:.1f} A10,10 0 0,0 {x2:.1f},{my+10:.1f} V{y2:.1f} H{x1:.1f} V{my+10:.1f} A10,10 0 0,0 {x1:.1f},{my-10:.1f} Z"
-        bg_shape = f'<path d="{d}" fill="{hl_fill}" stroke="{banner_text}" stroke-opacity="0.35" stroke-width="2"/>'
+        d = f"M{x1:.1f},{y1:.1f} H{x2:.1f} V{my-12:.1f} A12,12 0 0,0 {x2:.1f},{my+12:.1f} V{y2:.1f} H{x1:.1f} V{my+12:.1f} A12,12 0 0,0 {x1:.1f},{my-12:.1f} Z"
+        bg_shape = f'<path d="{d}" fill="{hl_fill}" stroke="#ffffff" stroke-opacity="0.35" stroke-width="2.5"/>'
     elif style == "arrow_pointer":
         x1, y1, x2, y2 = rect_x, box_y, rect_x + est_w, box_y + box_h
         my = (y1 + y2) / 2
-        pts = f"{x1:.1f},{y1:.1f} {x2-18:.1f},{y1:.1f} {x2+8:.1f},{my:.1f} {x2-18:.1f},{y2:.1f} {x1:.1f},{y2:.1f}"
+        pts = f"{x1:.1f},{y1:.1f} {x2-18:.1f},{y1:.1f} {x2+10:.1f},{my:.1f} {x2-18:.1f},{y2:.1f} {x1:.1f},{y2:.1f}"
         bg_shape = (
-            f'<polygon points="{pts}" fill="{hl_fill}" stroke="{banner_text}" stroke-opacity="0.3" stroke-width="2"/>'
-            f'<circle cx="{x2-10:.1f}" cy="{my:.1f}" r="5" fill="{banner_text}"/>'
+            f'<polygon points="{pts}" fill="{hl_fill}" stroke="#ffffff" stroke-opacity="0.3" stroke-width="2.5"/>'
+            f'<circle cx="{x2-10:.1f}" cy="{my:.1f}" r="5" fill="#ffffff"/>'
         )
     elif style == "speech_callout":
         x1, y1, x2, y2 = rect_x, box_y, rect_x + est_w, box_y + box_h
         bg_shape = (
-            f'<rect x="{x1:.1f}" y="{y1:.1f}" width="{est_w:.1f}" height="{box_h:.1f}" rx="12" fill="{hl_fill}"/>'
-            f'<polygon points="{cx-12:.1f},{y2:.1f} {cx+12:.1f},{y2:.1f} {cx:.1f},{y2+14:.1f}" fill="{hl_fill}"/>'
+            f'<rect x="{x1:.1f}" y="{y1:.1f}" width="{est_w:.1f}" height="{box_h:.1f}" rx="14" fill="{hl_fill}"/>'
+            f'<polygon points="{cx-14:.1f},{y2:.1f} {cx+14:.1f},{y2:.1f} {cx:.1f},{y2+16:.1f}" fill="{hl_fill}"/>'
         )
     elif style == "circle_seal_bg":
         r = int(box_h * 0.72)
         bg_shape = (
-            f'<circle cx="{cx:.1f}" cy="{box_y+box_h/2:.1f}" r="{r}" fill="{hl_fill}" stroke="{banner_text}" stroke-opacity="0.3" stroke-width="2" stroke-dasharray="6,4"/>'
-            f'<rect x="{rect_x:.1f}" y="{box_y:.1f}" width="{est_w:.1f}" height="{box_h:.1f}" rx="8" fill="{hl_fill}"/>'
+            f'<circle cx="{cx:.1f}" cy="{box_y+box_h/2:.1f}" r="{r}" fill="{hl_fill}" stroke="#ffffff" stroke-opacity="0.3" stroke-width="2" stroke-dasharray="6,4"/>'
+            f'<rect x="{rect_x:.1f}" y="{box_y:.1f}" width="{est_w:.1f}" height="{box_h:.1f}" rx="10" fill="{hl_fill}"/>'
         )
     elif style == "diamond_crest":
         my = box_y + box_h / 2
         bg_shape = (
-            f'<polygon points="{cx:.1f},{box_y-16:.1f} {cx+42:.1f},{my:.1f} {cx:.1f},{box_y+box_h+16:.1f} {cx-42:.1f},{my:.1f}" fill="{accent or banner_text}" opacity="0.35"/>'
-            f'<rect x="{rect_x:.1f}" y="{box_y:.1f}" width="{est_w:.1f}" height="{box_h:.1f}" rx="4" fill="{hl_fill}" stroke="{banner_text}" stroke-opacity="0.35" stroke-width="2"/>'
+            f'<polygon points="{cx:.1f},{box_y-18:.1f} {cx+46:.1f},{my:.1f} {cx:.1f},{box_y+box_h+18:.1f} {cx-46:.1f},{my:.1f}" fill="{accent or banner_text}" opacity="0.35"/>'
+            f'<rect x="{rect_x:.1f}" y="{box_y:.1f}" width="{est_w:.1f}" height="{box_h:.1f}" rx="6" fill="{hl_fill}" stroke="#ffffff" stroke-opacity="0.35" stroke-width="2.5"/>'
         )
     elif style == "crown_header":
         hl_text = banner_text
         bg_shape = (
             f'<polygon points="{cx-36:.1f},{box_y-6:.1f} {cx-24:.1f},{box_y-22:.1f} {cx-8:.1f},{box_y-10:.1f} {cx:.1f},{box_y-28:.1f} {cx+8:.1f},{box_y-10:.1f} {cx+24:.1f},{box_y-22:.1f} {cx+36:.1f},{box_y-6:.1f}" fill="{accent or banner_text}"/>'
-            f'<rect x="{rect_x:.1f}" y="{cy+8:.1f}" width="{est_w:.1f}" height="4" fill="{banner_text}"/>'
+            f'<rect x="{rect_x:.1f}" y="{box_y+box_h-4:.1f}" width="{est_w:.1f}" height="5" fill="{banner_text}"/>'
         )
     elif style == "crosshair_target":
         x1, y1, x2, y2 = rect_x, box_y, rect_x + est_w, box_y + box_h
         bg_shape = (
-            f'<rect x="{x1:.1f}" y="{y1:.1f}" width="{est_w:.1f}" height="{box_h:.1f}" fill="{hl_fill}" stroke="{banner_text}" stroke-opacity="0.4" stroke-width="1.5"/>'
+            f'<rect x="{x1:.1f}" y="{y1:.1f}" width="{est_w:.1f}" height="{box_h:.1f}" fill="{hl_fill}" stroke="#ffffff" stroke-opacity="0.4" stroke-width="2"/>'
             f'<path d="M{x1-8:.1f},{y1:.1f} h16 M{x1:.1f},{y1-8:.1f} v16 M{x2-8:.1f},{y1:.1f} h16 M{x2:.1f},{y1-8:.1f} v16 '
-            f'M{x1-8:.1f},{y2:.1f} h16 M{x1:.1f},{y2-8:.1f} v16 M{x2-8:.1f},{y2:.1f} h16 M{x2:.1f},{y2-8:.1f} v16" stroke="{banner_text}" stroke-width="2"/>'
+            f'M{x1-8:.1f},{y2:.1f} h16 M{x1:.1f},{y2-8:.1f} v16 M{x2-8:.1f},{y2:.1f} h16 M{x2:.1f},{y2-8:.1f} v16" stroke="{banner_text}" stroke-width="2.5"/>'
         )
     elif style == "extrude_3d_box":
         x1, y1, x2, y2 = rect_x, box_y, rect_x + est_w, box_y + box_h
-        d = 10
+        d = 12
         bg_shape = (
-            f'<polygon points="{x1+d:.1f},{y2+d:.1f} {x2+d:.1f},{y2+d:.1f} {x2+d:.1f},{y1+d:.1f} {x2:.1f},{y1:.1f} {x2:.1f},{y2:.1f} {x1:.1f},{y2:.1f}" fill="#09090B" opacity="0.65"/>'
-            f'<rect x="{x1:.1f}" y="{y1:.1f}" width="{est_w:.1f}" height="{box_h:.1f}" fill="{hl_fill}" stroke="{banner_text}" stroke-width="2.5"/>'
+            f'<polygon points="{x1+d:.1f},{y2+d:.1f} {x2+d:.1f},{y2+d:.1f} {x2+d:.1f},{y1+d:.1f} {x2:.1f},{y1:.1f} {x2:.1f},{y2:.1f} {x1:.1f},{y2:.1f}" fill="#09090B" opacity="0.75"/>'
+            f'<rect x="{x1:.1f}" y="{y1:.1f}" width="{est_w:.1f}" height="{box_h:.1f}" fill="{hl_fill}" stroke="#ffffff" stroke-opacity="0.45" stroke-width="2.5"/>'
         )
     elif style == "minimal_pill_outline":
         hl_text = banner_text
         rx = box_h // 2
-        bg_shape = f'<rect x="{rect_x:.1f}" y="{box_y:.1f}" width="{est_w:.1f}" height="{box_h:.1f}" rx="{rx}" fill="none" stroke="{accent or banner_text}" stroke-width="3"/>'
+        bg_shape = f'<rect x="{rect_x:.1f}" y="{box_y:.1f}" width="{est_w:.1f}" height="{box_h:.1f}" rx="{rx}" fill="{banner_text}" fill-opacity="0.08" stroke="{accent or banner_text}" stroke-width="3.5"/>'
     else:
         hl_text = banner_text
 
-    sub_y = box_y + box_h + int(sub_fs * 1.45) + 8
+    sub_y = box_y + box_h + int(sub_fs * 1.45) + 14
+    rule_w = max(28, int(est_w * 0.10))
+    sub_text_w = min(est_w * 0.72, len(sub_clean) * sub_fs * 0.62 + 24)
     return f"""
     <g id="titleHighlighterGroup">
+      {top_tag_svg}
       {bg_shape}
-      <text x="{cx}" y="{cy}" font-size="{title_fs}" font-weight="900" letter-spacing="3"
+      <text x="{cx:.1f}" y="{text_y:.1f}" font-size="{eff_title_fs}" font-weight="900" letter-spacing="3.5"
             fill="{hl_text}" text-anchor="{anchor}" style="font-family:{title_font};">
         {title_clean}
       </text>
-      <text x="{cx}" y="{sub_y}" font-size="{sub_fs}" font-weight="700" letter-spacing="1.2"
+      <line x1="{cx - sub_text_w/2 - rule_w - 10:.1f}" y1="{sub_y - sub_fs*0.34:.1f}" x2="{cx - sub_text_w/2 - 10:.1f}" y2="{sub_y - sub_fs*0.34:.1f}" stroke="{banner_sub}" stroke-width="2.5" opacity="0.55"/>
+      <text x="{cx:.1f}" y="{sub_y:.1f}" font-size="{sub_fs}" font-weight="800" letter-spacing="2.2"
             fill="{banner_sub}" text-anchor="{anchor}" style="font-family:{sub_font};">
         {sub_clean}
       </text>
+      <line x1="{cx + sub_text_w/2 + 10:.1f}" y1="{sub_y - sub_fs*0.34:.1f}" x2="{cx + sub_text_w/2 + rule_w + 10:.1f}" y2="{sub_y - sub_fs*0.34:.1f}" stroke="{banner_sub}" stroke-width="2.5" opacity="0.55"/>
     </g>"""
 
 
@@ -841,7 +975,7 @@ def _render_showcase_box(
     by = cy - side / 2
 
     # Inner icon bounds
-    pad_ratio = 0.16
+    pad_ratio = 0.17
     ix = bx + side * pad_ratio
     iy = by + side * pad_ratio
     iw = side * (1.0 - 2 * pad_ratio)
@@ -852,53 +986,78 @@ def _render_showcase_box(
         iw, ih, ix, iy, cols=cols, highlight_index=highlight_index
     )
 
+    # Subtle internal studio grid & spotlight glow inside the showcase card
+    inner_studio_decor = (
+        f'<circle cx="{cx:.1f}" cy="{cy:.1f}" r="{side*0.34:.1f}" fill="{accent}" fill-opacity="0.10"/>'
+        f'<circle cx="{cx:.1f}" cy="{cy:.1f}" r="{side*0.38:.1f}" fill="none" stroke="#ffffff" stroke-opacity="0.08" stroke-width="1.5" stroke-dasharray="8,6"/>'
+        f'<line x1="{bx+20:.1f}" y1="{cy:.1f}" x2="{bx+side-20:.1f}" y2="{cy:.1f}" stroke="#ffffff" stroke-opacity="0.05" stroke-width="1.2"/>'
+        f'<line x1="{cx:.1f}" y1="{by+20:.1f}" x2="{cx:.1f}" y2="{by+side-20:.1f}" stroke="#ffffff" stroke-opacity="0.05" stroke-width="1.2"/>'
+    )
+
+    # Top micro-badge on the showcase card
+    badge_w = min(side * 0.66, 230)
+    badge_h = max(24, int(side * 0.072))
+    badge_fs = max(11, int(badge_h * 0.50))
+    showcase_badge = (
+        f'<rect x="{cx - badge_w/2:.1f}" y="{by - badge_h/2:.1f}" width="{badge_w:.1f}" height="{badge_h:.1f}" rx="{badge_h//2}" '
+        f'fill="{accent}" stroke="{hl_bg}" stroke-width="3"/>'
+        f'<text x="{cx:.1f}" y="{by + badge_fs*0.36:.1f}" font-size="{badge_fs}" font-weight="900" letter-spacing="2" '
+        f'fill="#09090B" text-anchor="middle" class="mono">FEATURED PREVIEW</text>'
+    )
+
     frame_svg = ""
     if shape in ("square_box", "square"):
         frame_svg = (
-            f'<rect x="{bx:.1f}" y="{by:.1f}" width="{side:.1f}" height="{side:.1f}" rx="4" fill="{hl_bg}" stroke="rgba(255,255,255,0.28)" stroke-width="2.5"/>'
-            f'<rect x="{bx-4:.1f}" y="{by-4:.1f}" width="8" height="8" fill="{accent}"/>'
-            f'<rect x="{bx+side-4:.1f}" y="{by-4:.1f}" width="8" height="8" fill="{accent}"/>'
-            f'<rect x="{bx-4:.1f}" y="{by+side-4:.1f}" width="8" height="8" fill="{accent}"/>'
-            f'<rect x="{bx+side-4:.1f}" y="{by+side-4:.1f}" width="8" height="8" fill="{accent}"/>'
+            f'<rect x="{bx+10:.1f}" y="{by+14:.1f}" width="{side:.1f}" height="{side:.1f}" rx="12" fill="#000000" fill-opacity="0.24"/>'
+            f'<rect x="{bx:.1f}" y="{by:.1f}" width="{side:.1f}" height="{side:.1f}" rx="12" fill="{hl_bg}" stroke="rgba(255,255,255,0.32)" stroke-width="2.5"/>'
+            f'<rect x="{bx+10:.1f}" y="{by+10:.1f}" width="{side-20:.1f}" height="{side-20:.1f}" rx="8" fill="none" stroke="rgba(255,255,255,0.10)" stroke-width="1.5"/>'
+            f'<rect x="{bx-5:.1f}" y="{by-5:.1f}" width="12" height="12" rx="2" fill="{accent}"/>'
+            f'<rect x="{bx+side-7:.1f}" y="{by-5:.1f}" width="12" height="12" rx="2" fill="{accent}"/>'
+            f'<rect x="{bx-5:.1f}" y="{by+side-7:.1f}" width="12" height="12" rx="2" fill="{accent}"/>'
+            f'<rect x="{bx+side-7:.1f}" y="{by+side-7:.1f}" width="12" height="12" rx="2" fill="{accent}"/>'
         )
     elif shape in ("rounded_square", "card"):
-        frame_svg = f'<rect x="{bx:.1f}" y="{by:.1f}" width="{side:.1f}" height="{side:.1f}" rx="28" fill="{hl_bg}" stroke="rgba(255,255,255,0.25)" stroke-width="2.5"/>'
+        frame_svg = (
+            f'<rect x="{bx+10:.1f}" y="{by+14:.1f}" width="{side:.1f}" height="{side:.1f}" rx="32" fill="#000000" fill-opacity="0.24"/>'
+            f'<rect x="{bx:.1f}" y="{by:.1f}" width="{side:.1f}" height="{side:.1f}" rx="32" fill="{hl_bg}" stroke="rgba(255,255,255,0.30)" stroke-width="2.5"/>'
+        )
     elif shape == "double_border_square":
         frame_svg = (
-            f'<rect x="{bx-8:.1f}" y="{by-8:.1f}" width="{side+16:.1f}" height="{side+16:.1f}" rx="8" fill="none" stroke="{hl_bg}" stroke-width="3"/>'
-            f'<rect x="{bx:.1f}" y="{by:.1f}" width="{side:.1f}" height="{side:.1f}" rx="4" fill="{hl_bg}" stroke="{accent}" stroke-opacity="0.55" stroke-width="2"/>'
+            f'<rect x="{bx-8:.1f}" y="{by-8:.1f}" width="{side+16:.1f}" height="{side+16:.1f}" rx="12" fill="none" stroke="{hl_bg}" stroke-width="3.5"/>'
+            f'<rect x="{bx:.1f}" y="{by:.1f}" width="{side:.1f}" height="{side:.1f}" rx="8" fill="{hl_bg}" stroke="{accent}" stroke-opacity="0.65" stroke-width="2.5"/>'
         )
     elif shape == "dashed_square":
         frame_svg = (
-            f'<rect x="{bx:.1f}" y="{by:.1f}" width="{side:.1f}" height="{side:.1f}" rx="10" fill="{hl_bg}"/>'
-            f'<rect x="{bx+10:.1f}" y="{by+10:.1f}" width="{side-20:.1f}" height="{side-20:.1f}" rx="6" fill="none" stroke="rgba(255,255,255,0.45)" stroke-width="2.5" stroke-dasharray="12,8"/>'
+            f'<rect x="{bx:.1f}" y="{by:.1f}" width="{side:.1f}" height="{side:.1f}" rx="12" fill="{hl_bg}"/>'
+            f'<rect x="{bx+12:.1f}" y="{by+12:.1f}" width="{side-24:.1f}" height="{side-24:.1f}" rx="8" fill="none" stroke="rgba(255,255,255,0.45)" stroke-width="2.5" stroke-dasharray="12,8"/>'
         )
     elif shape == "offset_brutal_square":
         frame_svg = (
-            f'<rect x="{bx+12:.1f}" y="{by+12:.1f}" width="{side:.1f}" height="{side:.1f}" fill="{accent}"/>'
-            f'<rect x="{bx:.1f}" y="{by:.1f}" width="{side:.1f}" height="{side:.1f}" fill="{hl_bg}" stroke="#ffffff" stroke-width="3"/>'
+            f'<rect x="{bx+14:.1f}" y="{by+14:.1f}" width="{side:.1f}" height="{side:.1f}" rx="6" fill="{accent}"/>'
+            f'<rect x="{bx:.1f}" y="{by:.1f}" width="{side:.1f}" height="{side:.1f}" rx="6" fill="{hl_bg}" stroke="#ffffff" stroke-width="3"/>'
         )
     elif shape == "chamfer_square":
         c_cut = side * 0.14
         x1, y1, x2, y2 = bx, by, bx + side, by + side
         pts = f"{x1+c_cut:.1f},{y1:.1f} {x2-c_cut:.1f},{y1:.1f} {x2:.1f},{y1+c_cut:.1f} {x2:.1f},{y2-c_cut:.1f} {x2-c_cut:.1f},{y2:.1f} {x1+c_cut:.1f},{y2:.1f} {x1:.1f},{y2-c_cut:.1f} {x1:.1f},{y1+c_cut:.1f}"
-        frame_svg = f'<polygon points="{pts}" fill="{hl_bg}" stroke="{accent}" stroke-width="2.5"/>'
+        frame_svg = f'<polygon points="{pts}" fill="{hl_bg}" stroke="{accent}" stroke-width="3"/>'
     elif shape == "hud_tech_box":
         L = side * 0.18
         x1, y1, x2, y2 = bx, by, bx + side, by + side
         frame_svg = (
-            f'<rect x="{bx:.1f}" y="{by:.1f}" width="{side:.1f}" height="{side:.1f}" fill="{hl_bg}" stroke="rgba(255,255,255,0.15)" stroke-width="1.5"/>'
+            f'<rect x="{bx:.1f}" y="{by:.1f}" width="{side:.1f}" height="{side:.1f}" fill="{hl_bg}" stroke="rgba(255,255,255,0.18)" stroke-width="1.5"/>'
             f'<path d="M{x1:.1f},{y1+L:.1f} V{y1:.1f} H{x1+L:.1f} M{x2-L:.1f},{y1:.1f} H{x2:.1f} V{y1+L:.1f} '
-            f'M{x1:.1f},{y2-L:.1f} V{y2:.1f} H{x1+L:.1f} M{x2-L:.1f},{y2:.1f} H{x2:.1f} V{y2-L:.1f}" fill="none" stroke="{accent}" stroke-width="5"/>'
+            f'M{x1:.1f},{y2-L:.1f} V{y2:.1f} H{x1+L:.1f} M{x2-L:.1f},{y2:.1f} H{x2:.1f} V{y2-L:.1f}" fill="none" stroke="{accent}" stroke-width="6"/>'
         )
     elif shape == "glass_card":
         frame_svg = (
-            f'<rect x="{bx:.1f}" y="{by:.1f}" width="{side:.1f}" height="{side:.1f}" rx="24" fill="{hl_bg}" fill-opacity="0.88" stroke="#ffffff" stroke-opacity="0.4" stroke-width="2"/>'
-            f'<path d="M{bx+24:.1f},{by:.1f} H{bx+side*0.55:.1f} L{bx:.1f},{by+side*0.55:.1f} V{by+24:.1f} Z" fill="#ffffff" fill-opacity="0.07"/>'
+            f'<rect x="{bx+8:.1f}" y="{by+12:.1f}" width="{side:.1f}" height="{side:.1f}" rx="28" fill="#000000" fill-opacity="0.22"/>'
+            f'<rect x="{bx:.1f}" y="{by:.1f}" width="{side:.1f}" height="{side:.1f}" rx="28" fill="{hl_bg}" fill-opacity="0.92" stroke="#ffffff" stroke-opacity="0.45" stroke-width="2.5"/>'
+            f'<path d="M{bx+28:.1f},{by:.1f} H{bx+side*0.55:.1f} L{bx:.1f},{by+side*0.55:.1f} V{by+28:.1f} Z" fill="#ffffff" fill-opacity="0.08"/>'
         )
     elif shape == "polaroid_frame":
         frame_svg = (
-            f'<rect x="{bx:.1f}" y="{by:.1f}" width="{side:.1f}" height="{side+36:.1f}" rx="6" fill="#ffffff" stroke="rgba(0,0,0,0.2)" stroke-width="2"/>'
+            f'<rect x="{bx:.1f}" y="{by:.1f}" width="{side:.1f}" height="{side+36:.1f}" rx="8" fill="#ffffff" stroke="rgba(0,0,0,0.2)" stroke-width="2"/>'
             f'<rect x="{bx+14:.1f}" y="{by+14:.1f}" width="{side-28:.1f}" height="{side-28:.1f}" fill="{hl_bg}"/>'
             f'<text x="{cx:.1f}" y="{by+side+22:.1f}" font-size="13" font-weight="800" letter-spacing="2" fill="#1e293b" text-anchor="middle" class="mono">ICON SHOWCASE</text>'
         )
@@ -951,7 +1110,10 @@ def _render_showcase_box(
             pts_list.append(f"{cx + rad * math.cos(ang):.1f},{cy + rad * math.sin(ang):.1f}")
         frame_svg = f'<polygon points="{" ".join(pts_list)}" fill="{hl_bg}" stroke="{accent}" stroke-width="2"/>'
     elif shape == "squircle_super":
-        frame_svg = f'<rect x="{bx:.1f}" y="{by:.1f}" width="{side:.1f}" height="{side:.1f}" rx="{int(side*0.32)}" fill="{hl_bg}" stroke="rgba(255,255,255,0.3)" stroke-width="2.5"/>'
+        frame_svg = (
+            f'<rect x="{bx+8:.1f}" y="{by+12:.1f}" width="{side:.1f}" height="{side:.1f}" rx="{int(side*0.30)}" fill="#000000" fill-opacity="0.22"/>'
+            f'<rect x="{bx:.1f}" y="{by:.1f}" width="{side:.1f}" height="{side:.1f}" rx="{int(side*0.30)}" fill="{hl_bg}" stroke="rgba(255,255,255,0.32)" stroke-width="2.5"/>'
+        )
     elif shape == "arch_window":
         r = side / 2
         x1, y1, x2, y2 = bx, by, bx + side, by + side
@@ -987,12 +1149,14 @@ def _render_showcase_box(
             f'<rect x="{bx:.1f}" y="{by:.1f}" width="{side:.1f}" height="{side:.1f}" rx="8" fill="{hl_bg}" stroke="{accent}" stroke-width="2.5"/>'
         )
     else:
-        frame_svg = f'<rect x="{bx:.1f}" y="{by:.1f}" width="{side:.1f}" height="{side:.1f}" rx="6" fill="{hl_bg}" stroke="rgba(255,255,255,0.28)" stroke-width="2.5"/>'
+        frame_svg = f'<rect x="{bx:.1f}" y="{by:.1f}" width="{side:.1f}" height="{side:.1f}" rx="12" fill="{hl_bg}" stroke="rgba(255,255,255,0.28)" stroke-width="2.5"/>'
 
     return f"""
     <g id="showcaseBoxComponent">
       {frame_svg}
+      {inner_studio_decor}
       {hero_paths}
+      {showcase_badge}
     </g>"""
 
 
@@ -1019,12 +1183,15 @@ def _extract_highlight_svg(model: Model, icons_meta: list[dict], hl_mode: str, c
         h_scale = hero_size / max(bw, bh)
         h_ox = ox + (inner_w - bw * h_scale) / 2 - bx1 * h_scale
         h_oy = oy + (inner_h - bh * h_scale) / 2 - by1 * h_scale
-        return _render_paths_svg(ic_paths, hl_stroke, stroke_scale, h_scale, h_ox, h_oy)
+        hero_sw = max(5.0, hero_size * 0.048 * stroke_scale)
+        return _render_paths_svg(ic_paths, hl_stroke, stroke_scale, h_scale, h_ox, h_oy, target_screen_sw=hero_sw)
 
     start_idx = max(0, min(len(avail_icons) - 1, int(highlight_index)))
     rows = max(1, math.ceil(count / cols))
     cell_w = inner_w / cols
     cell_h = inner_h / rows
+    target_cell = min(cell_w * 0.62, cell_h * 0.62)
+    mini_sw = max(3.2, target_cell * 0.048 * stroke_scale)
     rendered = []
     for k in range(min(count, len(avail_icons))):
         i = (start_idx + k) % len(avail_icons)
@@ -1042,11 +1209,10 @@ def _extract_highlight_svg(model: Model, icons_meta: list[dict], hl_mode: str, c
         bw, bh = max(1.0, bx2 - bx1), max(1.0, by2 - by1)
         col_i = k % cols
         row_i = k // cols
-        target_cell = min(cell_w * 0.62, cell_h * 0.62)
         ic_scale = target_cell / max(bw, bh)
         cx = ox + col_i * cell_w + (cell_w - bw * ic_scale) / 2 - bx1 * ic_scale
         cy = oy + row_i * cell_h + (cell_h - bh * ic_scale) / 2 - by1 * ic_scale
-        rendered.append(_render_paths_svg(ic_paths, hl_stroke, stroke_scale, ic_scale, cx, cy))
+        rendered.append(_render_paths_svg(ic_paths, hl_stroke, stroke_scale, ic_scale, cx, cy, target_screen_sw=mini_sw))
     return "\n        ".join(rendered)
 
 
@@ -1055,80 +1221,99 @@ def _extract_highlight_svg(model: Model, icons_meta: list[dict], hl_mode: str, c
 # =========================================================================
 def _render_cover_shape_svg(
     banner_shape: str, x: float, y: float, w: float, h: float,
-    banner_bg: str, hl_bg: str, accent: str, is_right: bool = False
+    banner_bg: str, hl_bg: str, accent: str, is_right: bool = False, banner_text: str = "#18181B"
 ) -> str:
     shape = str(banner_shape or "square_solid").lower()
-    pad = int(min(w, h) * 0.04)
+    pad = int(min(w, h) * 0.036)
 
     # For right-side panels, we mirror horizontal custom paths around panel center if needed
     transform_open = f'<g transform="translate({2*x+w:.1f}, 0) scale(-1, 1)">' if (is_right and shape not in ("square_solid", "rounded_card", "double_split_box", "floating_island", "arch_dome")) else "<g>"
     transform_close = "</g>"
 
     if shape == "square_solid":
-        body = f'<rect x="{x:.1f}" y="{y:.1f}" width="{w:.1f}" height="{h:.1f}" fill="{banner_bg}"/>'
-    elif shape == "rounded_card":
-        body = f'<rect x="{x+pad:.1f}" y="{y+pad:.1f}" width="{w-pad*2:.1f}" height="{h-pad*2:.1f}" rx="32" fill="{banner_bg}"/>'
-    elif shape == "double_split_box":
-        top_h = int(h * 0.54)
+        seam_x = x if is_right else (x + w - 10)
+        shadow_x = (x - 28) if is_right else (x + w)
         body = (
-            f'<rect x="{x+pad:.1f}" y="{y+pad:.1f}" width="{w-pad*2:.1f}" height="{top_h-pad:.1f}" rx="20" fill="{banner_bg}"/>'
-            f'<rect x="{x+pad:.1f}" y="{y+top_h+pad//2:.1f}" width="{w-pad*2:.1f}" height="{h-top_h-pad*1.5:.1f}" rx="20" fill="{hl_bg}" fill-opacity="0.25"/>'
+            f'<rect x="{shadow_x:.1f}" y="{y:.1f}" width="28" height="{h:.1f}" fill="#000000" fill-opacity="0.07"/>'
+            f'<rect x="{shadow_x:.1f}" y="{y:.1f}" width="12" height="{h:.1f}" fill="#000000" fill-opacity="0.06"/>'
+            f'<rect x="{x:.1f}" y="{y:.1f}" width="{w:.1f}" height="{h:.1f}" fill="{banner_bg}"/>'
+            f'<polygon points="{x:.1f},{y:.1f} {x+w:.1f},{y:.1f} {x:.1f},{y+h*0.42:.1f}" fill="#ffffff" fill-opacity="0.07"/>'
+            f'<polygon points="{x+w:.1f},{y+h:.1f} {x:.1f},{y+h:.1f} {x+w:.1f},{y+h*0.58:.1f}" fill="#000000" fill-opacity="0.05"/>'
+            f'<rect x="{x+28:.1f}" y="{y+28:.1f}" width="{w-56:.1f}" height="{h-56:.1f}" rx="20" fill="none" stroke="{banner_text}" stroke-opacity="0.15" stroke-width="2.2"/>'
+            f'<rect x="{seam_x:.1f}" y="{y:.1f}" width="10" height="{h:.1f}" fill="{hl_bg}" fill-opacity="0.88"/>'
+        )
+    elif shape == "rounded_card":
+        body = (
+            f'<rect x="{x+pad+12:.1f}" y="{y+pad+16:.1f}" width="{w-pad*2:.1f}" height="{h-pad*2:.1f}" rx="36" fill="#000000" fill-opacity="0.16"/>'
+            f'<rect x="{x+pad:.1f}" y="{y+pad:.1f}" width="{w-pad*2:.1f}" height="{h-pad*2:.1f}" rx="36" fill="{banner_bg}" stroke="{hl_bg}" stroke-opacity="0.25" stroke-width="3"/>'
+            f'<rect x="{x+pad+20:.1f}" y="{y+pad+20:.1f}" width="{w-pad*2-40:.1f}" height="{h-pad*2-40:.1f}" rx="24" fill="none" stroke="{banner_text}" stroke-opacity="0.14" stroke-width="2"/>'
+        )
+    elif shape == "double_split_box":
+        top_h = int(h * 0.53)
+        body = (
+            f'<rect x="{x+pad+10:.1f}" y="{y+pad+14:.1f}" width="{w-pad*2:.1f}" height="{top_h-pad:.1f}" rx="28" fill="#000000" fill-opacity="0.14"/>'
+            f'<rect x="{x+pad:.1f}" y="{y+pad:.1f}" width="{w-pad*2:.1f}" height="{top_h-pad:.1f}" rx="28" fill="{banner_bg}"/>'
+            f'<rect x="{x+pad+18:.1f}" y="{y+pad+18:.1f}" width="{w-pad*2-36:.1f}" height="{top_h-pad-36:.1f}" rx="18" fill="none" stroke="{banner_text}" stroke-opacity="0.15" stroke-width="2"/>'
+            f'<rect x="{x+pad+10:.1f}" y="{y+top_h+pad//2+14:.1f}" width="{w-pad*2:.1f}" height="{h-top_h-pad*1.5:.1f}" rx="28" fill="#000000" fill-opacity="0.16"/>'
+            f'<rect x="{x+pad:.1f}" y="{y+top_h+pad//2:.1f}" width="{w-pad*2:.1f}" height="{h-top_h-pad*1.5:.1f}" rx="28" fill="{banner_bg}"/>'
+            f'<rect x="{x+pad:.1f}" y="{y+top_h+pad//2:.1f}" width="{w-pad*2:.1f}" height="{h-top_h-pad*1.5:.1f}" rx="28" fill="{hl_bg}" fill-opacity="0.14" stroke="{hl_bg}" stroke-opacity="0.25" stroke-width="2.5"/>'
         )
     elif shape == "chamfer_box":
         c = 44
         x1, y1, x2, y2 = x + pad, y + pad, x + w - pad, y + h - pad
         pts = f"{x1+c:.1f},{y1:.1f} {x2-c:.1f},{y1:.1f} {x2:.1f},{y1+c:.1f} {x2:.1f},{y2-c:.1f} {x2-c:.1f},{y2:.1f} {x1+c:.1f},{y2:.1f} {x1:.1f},{y2-c:.1f} {x1:.1f},{y1+c:.1f}"
-        body = f'<polygon points="{pts}" fill="{banner_bg}"/>'
+        body = f'<polygon points="{pts}" fill="{banner_bg}" stroke="{hl_bg}" stroke-opacity="0.3" stroke-width="3"/>'
     elif shape == "notched_ticket":
         r = 36
         x1, y1, x2, y2 = x + pad, y + pad, x + w - pad, y + h - pad
         d = f"M{x1+r:.1f},{y1:.1f} H{x2-r:.1f} A{r},{r} 0 0,0 {x2:.1f},{y1+r:.1f} V{y2-r:.1f} A{r},{r} 0 0,0 {x2-r:.1f},{y2:.1f} H{x1+r:.1f} A{r},{r} 0 0,0 {x1:.1f},{y2-r:.1f} V{y1+r:.1f} A{r},{r} 0 0,0 {x1+r:.1f},{y1:.1f} Z"
-        body = f'<path d="{d}" fill="{banner_bg}"/>'
+        body = f'<path d="{d}" fill="{banner_bg}" stroke="{hl_bg}" stroke-opacity="0.3" stroke-width="3"/>'
     elif shape == "curved_right":
-        d = f"M{x:.1f},{y:.1f} L{x+w*0.86:.1f},{y:.1f} Q{x+w*1.12:.1f},{y+h*0.5:.1f} {x+w*0.86:.1f},{y+h:.1f} L{x:.1f},{y+h:.1f} Z"
+        d = f"M{x:.1f},{y:.1f} L{x+w*0.88:.1f},{y:.1f} Q{x+w*1.12:.1f},{y+h*0.5:.1f} {x+w*0.88:.1f},{y+h:.1f} L{x:.1f},{y+h:.1f} Z"
         body = f'<path d="{d}" fill="{banner_bg}"/>'
     elif shape == "concave_arch":
-        d = f"M{x:.1f},{y:.1f} L{x+w:.1f},{y:.1f} Q{x+w*0.78:.1f},{y+h*0.5:.1f} {x+w:.1f},{y+h:.1f} L{x:.1f},{y+h:.1f} Z"
+        d = f"M{x:.1f},{y:.1f} L{x+w:.1f},{y:.1f} Q{x+w*0.80:.1f},{y+h*0.5:.1f} {x+w:.1f},{y+h:.1f} L{x:.1f},{y+h:.1f} Z"
         body = f'<path d="{d}" fill="{banner_bg}"/>'
     elif shape in ("s_wave_smooth", "wave_flow"):
-        d = f"M{x:.1f},{y:.1f} L{x+w*0.92:.1f},{y:.1f} C{x+w*1.15:.1f},{y+h*0.30:.1f} {x+w*0.72:.1f},{y+h*0.70:.1f} {x+w*0.98:.1f},{y+h:.1f} L{x:.1f},{y+h:.1f} Z"
-        body = f'<path d="{d}" fill="{banner_bg}"/>'
+        d1 = f"M{x:.1f},{y:.1f} L{x+w*0.97:.1f},{y:.1f} C{x+w*1.18:.1f},{y+h*0.30:.1f} {x+w*0.76:.1f},{y+h*0.70:.1f} {x+w*1.03:.1f},{y+h:.1f} L{x:.1f},{y+h:.1f} Z"
+        d2 = f"M{x:.1f},{y:.1f} L{x+w*0.92:.1f},{y:.1f} C{x+w*1.14:.1f},{y+h*0.30:.1f} {x+w*0.72:.1f},{y+h*0.70:.1f} {x+w*0.98:.1f},{y+h:.1f} L{x:.1f},{y+h:.1f} Z"
+        body = f'<path d="{d1}" fill="{hl_bg}" fill-opacity="0.22"/><path d="{d2}" fill="{banner_bg}"/>'
     elif shape == "double_wave":
-        d1 = f"M{x:.1f},{y:.1f} L{x+w*0.96:.1f},{y:.1f} C{x+w*1.18:.1f},{y+h*0.32:.1f} {x+w*0.74:.1f},{y+h*0.68:.1f} {x+w*1.02:.1f},{y+h:.1f} L{x:.1f},{y+h:.1f} Z"
-        d2 = f"M{x:.1f},{y:.1f} L{x+w*0.86:.1f},{y:.1f} C{x+w*1.08:.1f},{y+h*0.35:.1f} {x+w*0.64:.1f},{y+h*0.65:.1f} {x+w*0.90:.1f},{y+h:.1f} L{x:.1f},{y+h:.1f} Z"
+        d1 = f"M{x:.1f},{y:.1f} L{x+w*0.98:.1f},{y:.1f} C{x+w*1.18:.1f},{y+h*0.32:.1f} {x+w*0.76:.1f},{y+h*0.68:.1f} {x+w*1.04:.1f},{y+h:.1f} L{x:.1f},{y+h:.1f} Z"
+        d2 = f"M{x:.1f},{y:.1f} L{x+w*0.90:.1f},{y:.1f} C{x+w*1.10:.1f},{y+h*0.35:.1f} {x+w*0.68:.1f},{y+h*0.65:.1f} {x+w*0.94:.1f},{y+h:.1f} L{x:.1f},{y+h:.1f} Z"
         body = f'<path d="{d1}" fill="{banner_bg}" fill-opacity="0.45"/><path d="{d2}" fill="{banner_bg}"/>'
     elif shape == "triple_liquid":
         d1 = f"M{x:.1f},{y:.1f} L{x+w*1.02:.1f},{y:.1f} C{x+w*1.20:.1f},{y+h*0.25:.1f} {x+w*0.78:.1f},{y+h*0.75:.1f} {x+w*1.04:.1f},{y+h:.1f} L{x:.1f},{y+h:.1f} Z"
-        d2 = f"M{x:.1f},{y:.1f} L{x+w*0.94:.1f},{y:.1f} C{x+w*1.12:.1f},{y+h*0.30:.1f} {x+w*0.70:.1f},{y+h*0.70:.1f} {x+w*0.96:.1f},{y+h:.1f} L{x:.1f},{y+h:.1f} Z"
-        d3 = f"M{x:.1f},{y:.1f} L{x+w*0.85:.1f},{y:.1f} C{x+w*1.02:.1f},{y+h*0.35:.1f} {x+w*0.62:.1f},{y+h*0.65:.1f} {x+w*0.88:.1f},{y+h:.1f} L{x:.1f},{y+h:.1f} Z"
+        d2 = f"M{x:.1f},{y:.1f} L{x+w*0.95:.1f},{y:.1f} C{x+w*1.12:.1f},{y+h*0.30:.1f} {x+w*0.72:.1f},{y+h*0.70:.1f} {x+w*0.97:.1f},{y+h:.1f} L{x:.1f},{y+h:.1f} Z"
+        d3 = f"M{x:.1f},{y:.1f} L{x+w*0.88:.1f},{y:.1f} C{x+w*1.04:.1f},{y+h*0.35:.1f} {x+w*0.66:.1f},{y+h*0.65:.1f} {x+w*0.91:.1f},{y+h:.1f} L{x:.1f},{y+h:.1f} Z"
         body = f'<path d="{d1}" fill="{accent}" fill-opacity="0.35"/><path d="{d2}" fill="{banner_bg}" fill-opacity="0.65"/><path d="{d3}" fill="{banner_bg}"/>'
     elif shape == "diagonal_slash":
-        pts1 = f"{x:.1f},{y:.1f} {x+w*1.04:.1f},{y:.1f} {x+w*0.84:.1f},{y+h:.1f} {x:.1f},{y+h:.1f}"
-        pts2 = f"{x+w*1.06:.1f},{y:.1f} {x+w*1.10:.1f},{y:.1f} {x+w*0.90:.1f},{y+h:.1f} {x+w*0.86:.1f},{y+h:.1f}"
+        pts1 = f"{x:.1f},{y:.1f} {x+w*1.04:.1f},{y:.1f} {x+w*0.86:.1f},{y+h:.1f} {x:.1f},{y+h:.1f}"
+        pts2 = f"{x+w*1.06:.1f},{y:.1f} {x+w*1.10:.1f},{y:.1f} {x+w*0.92:.1f},{y+h:.1f} {x+w*0.88:.1f},{y+h:.1f}"
         body = f'<polygon points="{pts1}" fill="{banner_bg}"/><polygon points="{pts2}" fill="{accent}"/>'
     elif shape == "dual_chevron":
-        pts1 = f"{x:.1f},{y:.1f} {x+w*0.88:.1f},{y:.1f} {x+w*1.04:.1f},{y+h*0.5:.1f} {x+w*0.88:.1f},{y+h:.1f} {x:.1f},{y+h:.1f}"
-        pts2 = f"{x+w*0.92:.1f},{y:.1f} {x+w*0.97:.1f},{y:.1f} {x+w*1.13:.1f},{y+h*0.5:.1f} {x+w*0.97:.1f},{y+h:.1f} {x+w*0.92:.1f},{y+h:.1f} {x+w*1.08:.1f},{y+h*0.5:.1f}"
+        pts1 = f"{x:.1f},{y:.1f} {x+w*0.90:.1f},{y:.1f} {x+w*1.04:.1f},{y+h*0.5:.1f} {x+w*0.90:.1f},{y+h:.1f} {x:.1f},{y+h:.1f}"
+        pts2 = f"{x+w*0.93:.1f},{y:.1f} {x+w*0.98:.1f},{y:.1f} {x+w*1.12:.1f},{y+h*0.5:.1f} {x+w*0.98:.1f},{y+h:.1f} {x+w*0.93:.1f},{y+h:.1f} {x+w*1.07:.1f},{y+h*0.5:.1f}"
         body = f'<polygon points="{pts1}" fill="{banner_bg}"/><polygon points="{pts2}" fill="{accent}" fill-opacity="0.65"/>'
     elif shape == "origami_fold":
-        p1 = f"{x:.1f},{y:.1f} {x+w*0.96:.1f},{y:.1f} {x+w*0.80:.1f},{y+h:.1f} {x:.1f},{y+h:.1f}"
-        p2 = f"{x+w*0.96:.1f},{y:.1f} {x+w*1.08:.1f},{y+h*0.42:.1f} {x+w*0.80:.1f},{y+h:.1f}"
+        p1 = f"{x:.1f},{y:.1f} {x+w*0.96:.1f},{y:.1f} {x+w*0.84:.1f},{y+h:.1f} {x:.1f},{y+h:.1f}"
+        p2 = f"{x+w*0.96:.1f},{y:.1f} {x+w*1.08:.1f},{y+h*0.42:.1f} {x+w*0.84:.1f},{y+h:.1f}"
         body = f'<polygon points="{p1}" fill="{banner_bg}"/><polygon points="{p2}" fill="{banner_bg}" fill-opacity="0.6"/>'
     elif shape == "stepped_blocks":
         h3 = h / 3.0
         body = (
             f'<rect x="{x:.1f}" y="{y:.1f}" width="{w*0.98:.1f}" height="{h3+2:.1f}" fill="{banner_bg}"/>'
-            f'<rect x="{x:.1f}" y="{y+h3:.1f}" width="{w*0.92:.1f}" height="{h3+2:.1f}" fill="{banner_bg}"/>'
-            f'<rect x="{x:.1f}" y="{y+h3*2:.1f}" width="{w*0.86:.1f}" height="{h3:.1f}" fill="{banner_bg}"/>'
+            f'<rect x="{x:.1f}" y="{y+h3:.1f}" width="{w*0.93:.1f}" height="{h3+2:.1f}" fill="{banner_bg}"/>'
+            f'<rect x="{x:.1f}" y="{y+h3*2:.1f}" width="{w*0.88:.1f}" height="{h3:.1f}" fill="{banner_bg}"/>'
         )
     elif shape in ("hexagon_panel", "hexagon_shield"):
-        pts = f"{x:.1f},{y:.1f} {x+w*0.88:.1f},{y:.1f} {x+w*1.02:.1f},{y+h*0.25:.1f} {x+w*1.02:.1f},{y+h*0.75:.1f} {x+w*0.88:.1f},{y+h:.1f} {x:.1f},{y+h:.1f}"
+        pts = f"{x:.1f},{y:.1f} {x+w*0.90:.1f},{y:.1f} {x+w*1.02:.1f},{y+h*0.25:.1f} {x+w*1.02:.1f},{y+h*0.75:.1f} {x+w*0.90:.1f},{y+h:.1f} {x:.1f},{y+h:.1f}"
         body = f'<polygon points="{pts}" fill="{banner_bg}"/>'
     elif shape in ("leaf_organic", "eco_leaf"):
-        d = f"M{x:.1f},{y:.1f} L{x+w*0.86:.1f},{y:.1f} C{x+w*1.12:.1f},{y+h*0.22:.1f} {x+w*1.12:.1f},{y+h*0.78:.1f} {x+w*0.72:.1f},{y+h:.1f} L{x:.1f},{y+h:.1f} Z"
+        d = f"M{x:.1f},{y:.1f} L{x+w*0.88:.1f},{y:.1f} C{x+w*1.12:.1f},{y+h*0.22:.1f} {x+w*1.12:.1f},{y+h*0.78:.1f} {x+w*0.78:.1f},{y+h:.1f} L{x:.1f},{y+h:.1f} Z"
         body = f'<path d="{d}" fill="{banner_bg}"/>'
     elif shape in ("droplet_curve", "droplet_flow"):
-        d = f"M{x:.1f},{y:.1f} L{x+w*0.78:.1f},{y:.1f} C{x+w*0.78:.1f},{y+h*0.35:.1f} {x+w*1.14:.1f},{y+h*0.62:.1f} {x+w*0.86:.1f},{y+h:.1f} L{x:.1f},{y+h:.1f} Z"
+        d = f"M{x:.1f},{y:.1f} L{x+w*0.84:.1f},{y:.1f} C{x+w*0.84:.1f},{y+h*0.35:.1f} {x+w*1.14:.1f},{y+h*0.62:.1f} {x+w*0.88:.1f},{y+h:.1f} L{x:.1f},{y+h:.1f} Z"
         body = f'<path d="{d}" fill="{banner_bg}"/>'
     elif shape == "scallop_edge":
         circles = []
@@ -1136,43 +1321,44 @@ def _render_cover_shape_svg(
         r_sc = (h / n_sc) * 0.62
         for k in range(n_sc):
             cy_k = y + (k + 0.5) * (h / n_sc)
-            circles.append(f'<circle cx="{x+w*0.88:.1f}" cy="{cy_k:.1f}" r="{r_sc:.1f}" fill="{banner_bg}"/>')
-        body = f'<rect x="{x:.1f}" y="{y:.1f}" width="{w*0.88:.1f}" height="{h:.1f}" fill="{banner_bg}"/>' + "".join(circles)
+            circles.append(f'<circle cx="{x+w*0.90:.1f}" cy="{cy_k:.1f}" r="{r_sc:.1f}" fill="{banner_bg}"/>')
+        body = f'<rect x="{x:.1f}" y="{y:.1f}" width="{w*0.90:.1f}" height="{h:.1f}" fill="{banner_bg}"/>' + "".join(circles)
     elif shape == "zigzag_saw":
-        pts = [f"{x:.1f},{y:.1f}", f"{x+w*0.90:.1f},{y:.1f}"]
+        pts = [f"{x:.1f},{y:.1f}", f"{x+w*0.92:.1f},{y:.1f}"]
         n_z = 12
         step_y = h / n_z
         for k in range(n_z):
-            pts.append(f"{x+w*0.98:.1f},{y+(k+0.5)*step_y:.1f}")
-            pts.append(f"{x+w*0.90:.1f},{y+(k+1.0)*step_y:.1f}")
+            pts.append(f"{x+w*0.99:.1f},{y+(k+0.5)*step_y:.1f}")
+            pts.append(f"{x+w*0.92:.1f},{y+(k+1.0)*step_y:.1f}")
         pts.append(f"{x:.1f},{y+h:.1f}")
         body = f'<polygon points="{" ".join(pts)}" fill="{banner_bg}"/>'
     elif shape == "ribbon_banner":
         x1, y1, x2, y2 = x + pad, y, x + w - pad, y + h - pad
-        pts = f"{x1:.1f},{y1:.1f} {x2:.1f},{y1:.1f} {x2:.1f},{y2:.1f} {x+w/2:.1f},{y2-56:.1f} {x1:.1f},{y2:.1f}"
+        pts = f"{x1:.1f},{y1:.1f} {x2:.1f},{y1:.1f} {x2:.1f},{y2:.1f} {x+w/2:.1f},{y2-48:.1f} {x1:.1f},{y2:.1f}"
         body = f'<polygon points="{pts}" fill="{banner_bg}"/>'
     elif shape == "floating_island":
         body = (
-            f'<rect x="{x+pad+14:.1f}" y="{y+pad+18:.1f}" width="{w-pad*2:.1f}" height="{h-pad*2:.1f}" rx="28" fill="#000000" fill-opacity="0.22"/>'
-            f'<rect x="{x+pad:.1f}" y="{y+pad:.1f}" width="{w-pad*2:.1f}" height="{h-pad*2:.1f}" rx="28" fill="{banner_bg}" stroke="#ffffff" stroke-opacity="0.35" stroke-width="3"/>'
+            f'<rect x="{x+pad+14:.1f}" y="{y+pad+18:.1f}" width="{w-pad*2:.1f}" height="{h-pad*2:.1f}" rx="32" fill="#000000" fill-opacity="0.22"/>'
+            f'<rect x="{x+pad:.1f}" y="{y+pad:.1f}" width="{w-pad*2:.1f}" height="{h-pad*2:.1f}" rx="32" fill="{banner_bg}" stroke="#ffffff" stroke-opacity="0.35" stroke-width="3"/>'
+            f'<rect x="{x+pad+20:.1f}" y="{y+pad+20:.1f}" width="{w-pad*2-40:.1f}" height="{h-pad*2-40:.1f}" rx="22" fill="none" stroke="{banner_text}" stroke-opacity="0.14" stroke-width="2"/>'
         )
     elif shape == "layered_cards":
         body = (
-            f'<rect x="{x+pad+24:.1f}" y="{y+pad+24:.1f}" width="{w-pad*2:.1f}" height="{h-pad*2:.1f}" rx="20" fill="{banner_bg}" fill-opacity="0.35"/>'
-            f'<rect x="{x+pad+12:.1f}" y="{y+pad+12:.1f}" width="{w-pad*2:.1f}" height="{h-pad*2:.1f}" rx="20" fill="{banner_bg}" fill-opacity="0.65"/>'
-            f'<rect x="{x+pad:.1f}" y="{y+pad:.1f}" width="{w-pad*2:.1f}" height="{h-pad*2:.1f}" rx="20" fill="{banner_bg}"/>'
+            f'<rect x="{x+pad+24:.1f}" y="{y+pad+24:.1f}" width="{w-pad*2:.1f}" height="{h-pad*2:.1f}" rx="24" fill="{banner_bg}" fill-opacity="0.35"/>'
+            f'<rect x="{x+pad+12:.1f}" y="{y+pad+12:.1f}" width="{w-pad*2:.1f}" height="{h-pad*2:.1f}" rx="24" fill="{banner_bg}" fill-opacity="0.65"/>'
+            f'<rect x="{x+pad:.1f}" y="{y+pad:.1f}" width="{w-pad*2:.1f}" height="{h-pad*2:.1f}" rx="24" fill="{banner_bg}"/>'
         )
     elif shape == "cyber_hud_frame":
         x1, y1, x2, y2 = x + pad, y + pad, x + w - pad, y + h - pad
         pts = f"{x1:.1f},{y1:.1f} {x2-48:.1f},{y1:.1f} {x2:.1f},{y1+48:.1f} {x2:.1f},{y2-80:.1f} {x2-28:.1f},{y2-52:.1f} {x2-28:.1f},{y2:.1f} {x1+36:.1f},{y2:.1f} {x1:.1f},{y2-36:.1f}"
-        body = f'<polygon points="{pts}" fill="{banner_bg}" stroke="{accent}" stroke-width="4"/>'
+        body = f'<polygon points="{pts}" fill="{banner_bg}" stroke="{accent}" stroke-width="4.5"/>'
     elif shape == "arch_dome":
         x1, y1, x2, y2 = x + pad, y + pad, x + w - pad, y + h - pad
         r = (x2 - x1) / 2
         d = f"M{x1:.1f},{y1+r:.1f} A{r:.1f},{r:.1f} 0 0,1 {x2:.1f},{y1+r:.1f} V{y2:.1f} H{x1:.1f} Z"
         body = f'<path d="{d}" fill="{banner_bg}"/>'
     elif shape in ("pixel_dissolve", "pixel_matrix"):
-        solid_w = w * 0.84
+        solid_w = w * 0.86
         sq = 44
         rects = [f'<rect x="{x:.1f}" y="{y:.1f}" width="{solid_w:.1f}" height="{h:.1f}" fill="{banner_bg}"/>']
         for r_i in range(int(h // sq)):
@@ -1255,6 +1441,58 @@ def _render_cover_decor_svg(decor: str, x: float, y: float, w: float, h: float, 
     return ""
 
 
+def _render_count_medallion_svg(
+    cx: float, count_cy: float, count_fs: int, count_val: str,
+    banner_text: str, hl_bg: str, accent: str, inner_w: float
+) -> str:
+    """Renders an agency-grade monumental count badge lockup so the cover center never looks empty."""
+    c_str = sanitize_text(count_val)
+    med_y = count_cy - count_fs * 0.34
+    ring_r = min(inner_w * 0.44, count_fs * 0.64)
+    pill_w = min(inner_w * 0.78, max(260, count_fs * 1.18))
+    pill_h = max(44, int(count_fs * 0.19))
+    pill_y = count_cy + int(count_fs * 0.08)
+    pill_fs = max(16, int(pill_h * 0.45))
+
+    return f"""
+    <g id="monumentalCountLockup">
+      <circle cx="{cx:.1f}" cy="{med_y:.1f}" r="{ring_r+16:.1f}" fill="none" stroke="{banner_text}" stroke-opacity="0.16" stroke-width="2" stroke-dasharray="12,8"/>
+      <circle cx="{cx:.1f}" cy="{med_y:.1f}" r="{ring_r:.1f}" fill="{banner_text}" fill-opacity="0.07" stroke="{banner_text}" stroke-opacity="0.14" stroke-width="2"/>
+      <line x1="{cx - inner_w*0.42:.1f}" y1="{med_y:.1f}" x2="{cx - ring_r - 24:.1f}" y2="{med_y:.1f}" stroke="{banner_text}" stroke-opacity="0.25" stroke-width="3"/>
+      <line x1="{cx + ring_r + 24:.1f}" y1="{med_y:.1f}" x2="{cx + inner_w*0.42:.1f}" y2="{med_y:.1f}" stroke="{banner_text}" stroke-opacity="0.25" stroke-width="3"/>
+      <text x="{cx+6:.1f}" y="{count_cy+8:.1f}"
+            font-size="{count_fs}" font-weight="900" fill="#000000" opacity="0.12" letter-spacing="-3"
+            text-anchor="middle" class="count">{c_str}</text>
+      <text x="{cx:.1f}" y="{count_cy:.1f}"
+            font-size="{count_fs}" font-weight="900" fill="{banner_text}" letter-spacing="-3"
+            text-anchor="middle" class="count">{c_str}</text>
+      <rect x="{cx - pill_w/2 + 4:.1f}" y="{pill_y + 5:.1f}" width="{pill_w:.1f}" height="{pill_h:.1f}" rx="{pill_h//2}" fill="#000000" fill-opacity="0.20"/>
+      <rect x="{cx - pill_w/2:.1f}" y="{pill_y:.1f}" width="{pill_w:.1f}" height="{pill_h:.1f}" rx="{pill_h//2}" fill="{hl_bg}" stroke="#ffffff" stroke-opacity="0.28" stroke-width="2"/>
+      <text x="{cx:.1f}" y="{pill_y + pill_h*0.66:.1f}" font-size="{pill_fs}" font-weight="800" letter-spacing="3.5" fill="#FFFFFF" text-anchor="middle" class="mono">VECTOR ICON PACK</text>
+    </g>"""
+
+
+def _render_format_badges_bar_svg(cx: float, y: float, inner_w: float, banner_text: str, hl_bg: str) -> str:
+    """Renders crisp deliverable file format spec pills (SVG, EPS 10, PNG HD, VECTOR) at the footer of the cover."""
+    badges = ["SVG", "EPS 10", "PNG HD", "AI VECTOR"]
+    gap = 12
+    total_w = min(inner_w * 0.96, 740)
+    bw = (total_w - gap * (len(badges) - 1)) / len(badges)
+    bh = max(34, int(total_w * 0.056))
+    fs = max(13, int(bh * 0.44))
+    start_x = cx - total_w / 2
+    elems = []
+    for i, label in enumerate(badges):
+        bx = start_x + i * (bw + gap)
+        elems.append(
+            f'<rect x="{bx:.1f}" y="{y:.1f}" width="{bw:.1f}" height="{bh:.1f}" rx="8" '
+            f'fill="{banner_text}" fill-opacity="0.12" stroke="{banner_text}" stroke-opacity="0.24" stroke-width="1.8"/>'
+            f'<text x="{bx + bw/2:.1f}" y="{y + bh*0.67:.1f}" font-size="{fs}" font-weight="800" letter-spacing="1.5" '
+            f'fill="{banner_text}" text-anchor="middle" class="mono">{label}</text>'
+        )
+    return '<g id="coverFormatBadgesBar">' + "".join(elems) + "</g>"
+
+
 # =========================================================================
 # Master Modular Template Maker Compositor
 # =========================================================================
@@ -1282,10 +1520,11 @@ def _build_modular_template(model: Model, icons_meta: list[dict], c: dict, W: in
     show_highlight = c.get("show_highlight", True)
 
     fonts_import, title_font, count_font, sub_font = _get_font_css(c.get("font_family", "bebas"))
+    ui_scale = max(1.0, H / 1080.0)
 
     # Horizontal Top or Bottom Bar Mode
     if panel_pos in ("top", "bottom"):
-        bar_h = int(round(H * 0.24))
+        bar_h = int(round(H * 0.25))
         is_bottom = (panel_pos == "bottom")
         bar_y = (H - bar_h) if is_bottom else 0
         sheet_y = 0 if is_bottom else bar_h
@@ -1296,28 +1535,37 @@ def _build_modular_template(model: Model, icons_meta: list[dict], c: dict, W: in
             sheet_x=0, sheet_y=sheet_y, sheet_w=W, sheet_h=sheet_h
         )
 
-        title_fs = int(c.get("title_fs") or 0) or max(36, int(round(bar_h * 0.24)))
-        count_fs = int(c.get("count_fs") or 0) or max(84, int(round(bar_h * 0.46)))
-        sub_fs = int(c.get("sub_fs") or 0) or max(16, int(round(bar_h * 0.09)))
+        raw_t_fs = int(c.get("title_fs") or 0)
+        raw_c_fs = int(c.get("count_fs") or 0)
+        raw_s_fs = int(c.get("sub_fs") or 0)
+        title_fs = int(round(raw_t_fs * ui_scale * 0.85)) if (0 < raw_t_fs <= 120) else (raw_t_fs or max(48, int(round(bar_h * 0.22))))
+        count_fs = int(round(raw_c_fs * ui_scale * 0.72)) if (0 < raw_c_fs <= 260) else (raw_c_fs or max(110, int(round(bar_h * 0.48))))
+        sub_fs = int(round(raw_s_fs * ui_scale * 0.85)) if (0 < raw_s_fs <= 48) else (raw_s_fs or max(20, int(round(bar_h * 0.075))))
 
         title_svg = _render_title_highlight(
             title=c["title"], subtitle=c["subtitle"],
-            cx=int(W * 0.34), cy=bar_y + int(bar_h * 0.44),
+            cx=int(W * 0.44), cy=bar_y + int(bar_h * 0.48),
             title_fs=title_fs, sub_fs=sub_fs,
             banner_text=banner_text, banner_sub=banner_sub,
             title_font=title_font, sub_font=sub_font,
             style=title_hl_style, is_centered=True,
-            max_w=W * 0.38, accent=accent
+            max_w=W * 0.42, accent=accent, hl_bg=hl_bg
         )
 
         hl_svg = ""
         if show_highlight:
-            sc_size = int(bar_h * 0.82)
+            sc_size = int(bar_h * 0.84)
             hl_svg = _render_showcase_box(
                 model, icons_meta, c,
-                cx=W - int(W * 0.12), cy=bar_y + bar_h / 2,
+                cx=W - int(W * 0.11), cy=bar_y + bar_h / 2,
                 w=sc_size, h=sc_size, stroke_scale=stroke_scale
             )
+
+        seam_y = bar_y if is_bottom else (bar_y + bar_h - 8)
+        count_box_x = int(W * 0.04)
+        count_box_w = int(W * 0.14)
+        count_box_h = int(bar_h * 0.74)
+        count_box_y = bar_y + (bar_h - count_box_h) // 2
 
         return f"""<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {W} {H}" width="{W}" height="{H}">
   <defs>
@@ -1336,7 +1584,11 @@ def _build_modular_template(model: Model, icons_meta: list[dict], c: dict, W: in
   </g>
   <g id="stockCoverBar">
     <rect x="0" y="{bar_y}" width="{W}" height="{bar_h}" fill="{banner_bg}"/>
-    <text x="{int(W * 0.09)}" y="{bar_y + int(bar_h * 0.66)}" font-size="{count_fs}" font-weight="900" fill="{banner_text}" text-anchor="middle" class="count">{sanitize_text(count_val)}</text>
+    <rect x="24" y="{bar_y+20}" width="{W-48}" height="{bar_h-40}" rx="18" fill="none" stroke="{banner_text}" stroke-opacity="0.15" stroke-width="2"/>
+    <rect x="0" y="{seam_y}" width="{W}" height="8" fill="{hl_bg}"/>
+    <rect x="{count_box_x}" y="{count_box_y}" width="{count_box_w}" height="{count_box_h}" rx="20" fill="{banner_text}" fill-opacity="0.09" stroke="{banner_text}" stroke-opacity="0.2" stroke-width="2"/>
+    <text x="{count_box_x + count_box_w/2:.1f}" y="{bar_y + int(bar_h * 0.62)}" font-size="{count_fs}" font-weight="900" fill="{banner_text}" text-anchor="middle" class="count">{sanitize_text(count_val)}</text>
+    <text x="{count_box_x + count_box_w/2:.1f}" y="{bar_y + int(bar_h * 0.80)}" font-size="{max(14, int(bar_h*0.042))}" font-weight="800" letter-spacing="3" fill="{banner_text}" text-anchor="middle" class="mono">ICONS PACK</text>
     {title_svg}
     {hl_svg}
   </g>
@@ -1356,27 +1608,32 @@ def _build_modular_template(model: Model, icons_meta: list[dict], c: dict, W: in
 
     cover_shape_svg = _render_cover_shape_svg(
         banner_shape, panel_x, 0, banner_w, H,
-        banner_bg, hl_bg, accent or hl_bg, is_right=is_right
+        banner_bg, hl_bg, accent or hl_bg, is_right=is_right, banner_text=banner_text
     )
     cover_decor_svg = _render_cover_decor_svg(
         decor, panel_x, 0, banner_w, H, banner_text, accent or hl_bg
     )
 
-    inner_cx = panel_x + banner_w * 0.48 if not is_right else panel_x + banner_w * 0.52
-    inner_w = banner_w * 0.80
+    inner_cx = panel_x + banner_w * 0.49 if not is_right else panel_x + banner_w * 0.51
+    inner_w = banner_w * 0.82
 
-    title_fs = int(c.get("title_fs") or 0) or max(36, int(round(banner_w * 0.082)))
-    count_fs = int(c.get("count_fs") or 0) or max(96, int(round(banner_w * 0.30)))
-    sub_fs = int(c.get("sub_fs") or 0) or max(16, int(round(banner_w * 0.044)))
+    raw_t_fs = int(c.get("title_fs") or 0)
+    raw_c_fs = int(c.get("count_fs") or 0)
+    raw_s_fs = int(c.get("sub_fs") or 0)
+
+    # Auto-scale 1080p UI slider values up to 4K canvas proportions!
+    title_fs = int(round(raw_t_fs * ui_scale)) if (0 < raw_t_fs <= 120) else (raw_t_fs or max(68, int(round(banner_w * 0.102))))
+    count_fs = int(round(raw_c_fs * ui_scale * 0.88)) if (0 < raw_c_fs <= 260) else (raw_c_fs or max(180, int(round(banner_w * 0.27))))
+    sub_fs = int(round(raw_s_fs * ui_scale * 0.82)) if (0 < raw_s_fs <= 48) else (raw_s_fs or max(24, int(round(banner_w * 0.032))))
 
     if show_highlight:
-        title_cy = int(H * 0.12)
-        count_cy = int(H * 0.42)
-        box_cy = int(H * 0.72)
-        box_size = min(inner_w * 0.86, H * 0.40)
+        title_cy = int(H * 0.135)
+        count_cy = int(H * 0.405)
+        box_cy = int(H * 0.725)
+        box_size = min(inner_w * 0.82, H * 0.35)
     else:
-        title_cy = int(H * 0.28)
-        count_cy = int(H * 0.64)
+        title_cy = int(H * 0.24)
+        count_cy = int(H * 0.60)
         box_cy = 0
         box_size = 0
 
@@ -1387,7 +1644,12 @@ def _build_modular_template(model: Model, icons_meta: list[dict], c: dict, W: in
         banner_text=banner_text, banner_sub=banner_sub,
         title_font=title_font, sub_font=sub_font,
         style=title_hl_style, is_centered=True,
-        max_w=inner_w, accent=accent
+        max_w=inner_w, accent=accent, hl_bg=hl_bg
+    )
+
+    count_medallion_svg = _render_count_medallion_svg(
+        cx=inner_cx, count_cy=count_cy, count_fs=count_fs, count_val=count_val,
+        banner_text=banner_text, hl_bg=hl_bg, accent=accent or hl_bg, inner_w=inner_w
     )
 
     hl_svg = ""
@@ -1398,6 +1660,10 @@ def _build_modular_template(model: Model, icons_meta: list[dict], c: dict, W: in
             w=box_size, h=box_size,
             stroke_scale=stroke_scale
         )
+
+    format_badges_svg = _render_format_badges_bar_svg(
+        cx=inner_cx, y=int(H * 0.928), inner_w=inner_w, banner_text=banner_text, hl_bg=hl_bg
+    )
 
     return f"""<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {W} {H}" width="{W}" height="{H}">
   <defs>
@@ -1421,14 +1687,9 @@ def _build_modular_template(model: Model, icons_meta: list[dict], c: dict, W: in
     {cover_shape_svg}
     {cover_decor_svg}
     {title_svg}
-
-    <text x="{inner_cx:.1f}" y="{count_cy}"
-          font-size="{count_fs}" font-weight="900" fill="{banner_text}" letter-spacing="-3"
-          text-anchor="middle" class="count">
-      {sanitize_text(count_val)}
-    </text>
-
+    {count_medallion_svg}
     {hl_svg}
+    {format_badges_svg}
   </g>
 </svg>"""
 
@@ -1497,7 +1758,7 @@ def build_template_eps(model: Model, icons_meta: list[dict] | None = None, confi
     lines = [
         "%!PS-Adobe-3.0 EPSF-3.0",
         "%%Creator: Linework AI Stock Presentation Engine",
-        f"%%Title: {escape_ps_text(c['title'])} - {count_val} Icons",
+        f"%%Title: {escape_ps_text(_clean_template_title(c['title']))} - {count_val} Icons",
         f"%%BoundingBox: 0 0 {W} {H}",
         f"%%HiResBoundingBox: 0 0 {float(W)} {float(H)}",
         "%%Pages: 1",
@@ -1528,9 +1789,12 @@ def build_template_eps(model: Model, icons_meta: list[dict] | None = None, confi
         f"{stk_r:.3f} {stk_g:.3f} {stk_b:.3f} RGB",
     ]
 
+    valid_ws = [p.w for p in model.paths if p.w > 0]
+    med_w = float(np.median(valid_ws)) if valid_ws else 4.0
+    uniform_eps_sw = max(2.5, med_w * stroke_scale * scale)
+
     for p in model.paths:
-        sw = max(0.5, p.w * stroke_scale * scale)
-        lines.append(f"{sw:.2f} LW")
+        lines.append(f"{uniform_eps_sw:.2f} LW")
         lines.append("newpath")
         s = p.segs()
         if not s:
@@ -1634,6 +1898,23 @@ def make_circle_path(cx, cy, r, w=4.0):
     return Path(A, Hin, Hout, w, closed=True)
 
 
+def make_arc_path(cx, cy, r, deg_start, deg_end, w=4.0, steps=8):
+    """Generates a smooth circular arc using cubic spline interpolation."""
+    angs = np.linspace(math.radians(deg_start), math.radians(deg_end), steps)
+    pts = np.column_stack([cx + r * np.cos(angs), cy + r * np.sin(angs)])
+    N = len(pts)
+    A = pts.copy()
+    Hin = np.zeros_like(A)
+    Hout = np.zeros_like(A)
+    d_ang = (math.radians(deg_end) - math.radians(deg_start)) / max(1, steps - 1)
+    t_len = (4.0 / 3.0) * math.tan(d_ang / 4.0) * r
+    for i, a in enumerate(angs):
+        tx, ty = -math.sin(a), math.cos(a)
+        Hout[i] = A[i] + np.array([tx * t_len, ty * t_len])
+        Hin[i] = A[i] - np.array([tx * t_len, ty * t_len])
+    return Path(A, Hin, Hout, w, closed=False)
+
+
 _CACHED_DEMO_DATA = None
 
 
@@ -1656,24 +1937,25 @@ def generate_demo_sheet() -> tuple[Model, list[dict]]:
 
         if idx == 0:  # Search
             paths.append(make_circle_path(cx - 10, cy - 10, 36, w))
-            paths.append(make_line_path([[cx + 15, cy + 15], [cx + 46, cy + 46]], w * 1.2))
+            paths.append(make_line_path([[cx + 15, cy + 15], [cx + 46, cy + 46]], w))
         elif idx == 1:  # Settings
             paths.append(make_circle_path(cx, cy, 24, w))
             for a in range(0, 360, 45):
                 rad = math.radians(a)
                 p1 = [cx + 32 * math.cos(rad), cy + 32 * math.sin(rad)]
                 p2 = [cx + 46 * math.cos(rad), cy + 46 * math.sin(rad)]
-                paths.append(make_line_path([p1, p2], w * 1.3))
+                paths.append(make_line_path([p1, p2], w))
         elif idx == 2:  # User
-            paths.append(make_circle_path(cx, cy - 22, 22, w))
-            paths.append(make_line_path([[cx - 46, cy + 46], [cx - 36, cy + 18], [cx, cy + 12], [cx + 36, cy + 18], [cx + 46, cy + 46]], w))
+            paths.append(make_circle_path(cx, cy - 20, 22, w))
+            paths.append(make_arc_path(cx, cy + 52, 42, 195, 345, w))
         elif idx == 3:  # Home
             paths.append(make_line_path([[cx - 52, cy - 5], [cx, cy - 50], [cx + 52, cy - 5]], w))
             paths.append(make_line_path([[cx - 40, cy - 5], [cx - 40, cy + 48], [cx + 40, cy + 48], [cx + 40, cy - 5]], w))
             paths.append(make_line_path([[cx - 16, cy + 48], [cx - 16, cy + 16], [cx + 16, cy + 16], [cx + 16, cy + 48]], w))
         elif idx == 4:  # Heart
-            pts = [[cx, cy + 44], [cx - 46, cy + 6], [cx - 38, cy - 32], [cx - 16, cy - 40], [cx, cy - 18], [cx + 16, cy - 40], [cx + 38, cy - 32], [cx + 46, cy + 6], [cx, cy + 44]]
-            paths.append(make_line_path(pts, w, closed=True))
+            paths.append(make_arc_path(cx - 22, cy - 14, 22, 135, 360, w))
+            paths.append(make_arc_path(cx + 22, cy - 14, 22, 180, 405, w))
+            paths.append(make_line_path([[cx - 38, cy + 2], [cx, cy + 42], [cx + 38, cy + 2]], w))
         elif idx == 5:  # Star
             pts = []
             for i in range(10):
@@ -1685,15 +1967,22 @@ def generate_demo_sheet() -> tuple[Model, list[dict]]:
             paths.append(make_line_path([[cx - 48, cy - 34], [cx + 48, cy - 34], [cx + 48, cy + 34], [cx - 48, cy + 34]], w, closed=True))
             paths.append(make_line_path([[cx - 48, cy - 34], [cx, cy + 6], [cx + 48, cy - 34]], w))
         elif idx == 7:  # Bell
-            paths.append(make_line_path([[cx - 40, cy + 32], [cx - 32, cy + 32], [cx - 32, cy - 8], [cx, cy - 44], [cx + 32, cy - 8], [cx + 32, cy + 32], [cx + 40, cy + 32]], w))
-            paths.append(make_circle_path(cx, cy + 42, 6, w))
+            paths.append(make_arc_path(cx, cy - 8, 32, 180, 360, w))
+            paths.append(make_line_path([[cx - 32, cy - 8], [cx - 32, cy + 28]], w))
+            paths.append(make_line_path([[cx + 32, cy - 8], [cx + 32, cy + 28]], w))
+            paths.append(make_line_path([[cx - 44, cy + 28], [cx + 44, cy + 28]], w))
+            paths.append(make_arc_path(cx, cy + 28, 12, 0, 180, w))
         elif idx == 8:  # Lock
             paths.append(make_line_path([[cx - 42, cy - 4], [cx + 42, cy - 4], [cx + 42, cy + 46], [cx - 42, cy + 46]], w, closed=True))
-            paths.append(make_line_path([[cx - 24, cy - 4], [cx - 24, cy - 36], [cx + 24, cy - 36], [cx + 24, cy - 4]], w))
-            paths.append(make_circle_path(cx, cy + 18, 6, w))
+            paths.append(make_arc_path(cx, cy - 18, 24, 180, 360, w))
+            paths.append(make_line_path([[cx - 24, cy - 18], [cx - 24, cy - 4]], w))
+            paths.append(make_line_path([[cx + 24, cy - 18], [cx + 24, cy - 4]], w))
+            paths.append(make_circle_path(cx, cy + 20, 7, w))
         elif idx == 9:  # Cloud
-            paths.append(make_line_path([[cx - 48, cy + 28], [cx + 48, cy + 28]], w))
-            paths.append(make_line_path([[cx - 48, cy + 28], [cx - 48, cy + 6], [cx - 28, cy - 20], [cx, cy - 36], [cx + 32, cy - 20], [cx + 48, cy + 6], [cx + 48, cy + 28]], w))
+            paths.append(make_line_path([[cx - 32, cy + 30], [cx + 34, cy + 30]], w))
+            paths.append(make_arc_path(cx - 32, cy + 12, 18, 90, 270, w))
+            paths.append(make_arc_path(cx - 6, cy - 8, 26, 165, 350, w))
+            paths.append(make_arc_path(cx + 32, cy + 10, 20, 260, 450, w))
         elif idx == 10:  # Camera
             paths.append(make_line_path([[cx - 46, cy - 24], [cx + 46, cy - 24], [cx + 46, cy + 40], [cx - 46, cy + 40]], w, closed=True))
             paths.append(make_line_path([[cx - 22, cy - 24], [cx - 14, cy - 38], [cx + 14, cy - 38], [cx + 22, cy - 24]], w))
@@ -1705,8 +1994,8 @@ def generate_demo_sheet() -> tuple[Model, list[dict]]:
         elif idx == 12:  # Calendar
             paths.append(make_line_path([[cx - 44, cy - 32], [cx + 44, cy - 32], [cx + 44, cy + 42], [cx - 44, cy + 42]], w, closed=True))
             paths.append(make_line_path([[cx - 44, cy - 10], [cx + 44, cy - 10]], w))
-            paths.append(make_line_path([[cx - 24, cy - 42], [cx - 24, cy - 24]], w * 1.2))
-            paths.append(make_line_path([[cx + 24, cy - 42], [cx + 24, cy - 24]], w * 1.2))
+            paths.append(make_line_path([[cx - 24, cy - 42], [cx - 24, cy - 24]], w))
+            paths.append(make_line_path([[cx + 24, cy - 42], [cx + 24, cy - 24]], w))
         elif idx == 13:  # Chat bubble
             paths.append(make_line_path([[cx - 44, cy - 34], [cx + 44, cy - 34], [cx + 44, cy + 20], [cx - 10, cy + 20], [cx - 32, cy + 42], [cx - 28, cy + 20], [cx - 44, cy + 20]], w, closed=True))
         elif idx == 14:  # Folder
@@ -1718,20 +2007,20 @@ def generate_demo_sheet() -> tuple[Model, list[dict]]:
             paths.append(make_line_path([[cx - 22, cy + 24], [cx + 12, cy + 24]], w))
         elif idx == 16:  # Clock
             paths.append(make_circle_path(cx, cy, 44, w))
-            paths.append(make_line_path([[cx, cy], [cx, cy - 26]], w * 1.2))
-            paths.append(make_line_path([[cx, cy], [cx + 20, cy]], w * 1.2))
+            paths.append(make_line_path([[cx, cy], [cx, cy - 26]], w))
+            paths.append(make_line_path([[cx, cy], [cx + 20, cy]], w))
         elif idx == 17:  # Bookmark
             paths.append(make_line_path([[cx - 32, cy - 44], [cx + 32, cy - 44], [cx + 32, cy + 44], [cx, cy + 20], [cx - 32, cy + 44]], w, closed=True))
         elif idx == 18:  # Shield
             paths.append(make_line_path([[cx, cy - 44], [cx + 42, cy - 30], [cx + 36, cy + 14], [cx, cy + 44], [cx - 36, cy + 14], [cx - 42, cy - 30]], w, closed=True))
-            paths.append(make_line_path([[cx - 18, cy + 2], [cx - 6, cy + 16], [cx + 20, cy - 14]], w * 1.2))
+            paths.append(make_line_path([[cx - 18, cy + 2], [cx - 6, cy + 16], [cx + 20, cy - 14]], w))
         elif idx == 19:  # Download
-            paths.append(make_line_path([[cx, cy - 36], [cx, cy + 16]], w * 1.2))
-            paths.append(make_line_path([[cx - 20, cy - 4], [cx, cy + 16], [cx + 20, cy - 4]], w * 1.2))
+            paths.append(make_line_path([[cx, cy - 36], [cx, cy + 16]], w))
+            paths.append(make_line_path([[cx - 20, cy - 4], [cx, cy + 16], [cx + 20, cy - 4]], w))
             paths.append(make_line_path([[cx - 42, cy + 12], [cx - 42, cy + 40], [cx + 42, cy + 40], [cx + 42, cy + 12]], w))
         elif idx == 20:  # Upload
-            paths.append(make_line_path([[cx, cy + 20], [cx, cy - 32]], w * 1.2))
-            paths.append(make_line_path([[cx - 20, cy - 12], [cx, cy - 32], [cx + 20, cy - 12]], w * 1.2))
+            paths.append(make_line_path([[cx, cy + 20], [cx, cy - 32]], w))
+            paths.append(make_line_path([[cx - 20, cy - 12], [cx, cy - 32], [cx + 20, cy - 12]], w))
             paths.append(make_line_path([[cx - 42, cy + 12], [cx - 42, cy + 40], [cx + 42, cy + 40], [cx + 42, cy + 12]], w))
         elif idx == 21:  # Compass
             paths.append(make_circle_path(cx, cy, 44, w))
@@ -1739,8 +2028,8 @@ def generate_demo_sheet() -> tuple[Model, list[dict]]:
         elif idx == 22:  # Battery
             paths.append(make_line_path([[cx - 46, cy - 24], [cx + 38, cy - 24], [cx + 38, cy + 24], [cx - 46, cy + 24]], w, closed=True))
             paths.append(make_line_path([[cx + 38, cy - 12], [cx + 46, cy - 12], [cx + 46, cy + 12], [cx + 38, cy + 12]], w, closed=True))
-            paths.append(make_line_path([[cx - 30, cy - 12], [cx - 30, cy + 12]], w * 1.4))
-            paths.append(make_line_path([[cx - 12, cy - 12], [cx - 12, cy + 12]], w * 1.4))
+            paths.append(make_line_path([[cx - 30, cy - 12], [cx - 30, cy + 12]], w))
+            paths.append(make_line_path([[cx - 12, cy - 12], [cx - 12, cy + 12]], w))
         elif idx == 23:  # Globe
             paths.append(make_circle_path(cx, cy, 44, w))
             paths.append(make_line_path([[cx - 44, cy], [cx + 44, cy]], w))
