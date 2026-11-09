@@ -631,3 +631,149 @@ def build_model_eps(model: Model, stroke_color: str = "#000000", stroke_scale: f
         lines.append("S")
     lines.append("%%EOF")
     return "\n".join(lines)
+
+
+def make_line_path(points, w=4.0, closed=False):
+    pts = np.asarray(points, float)
+    N = len(pts)
+    A = pts.copy()
+    Hin = np.zeros_like(A)
+    Hout = np.zeros_like(A)
+    for i in range(N - 1):
+        p0 = A[i]
+        p1 = A[i + 1]
+        Hout[i] = p0 + (p1 - p0) / 3.0
+        Hin[i + 1] = p0 + 2.0 * (p1 - p0) / 3.0
+    if closed:
+        p0 = A[-1]
+        p1 = A[0]
+        Hout[-1] = p0 + (p1 - p0) / 3.0
+        Hin[0] = p0 + 2.0 * (p1 - p0) / 3.0
+    return Path(A, Hin, Hout, w, closed=closed)
+
+
+def make_circle_path(cx, cy, r, w=4.0):
+    k = 0.5522847498 * r
+    A = np.array([[cx, cy - r], [cx + r, cy], [cx, cy + r], [cx - r, cy], [cx, cy - r]], float)
+    Hout = np.array([[cx + k, cy - r], [cx + r, cy + k], [cx - k, cy + r], [cx - r, cy - k], [cx + k, cy - r]], float)
+    Hin = np.array([[cx - k, cy - r], [cx + r, cy - k], [cx + k, cy + r], [cx - r, cy + k], [cx - k, cy - r]], float)
+    return Path(A, Hin, Hout, w, closed=True)
+
+
+_CACHED_DEMO_DATA = None
+
+
+def generate_demo_sheet() -> tuple[Model, list[dict]]:
+    """Generates a high-quality 24-icon demo vector sheet for instant Template Studio design and preview."""
+    global _CACHED_DEMO_DATA
+    if _CACHED_DEMO_DATA is not None:
+        m, icons = _CACHED_DEMO_DATA
+        return m.copy(), [dict(ic) for ic in icons]
+
+    paths = []
+    icons = []
+    w = 4.0
+    for idx in range(24):
+        col = idx % 6
+        row = idx // 6
+        cx = col * 400 + 200
+        cy = row * 400 + 200
+        icons.append({'id': f'icon_{idx}', 'box': [cx - 110, cy - 110, cx + 110, cy + 110], 'status': 'done'})
+
+        if idx == 0:  # Search
+            paths.append(make_circle_path(cx - 10, cy - 10, 36, w))
+            paths.append(make_line_path([[cx + 15, cy + 15], [cx + 46, cy + 46]], w * 1.2))
+        elif idx == 1:  # Settings
+            paths.append(make_circle_path(cx, cy, 24, w))
+            for a in range(0, 360, 45):
+                rad = math.radians(a)
+                p1 = [cx + 32 * math.cos(rad), cy + 32 * math.sin(rad)]
+                p2 = [cx + 46 * math.cos(rad), cy + 46 * math.sin(rad)]
+                paths.append(make_line_path([p1, p2], w * 1.3))
+        elif idx == 2:  # User
+            paths.append(make_circle_path(cx, cy - 22, 22, w))
+            paths.append(make_line_path([[cx - 46, cy + 46], [cx - 36, cy + 18], [cx, cy + 12], [cx + 36, cy + 18], [cx + 46, cy + 46]], w))
+        elif idx == 3:  # Home
+            paths.append(make_line_path([[cx - 52, cy - 5], [cx, cy - 50], [cx + 52, cy - 5]], w))
+            paths.append(make_line_path([[cx - 40, cy - 5], [cx - 40, cy + 48], [cx + 40, cy + 48], [cx + 40, cy - 5]], w))
+            paths.append(make_line_path([[cx - 16, cy + 48], [cx - 16, cy + 16], [cx + 16, cy + 16], [cx + 16, cy + 48]], w))
+        elif idx == 4:  # Heart
+            pts = [[cx, cy + 44], [cx - 46, cy + 6], [cx - 38, cy - 32], [cx - 16, cy - 40], [cx, cy - 18], [cx + 16, cy - 40], [cx + 38, cy - 32], [cx + 46, cy + 6], [cx, cy + 44]]
+            paths.append(make_line_path(pts, w, closed=True))
+        elif idx == 5:  # Star
+            pts = []
+            for i in range(10):
+                ang = -math.pi / 2 + i * math.pi / 5
+                r = 48 if i % 2 == 0 else 22
+                pts.append([cx + r * math.cos(ang), cy + r * math.sin(ang)])
+            paths.append(make_line_path(pts, w, closed=True))
+        elif idx == 6:  # Mail
+            paths.append(make_line_path([[cx - 48, cy - 34], [cx + 48, cy - 34], [cx + 48, cy + 34], [cx - 48, cy + 34]], w, closed=True))
+            paths.append(make_line_path([[cx - 48, cy - 34], [cx, cy + 6], [cx + 48, cy - 34]], w))
+        elif idx == 7:  # Bell
+            paths.append(make_line_path([[cx - 40, cy + 32], [cx - 32, cy + 32], [cx - 32, cy - 8], [cx, cy - 44], [cx + 32, cy - 8], [cx + 32, cy + 32], [cx + 40, cy + 32]], w))
+            paths.append(make_circle_path(cx, cy + 42, 6, w))
+        elif idx == 8:  # Lock
+            paths.append(make_line_path([[cx - 42, cy - 4], [cx + 42, cy - 4], [cx + 42, cy + 46], [cx - 42, cy + 46]], w, closed=True))
+            paths.append(make_line_path([[cx - 24, cy - 4], [cx - 24, cy - 36], [cx + 24, cy - 36], [cx + 24, cy - 4]], w))
+            paths.append(make_circle_path(cx, cy + 18, 6, w))
+        elif idx == 9:  # Cloud
+            paths.append(make_line_path([[cx - 48, cy + 28], [cx + 48, cy + 28]], w))
+            paths.append(make_line_path([[cx - 48, cy + 28], [cx - 48, cy + 6], [cx - 28, cy - 20], [cx, cy - 36], [cx + 32, cy - 20], [cx + 48, cy + 6], [cx + 48, cy + 28]], w))
+        elif idx == 10:  # Camera
+            paths.append(make_line_path([[cx - 46, cy - 24], [cx + 46, cy - 24], [cx + 46, cy + 40], [cx - 46, cy + 40]], w, closed=True))
+            paths.append(make_line_path([[cx - 22, cy - 24], [cx - 14, cy - 38], [cx + 14, cy - 38], [cx + 22, cy - 24]], w))
+            paths.append(make_circle_path(cx, cy + 8, 20, w))
+        elif idx == 11:  # Shopping cart
+            paths.append(make_line_path([[cx - 50, cy - 36], [cx - 34, cy - 36], [cx - 20, cy + 16], [cx + 42, cy + 16], [cx + 48, cy - 20], [cx - 28, cy - 20]], w))
+            paths.append(make_circle_path(cx - 14, cy + 34, 8, w))
+            paths.append(make_circle_path(cx + 32, cy + 34, 8, w))
+        elif idx == 12:  # Calendar
+            paths.append(make_line_path([[cx - 44, cy - 32], [cx + 44, cy - 32], [cx + 44, cy + 42], [cx - 44, cy + 42]], w, closed=True))
+            paths.append(make_line_path([[cx - 44, cy - 10], [cx + 44, cy - 10]], w))
+            paths.append(make_line_path([[cx - 24, cy - 42], [cx - 24, cy - 24]], w * 1.2))
+            paths.append(make_line_path([[cx + 24, cy - 42], [cx + 24, cy - 24]], w * 1.2))
+        elif idx == 13:  # Chat bubble
+            paths.append(make_line_path([[cx - 44, cy - 34], [cx + 44, cy - 34], [cx + 44, cy + 20], [cx - 10, cy + 20], [cx - 32, cy + 42], [cx - 28, cy + 20], [cx - 44, cy + 20]], w, closed=True))
+        elif idx == 14:  # Folder
+            paths.append(make_line_path([[cx - 46, cy - 30], [cx - 14, cy - 30], [cx - 4, cy - 18], [cx + 46, cy - 18], [cx + 46, cy + 34], [cx - 46, cy + 34]], w, closed=True))
+        elif idx == 15:  # Document
+            paths.append(make_line_path([[cx - 36, cy - 44], [cx + 14, cy - 44], [cx + 36, cy - 22], [cx + 36, cy + 44], [cx - 36, cy + 44]], w, closed=True))
+            paths.append(make_line_path([[cx + 14, cy - 44], [cx + 14, cy - 22], [cx + 36, cy - 22]], w))
+            paths.append(make_line_path([[cx - 22, cy + 8], [cx + 22, cy + 8]], w))
+            paths.append(make_line_path([[cx - 22, cy + 24], [cx + 12, cy + 24]], w))
+        elif idx == 16:  # Clock
+            paths.append(make_circle_path(cx, cy, 44, w))
+            paths.append(make_line_path([[cx, cy], [cx, cy - 26]], w * 1.2))
+            paths.append(make_line_path([[cx, cy], [cx + 20, cy]], w * 1.2))
+        elif idx == 17:  # Bookmark
+            paths.append(make_line_path([[cx - 32, cy - 44], [cx + 32, cy - 44], [cx + 32, cy + 44], [cx, cy + 20], [cx - 32, cy + 44]], w, closed=True))
+        elif idx == 18:  # Shield
+            paths.append(make_line_path([[cx, cy - 44], [cx + 42, cy - 30], [cx + 36, cy + 14], [cx, cy + 44], [cx - 36, cy + 14], [cx - 42, cy - 30]], w, closed=True))
+            paths.append(make_line_path([[cx - 18, cy + 2], [cx - 6, cy + 16], [cx + 20, cy - 14]], w * 1.2))
+        elif idx == 19:  # Download
+            paths.append(make_line_path([[cx, cy - 36], [cx, cy + 16]], w * 1.2))
+            paths.append(make_line_path([[cx - 20, cy - 4], [cx, cy + 16], [cx + 20, cy - 4]], w * 1.2))
+            paths.append(make_line_path([[cx - 42, cy + 12], [cx - 42, cy + 40], [cx + 42, cy + 40], [cx + 42, cy + 12]], w))
+        elif idx == 20:  # Upload
+            paths.append(make_line_path([[cx, cy + 20], [cx, cy - 32]], w * 1.2))
+            paths.append(make_line_path([[cx - 20, cy - 12], [cx, cy - 32], [cx + 20, cy - 12]], w * 1.2))
+            paths.append(make_line_path([[cx - 42, cy + 12], [cx - 42, cy + 40], [cx + 42, cy + 40], [cx + 42, cy + 12]], w))
+        elif idx == 21:  # Compass
+            paths.append(make_circle_path(cx, cy, 44, w))
+            paths.append(make_line_path([[cx, cy - 32], [cx + 10, cy], [cx, cy + 32], [cx - 10, cy]], w, closed=True))
+        elif idx == 22:  # Battery
+            paths.append(make_line_path([[cx - 46, cy - 24], [cx + 38, cy - 24], [cx + 38, cy + 24], [cx - 46, cy + 24]], w, closed=True))
+            paths.append(make_line_path([[cx + 38, cy - 12], [cx + 46, cy - 12], [cx + 46, cy + 12], [cx + 38, cy + 12]], w, closed=True))
+            paths.append(make_line_path([[cx - 30, cy - 12], [cx - 30, cy + 12]], w * 1.4))
+            paths.append(make_line_path([[cx - 12, cy - 12], [cx - 12, cy + 12]], w * 1.4))
+        elif idx == 23:  # Globe
+            paths.append(make_circle_path(cx, cy, 44, w))
+            paths.append(make_line_path([[cx - 44, cy], [cx + 44, cy]], w))
+            paths.append(make_line_path([[cx, cy - 44], [cx, cy + 44]], w))
+            paths.append(make_line_path([[cx - 22, cy - 38], [cx - 28, cy], [cx - 22, cy + 38]], w))
+            paths.append(make_line_path([[cx + 22, cy - 38], [cx + 28, cy], [cx + 22, cy + 38]], w))
+
+    m = Model(paths, 2400, 1600)
+    _CACHED_DEMO_DATA = (m, icons)
+    return m.copy(), [dict(ic) for ic in icons]

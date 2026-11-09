@@ -1660,12 +1660,9 @@
   }
 
   function openTemplateStudio() {
-    if (!S.job) {
-      toast('Please process or load an icon sheet in Redraw first to build Stock presentations.', 1);
-      return;
-    }
     $('#work').hidden = true;
     if ($('#landing')) $('#landing').hidden = true;
+    if ($('#bgStudio')) $('#bgStudio').hidden = true;
     $('#templateStudio').hidden = false;
 
     $$('.nav-menu .nav-item').forEach(el => el.classList.remove('active'));
@@ -1674,7 +1671,7 @@
     // Auto-populate title if empty or default
     const titleInput = $('#tplTitle');
     if (titleInput && (!titleInput.value || titleInput.value === 'TECHNOLOGY' || titleInput.value === 'Minimal Vector Line Icons')) {
-      titleInput.value = formatStockTitle(S.name);
+      titleInput.value = S.job ? formatStockTitle(S.name) : 'TECHNOLOGY';
     }
 
     // Auto-detect count if empty or default
@@ -1682,6 +1679,16 @@
     if (countInput && (!countInput.value || countInput.value === '24')) {
       const count = (S.icons && S.icons.length) ? S.icons.length : 24;
       countInput.value = count;
+    }
+
+    // Dynamic header subtitle
+    const metaSub = $('#tplMetaSub');
+    if (metaSub) {
+      if (S.job) {
+        metaSub.textContent = `Adobe Stock / Vectuz Style Merged Presentation · Active Sheet (${S.icons ? S.icons.length : 0} icons)`;
+      } else {
+        metaSub.textContent = `Adobe Stock Style Template Designer · Live Demo Preview · Save & design anytime!`;
+      }
     }
 
     renderPresetCards();
@@ -1704,9 +1711,9 @@
   }
 
   async function updateTemplatePreview() {
-    if (!S.job) return;
+    const jobId = S.job || 'demo';
     const title = $('#tplTitle') ? $('#tplTitle').value : 'TECHNOLOGY';
-    const count = $('#tplCount') ? $('#tplCount').value : '';
+    const count = $('#tplCount') ? $('#tplCount').value : '24';
     const subtitle = $('#tplSubtitle') ? $('#tplSubtitle').value : 'Editable Line Icons';
     const bannerBg = $('#tplBannerBg') ? $('#tplBannerBg').value : '#F5B800';
     const bannerText = S.template.banner_text || '#1E1E1E';
@@ -1738,16 +1745,16 @@
 
     // Update download links
     const dlSvg = $('#btnDlTemplateSvg');
-    if (dlSvg) dlSvg.href = `/api/jobs/${S.job}/template.svg?${params.toString()}&download=1`;
+    if (dlSvg) dlSvg.href = `/api/jobs/${jobId}/template.svg?${params.toString()}&download=1`;
 
     const dlPng = $('#btnDlTemplatePng');
-    if (dlPng) dlPng.href = `/api/jobs/${S.job}/template.png?${params.toString()}&download=1`;
+    if (dlPng) dlPng.href = `/api/jobs/${jobId}/template.png?${params.toString()}&download=1`;
 
     const dlEps = $('#btnDlTemplateEps');
-    if (dlEps) dlEps.href = `/api/jobs/${S.job}/template.eps?${params.toString()}&download=1`;
+    if (dlEps) dlEps.href = `/api/jobs/${jobId}/template.eps?${params.toString()}&download=1`;
 
     const dlZip = $('#btnDlTemplateZip');
-    if (dlZip) dlZip.href = `/api/jobs/${S.job}/download.zip?stroke=${encodeURIComponent(stroke)}&scale=${scale}`;
+    if (dlZip) dlZip.href = `/api/jobs/${jobId}/download.zip?stroke=${encodeURIComponent(stroke)}&scale=${scale}`;
 
     // Update dims indicator
     const dimsBadge = $('#tplDimsBadge');
@@ -1761,7 +1768,7 @@
     }
 
     try {
-      const res = await api(`/api/jobs/${S.job}/template.svg?${params.toString()}`);
+      const res = await api(`/api/jobs/${jobId}/template.svg?${params.toString()}`);
       if (res.ok) {
         const svgContent = await res.text();
         const container = $('#templateSvgContainer');
@@ -2122,15 +2129,7 @@
   if (navTemplates) {
     navTemplates.addEventListener('click', () => {
       closeBgStudio();
-      if (S.job) {
-        openTemplateStudio();
-      } else {
-        toast('Please trace or load an icon sheet in Redraw first to build Stock presentations.', 1);
-        $$('.nav-menu .nav-item').forEach(el => el.classList.remove('active'));
-        if (navRedraw) navRedraw.classList.add('active');
-        if ($('#landing')) $('#landing').hidden = false;
-        if ($('#work')) $('#work').hidden = true;
-      }
+      openTemplateStudio();
     });
   }
   const navSettings = $('#navSettings');
@@ -2152,12 +2151,7 @@
         closeBgStudio();
       }
       if (hash === '#templates' || hash === '#template') {
-        if (S.job) {
-          openTemplateStudio();
-        } else {
-          toast('Please trace or load an icon sheet in Redraw first to build Stock presentations.', 1);
-          window.location.hash = '#redraw';
-        }
+        openTemplateStudio();
       } else if (hash === '#redraw') {
         const tplSt = $('#templateStudio'); if (tplSt) tplSt.hidden = true;
         $$('.nav-menu .nav-item').forEach(el => el.classList.remove('active'));
@@ -2803,7 +2797,10 @@
   hint();
 
   // Handle direct navigation to #bgstudio on initial load
-  if (window.location.hash.toLowerCase() === '#bgstudio') {
+  const initHash = window.location.hash.toLowerCase();
+  if (initHash === '#bgstudio') {
     openBgStudio();
+  } else if (initHash === '#templates' || initHash === '#template') {
+    openTemplateStudio();
   }
 })();

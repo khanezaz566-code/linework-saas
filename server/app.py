@@ -203,6 +203,18 @@ def _jobdir(job_id):
 
 
 def _get(job_id):
+    if str(job_id).lower() in ("demo", "sample", "preview", "none", "null", "undefined"):
+        from linework.template import generate_demo_sheet
+        _, icons = generate_demo_sheet()
+        return {
+            "id": "demo",
+            "name": "sample-stock-icons.png",
+            "width": 2400,
+            "height": 1600,
+            "icons": icons,
+            "status": "done",
+            "events": []
+        }
     job = JOBS.get(job_id)
     if job is None:
         p = _jobdir(job_id) / "job.json"
@@ -291,6 +303,10 @@ def _tight_svg(model: Model, stroke="#000000", scale=1.0, bg=None):
 
 
 def _compose(job_id, upto=None):
+    if str(job_id).lower() in ("demo", "sample", "preview", "none", "null", "undefined"):
+        from linework.template import generate_demo_sheet
+        model, _ = generate_demo_sheet()
+        return model
     job = _get(job_id)
     W, H = job["width"], job["height"]
     allm = Model([], W, H)
