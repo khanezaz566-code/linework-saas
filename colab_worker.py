@@ -1,9 +1,10 @@
 """High-Performance Multi-Core AI Worker for Linework AI
-Works on:
-  1. Hugging Face Spaces (16 GB RAM, 2 vCPU - 24/7 Permanent, No Credit Card)
-  2. Kaggle Notebooks (30 GB RAM, 4 vCPU)
-  3. Google Colab (12.7 GB RAM, 2 vCPU)
-  4. Any Local PC / Laptop (4-16 CPU Cores)
+Works everywhere (100% Free, No Credit Card):
+  1. Hugging Face Gradio Space (16 GB RAM, 2 vCPU - 24/7 Permanent, No Docker Needed)
+  2. Kaggle Notebooks (30 GB RAM, 4 vCPU - Background Commit Mode runs 12h with browser closed!)
+  3. GitHub Codespaces (16 GB RAM, 4 vCPU - Free 120 core-hours/month)
+  4. Your Own Windows PC / Laptop (4-16 CPU Cores via START_LOCAL_SUPER_WORKER.bat)
+  5. Google Colab (12.7 GB RAM, 2 vCPU)
 """
 import os
 import sys
@@ -118,7 +119,6 @@ def process_icon_endpoint(
 
 
 def start_tunnel_and_register(local_port=5000):
-    # If running on Hugging Face Spaces or direct public URL, no cloudflared tunnel needed!
     direct_url = os.environ.get("SELF_WORKER_URL", "").strip().rstrip("/")
     if not direct_url and os.environ.get("SPACE_HOST"):
         direct_url = f"https://{os.environ['SPACE_HOST']}".rstrip("/")
@@ -129,24 +129,36 @@ def start_tunnel_and_register(local_port=5000):
         if direct_url:
             return
         print("[+] Checking for cloudflared...")
-        cf_path = Path("/usr/local/bin/cloudflared")
-        if not cf_path.exists():
-            cf_path = ROOT / "cloudflared"
-        if not cf_path.exists():
+        is_win = sys.platform == "win32"
+        if is_win:
             cf_path = ROOT / "cloudflared.exe"
-
-        if not cf_path.exists():
-            print("[+] Downloading cloudflared binary for Linux...")
-            try:
-                subprocess.run([
-                    "curl", "-L", "--output", "/usr/local/bin/cloudflared",
-                    "https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64"
-                ], check=True)
-                subprocess.run(["chmod", "+x", "/usr/local/bin/cloudflared"], check=True)
-                cf_path = Path("/usr/local/bin/cloudflared")
-            except Exception as e:
-                print("[-] Failed to download cloudflared:", e)
-                return
+            if not cf_path.exists():
+                print("[+] Downloading cloudflared.exe for Windows...")
+                try:
+                    urllib.request.urlretrieve(
+                        "https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-windows-amd64.exe",
+                        str(cf_path)
+                    )
+                except Exception as e:
+                    print("[-] Failed to download cloudflared.exe:", e)
+                    return
+        else:
+            cf_path = Path("/usr/local/bin/cloudflared")
+            if not cf_path.exists():
+                cf_path = ROOT / "cloudflared"
+            if not cf_path.exists():
+                print("[+] Downloading cloudflared binary for Linux...")
+                try:
+                    target = ROOT / "cloudflared"
+                    urllib.request.urlretrieve(
+                        "https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64",
+                        str(target)
+                    )
+                    os.chmod(str(target), 0o755)
+                    cf_path = target
+                except Exception as e:
+                    print("[-] Failed to download cloudflared:", e)
+                    return
 
         while True:
             print(f"[+] Starting Cloudflare Tunnel on port {local_port}...")
