@@ -21,9 +21,9 @@ from . import lessons as LS
 from .split import find_icons, crop_icon, estimate_width
 
 PRESETS = {
-    "fast": dict(max_rounds=0, time_budget=25, region_edits=0, iters=18, taus=(1.0, 0.45)),
-    "standard": dict(max_rounds=2, time_budget=35, region_edits=4, iters=24, taus=(1.0, 0.5, 0.35)),
-    "precise": dict(max_rounds=4, time_budget=90, region_edits=8, iters=30, taus=(1.2, 0.8, 0.5, 0.34)),
+    "fast": dict(max_rounds=0, time_budget=7, region_edits=0, iters=14, taus=(1.0, 0.45)),
+    "standard": dict(max_rounds=1, time_budget=12, region_edits=2, iters=18, taus=(1.0, 0.5, 0.35)),
+    "precise": dict(max_rounds=2, time_budget=22, region_edits=4, iters=24, taus=(1.2, 0.8, 0.5, 0.34)),
 }
 
 
@@ -52,7 +52,7 @@ class Options:
     superres: int | None = None  # trace at k-times resolution (auto: thin strokes get 2-3x)
     dedupe_tol: float = 0.0025  # fraction of ink area we will sacrifice to remove a duplicate centerline
     decision: bool = True  # Decision engine: per-icon decision + verification of the last few percent
-    decision_budget: float = 8.0
+    decision_budget: float = 3.5
     tip_patches: bool = True  # Tip patches: allow sharp corner apex stubs
 
     def resolved(self):
@@ -192,7 +192,8 @@ def _process_icon(gray, opts: Options = None, emit=_noop, name="icon", set_w=Non
     # how many icons run in parallel, or where in the queue this icon sits.  Complex icons get a larger budget (set below).
     c0 = time.process_time()
     bud = [float(cfg["time_budget"])]
-    left = lambda: min(bud[0] - (time.process_time() - c0), 10.0 * bud[0] - (time.time() - t0))  # 2nd term: hang guard only
+    max_wall = 24.0 if opts.quality != "precise" else 38.0
+    left = lambda: min(bud[0] - (time.process_time() - c0), max_wall - (time.time() - t0))
 
     ev("trace", "Tracing skeleton and centring strokes on their edges")
     w_est = estimate_width(D)
@@ -248,7 +249,7 @@ def _process_icon(gray, opts: Options = None, emit=_noop, name="icon", set_w=Non
     if nd:
         ev("trace", f"{nd} dot(s) detected and added as round-capped points")
     c0 = time.process_time()  # the Edit budget starts after tracing
-    bud[0] = float(cfg["time_budget"]) * float(np.clip(sum(q.length() for q in model.paths) / 2500.0, 1.0, 3.0))
+    bud[0] = float(cfg["time_budget"]) * float(np.clip(sum(q.length() for q in model.paths) / 2500.0, 1.0, 1.35))
     ink = ink_of(model)
     cur = doctor.soft(ink)
     iou0 = doctor.iou(ink)
@@ -429,7 +430,7 @@ def _process_icon(gray, opts: Options = None, emit=_noop, name="icon", set_w=Non
     sx = dict(before=0.0, after=0.0, found=0, fixed=0, sites=[], unresolved=[])
     if opts.structure:
         sc0 = time.process_time()
-        scap = max(6.0, 0.2 * bud[0])
+        scap = min(4.0, max(2.0, 0.16 * bud[0]))
         m6, ink6, cur6, sx = SF.run_structure_engine(state["model"], D, doctor, ink_of, state["cur"], W0, time_ok=lambda: time.process_time() - sc0 < scap,
                                                     memory_skip=(LS.skip_kinds() if opts.memory else ()))
         if sx["fixed"]:
@@ -439,7 +440,7 @@ def _process_icon(gray, opts: Options = None, emit=_noop, name="icon", set_w=Non
     fin = dict(found=0, fixed=0, sites=[])
     if opts.finish:
         fc0 = time.process_time()
-        fcap = max(8.0, 0.25 * bud[0])
+        fcap = min(4.5, max(2.5, 0.18 * bud[0]))
         m3, ink3, cur3, fin = FN.finish(state["model"], D, doctor, ink_of, state["cur"], W0, time_ok=lambda: time.process_time() - fc0 < fcap,
                                        set_w=set_w, skip=(LS.skip_kinds() if opts.memory else ()))
         if fin["fixed"]:
@@ -449,7 +450,7 @@ def _process_icon(gray, opts: Options = None, emit=_noop, name="icon", set_w=Non
     jn = dict(total=0, clean_first=0, fixed=dict(unite=0, pen=0, line=0, arc=0, shape=0), unresolved=[], built=0)
     if opts.joins:
         jc0 = time.process_time()
-        jcap = max(6.0, 0.2 * bud[0])
+        jcap = min(4.0, max(2.0, 0.16 * bud[0]))
         m5, ink5, cur5, jn = JN.run_join_engine(state["model"], D, doctor, ink_of, state["cur"], W0, time_ok=lambda: time.process_time() - jc0 < jcap)
         # Quality Guard: only accept join modifications if it does not degrade the icon match!
         iou_pre_join = doctor.iou(state["ink"])
@@ -462,7 +463,7 @@ def _process_icon(gray, opts: Options = None, emit=_noop, name="icon", set_w=Non
     nsp = 0
     if opts.joins and not os.environ.get("DISABLE_SPIKE_GUARD"):
         pc0 = time.process_time()
-        m8, ink8, cur8, nsp = JP.spike_guard(state["model"], D, doctor, ink_of, state["cur"], time_ok=lambda: time.process_time() - pc0 < max(6.0, 0.2 * bud[0]))
+        m8, ink8, cur8, nsp = JP.spike_guard(state["model"], D, doctor, ink_of, state["cur"], time_ok=lambda: time.process_time() - pc0 < min(3.5, max(2.0, 0.15 * bud[0])))
         if nsp:
             state.update(model=m8, ink=ink8, cur=cur8)
         ev("doctor", f"Join policy: {nsp} path(s) got a better join type / miter limit", iou=doctor.iou(state["ink"]))

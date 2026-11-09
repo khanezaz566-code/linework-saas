@@ -1,3 +1,13 @@
+---
+title: Linework AI SaaS
+emoji: ⚡
+colorFrom: green
+colorTo: blue
+sdk: docker
+app_port: 7860
+pinned: false
+---
+
 # Linework
 
 Raster icon sheet in, clean single-centerline SVG out. Three backend engines loop until the result matches:

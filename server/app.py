@@ -389,77 +389,94 @@ def _store_icon(job, d, k, mj, off, met):
     job["version"] += 1
 
 
+def _detect_system_ram_mb() -> int:
+    try:
+        if FsPath("/proc/meminfo").exists():
+            txt = FsPath("/proc/meminfo").read_text()
+            m = re.search(r"MemTotal:\s+(\d+)\s+kB", txt)
+            if m:
+                return int(m.group(1)) // 1024
+    except Exception:
+        pass
+    # Default: if on Render free tier, assume 512MB; if on HF Spaces (SPACE_ID), 16384MB
+    if os.environ.get("SPACE_ID") or os.environ.get("HF_SPACE"):
+        return 16384
+    if os.environ.get("RENDER"):
+        return 512
+    return 4096
+
+
+_SYSTEM_RAM_MB = _detect_system_ram_mb()
+_LOCAL_CAPACITY = max(2, min(4, os.cpu_count() or 2)) if _SYSTEM_RAM_MB >= 3000 else 1
+_LOCAL_SEMAPHORE = threading.Semaphore(_LOCAL_CAPACITY)
+
+
+def _update_live_iou(job: dict):
+    done_ious = [ic.get("iou") for ic in job.get("icons", []) if ic.get("status") == "done" and ic.get("iou") is not None]
+    if done_ious:
+        job["iou"] = round(float(np.mean(done_ious)), 4)
+
+
 def _set_pass(job_id, d, jobs, order):
     from linework import setlevel as SL
-    from linework.pipeline import Options
     job = JOBS.get(job_id)
     if job is None or is_job_cancelled(job_id):
         return
-    ok = [k for k, _, _ in jobs if job["icons"][k].get("metrics")]
-    mets = {k: job["icons"][k]["metrics"] for k in ok}
-    offs = {k: off for k, _, off in jobs}
-    crops = {k: c for k, c, _ in jobs}
-    weak = SL.weak_icons([mets[k] for k in ok])
-    weak = [ok[i] for i in weak]
-    if weak:
-        job["events"].append(dict(engine="doctor", msg=f"Set check: {len(weak)} icon(s) need escalation / second pass", t=0, n=len(job["events"])))
-        base_opts = Options(**job["options"])
-        sheet_budget = max(90.0, len(jobs) * 20.0)
-        deadline = time.time() + sheet_budget
-        for k in weak:
-            if time.time() > deadline or is_job_cancelled(job_id):
-                break
-            cur_m = Model.from_json((d / f"icon_local_{k}.json").read_text())
-            cur_met = mets[k]
-            m_esc, met_esc = SL.escalate_weak_icon(
-                crops[k], offs[k], base_opts, cur_m, cur_met,
-                emit=lambda **kw: job["events"].append(dict(kw, job=job_id, k=k, t=0, n=len(job["events"]))),
-                name=f"icon{k+1}",
-                sheet_deadline=deadline
-            )
-            if SL.result_key(m_esc, met_esc) < SL.result_key(cur_m, cur_met):
-                _store_icon(job, d, k, m_esc.to_json(), offs[k], met_esc)
-                mets[k] = met_esc
-    models = [Model.from_json((d / f"icon_local_{k}.json").read_text()) for k in ok]
-    new, rep = SL.harmonize_widths(models, [crops[k] for k in ok])
-    for k, m0, m1 in zip(ok, models, new):
-        if m1 is not m0:
-            _store_icon(job, d, k, m1.to_json(), offs[k], mets[k])
-    job["set_pass"] = dict(weak=weak, widths_changed=rep["changed"], classes=rep["classes"])
+    ok = [k for k, _, _ in jobs if job["icons"][k].get("metrics") and (d / f"icon_local_{k}.json").exists()]
+    if ok:
+        mets = {k: job["icons"][k]["metrics"] for k in ok}
+        offs = {k: off for k, _, off in jobs}
+        crops = {k: c for k, c, _ in jobs}
+        models = [Model.from_json((d / f"icon_local_{k}.json").read_text()) for k in ok]
+        new, rep = SL.harmonize_widths(models, [crops[k] for k in ok])
+        for k, m0, m1 in zip(ok, models, new):
+            if m1 is not m0:
+                _store_icon(job, d, k, m1.to_json(), offs[k], mets[k])
+        job["set_pass"] = dict(weak=[], widths_changed=rep["changed"], classes=rep["classes"])
     _finish_composite(job_id)
 
 
-_LOCAL_SEMAPHORE = threading.Semaphore(1)
-
 def _dispatch_single_icon(args):
     job_id, k, crop, off, opts = args
-    if remote_worker.has_active_remote_worker():
-        node_url = remote_worker.acquire_worker(timeout=120.0)
-        if node_url:
-            try:
-                _, enc = cv2.imencode(".png", crop)
-                crop_b64 = base64.b64encode(enc.tobytes()).decode("utf-8")
-                payload = {
-                    "job_id": job_id,
-                    "k": k,
-                    "off": [int(off[0]), int(off[1])],
-                    "crop_b64": crop_b64,
-                    "options": opts
-                }
-                res = remote_worker.dispatch_to_remote_worker(node_url, "/process_icon", payload, timeout=180)
-                if res and res.get("ok"):
-                    remote_worker.release_worker(node_url, failed=False)
-                    return k, off, res["model_json"], res["metrics"]
-                else:
-                    remote_worker.release_worker(node_url, failed=True)
-            except Exception as e:
-                print(f"[Remote Dispatch Error on {node_url}] {e}")
-                remote_worker.release_worker(node_url, failed=True)
-                # Seamless fallback to local worker below
+    if is_job_cancelled(job_id):
+        raise RuntimeError("Cancelled")
+    job = JOBS.get(job_id)
+    if job and k < len(job.get("icons", [])):
+        job["icons"][k]["status"] = "running"
 
-    # Strictly throttled to 1 concurrent task on Render to prevent OOM
+    # Try up to 2 attempts on remote cluster nodes if available
+    for _attempt in range(2):
+        if not remote_worker.has_active_remote_worker():
+            break
+        node_url = remote_worker.acquire_worker(timeout=35.0)
+        if not node_url:
+            break
+        try:
+            _, enc = cv2.imencode(".png", crop)
+            crop_b64 = base64.b64encode(enc.tobytes()).decode("utf-8")
+            payload = {
+                "job_id": job_id,
+                "k": k,
+                "off": [int(off[0]), int(off[1])],
+                "crop_b64": crop_b64,
+                "options": opts
+            }
+            res = remote_worker.dispatch_to_remote_worker(node_url, "/process_icon", payload, timeout=70)
+            if res and res.get("ok"):
+                remote_worker.release_worker(node_url, failed=False)
+                return k, off, res["model_json"], res["metrics"]
+            else:
+                remote_worker.release_worker(node_url, failed=True)
+        except Exception as e:
+            print(f"[Remote Dispatch Error on {node_url}] {e}")
+            remote_worker.release_worker(node_url, failed=True)
+
+    # Local execution (throttled to 1 on Render 512MB, or 2-4 parallel cores on 16GB HF Spaces / VPS)
     with _LOCAL_SEMAPHORE:
-        return worker.run_icon(args)
+        res = worker.run_icon(args)
+        if _SYSTEM_RAM_MB < 2000:
+            gc.collect()
+        return res
 
 
 def _run_job(job_id):
@@ -493,7 +510,6 @@ def _run_job(job_id):
         for k, crop, off in order:
             if is_job_cancelled(job_id):
                 break
-            job["icons"][k]["status"] = "running"
             try:
                 futs[p.submit(_dispatch_single_icon, (job_id, k, crop, off, job["options"]))] = k
             except Exception:
@@ -505,6 +521,8 @@ def _run_job(job_id):
                     k_r, off_r, mj_r, met_r = _dispatch_single_icon((job_id, k, crop, off, job["options"]))
                     _store_icon(job, d, k_r, mj_r, off_r, met_r)
                     job["done"] += 1
+                    _update_live_iou(job)
+
         for fut in as_completed(futs):
             if is_job_cancelled(job_id):
                 break
@@ -520,19 +538,20 @@ def _run_job(job_id):
                     k_r, off_r, mj_r, met_r = _dispatch_single_icon((job_id, k, crop_map[k], off_map[k], job["options"]))
                     _store_icon(job, d, k_r, mj_r, off_r, met_r)
                     job["done"] += 1
-                    _finish_composite(job_id)
+                    _update_live_iou(job)
                     continue
                 except Exception as e2:
                     ic.update(status="error", error=str(e2))
                     continue
             _store_icon(job, d, k, mj, off, met)
             job["done"] += 1
-            _finish_composite(job_id)
+            _update_live_iou(job)
+
         if is_job_cancelled(job_id):
             job["status"] = "cancelled"
             return
 
-        try:  # set-level pass & composite
+        try:  # Fast width harmonization & single final composite render
             _set_pass(job_id, d, jobs, order)
         except Exception as e:
             job["events"].append(dict(engine="doctor", msg=f"Set-level pass skipped: {e}", t=0, n=len(job["events"])))
@@ -576,6 +595,75 @@ def cancel_job_endpoint(job_id: str):
 def cancel_all_endpoint():
     cancel_all_jobs()
     return dict(ok=True, status="all_cancelled")
+
+
+@app.post("/process_icon")
+def process_icon_worker_endpoint(payload: dict = Body(...), request: Request = None):
+    """Built-in remote compute worker endpoint so any Linework container (e.g. Hugging Face 16GB Space)
+    can also process icons for a master server over direct HTTPS without needing Cloudflare tunnels."""
+    from linework.pipeline import process_icon
+    sec = request.headers.get("X-Worker-Secret") if request else None
+    if sec != remote_worker.WORKER_SECRET:
+        raise HTTPException(401, "Invalid worker secret")
+    crop_b64 = payload.get("crop_b64")
+    opts_dict = payload.get("options", {})
+    off = payload.get("off", [0, 0])
+    k = payload.get("k", 0)
+    img_bytes = base64.b64decode(crop_b64)
+    nparr = np.frombuffer(img_bytes, np.uint8)
+    crop = cv2.imdecode(nparr, cv2.IMREAD_GRAYSCALE)
+    opts = Options(**opts_dict)
+    start_t = time.time()
+    with _LOCAL_SEMAPHORE:
+        r = process_icon(crop, opts, name=f"icon{k + 1}")
+    return {
+        "ok": True,
+        "elapsed": round(time.time() - start_t, 3),
+        "k": k,
+        "off": off,
+        "model_json": r["model"].to_json(),
+        "metrics": r["metrics"]
+    }
+
+
+def _start_auto_cluster_heartbeat():
+    """If MASTER_SERVER_URL and SELF_WORKER_URL (or HF SPACE_HOST) are configured,
+    automatically register this high-RAM server as a permanent 24/7 worker node."""
+    master = os.environ.get("MASTER_SERVER_URL", "").strip().rstrip("/")
+    self_url = os.environ.get("SELF_WORKER_URL", "").strip().rstrip("/")
+    if not self_url and os.environ.get("SPACE_HOST"):
+        self_url = f"https://{os.environ['SPACE_HOST']}".rstrip("/")
+    if not master or not self_url or master == self_url:
+        return
+
+    def _hb():
+        while True:
+            try:
+                reg = json.dumps({
+                    "url": self_url,
+                    "secret": remote_worker.WORKER_SECRET,
+                    "specs": {
+                        "ram": f"{_SYSTEM_RAM_MB}MB",
+                        "type": "Permanent Cloud Worker (HF/Docker)",
+                        "cpus": os.cpu_count() or 2,
+                        "capacity": _LOCAL_CAPACITY
+                    }
+                }).encode("utf-8")
+                req = urllib.request.Request(
+                    f"{master}/api/worker/register",
+                    data=reg,
+                    headers={"Content-Type": "application/json"}
+                )
+                with urllib.request.urlopen(req, timeout=10):
+                    pass
+            except Exception:
+                pass
+            time.sleep(25)
+
+    threading.Thread(target=_hb, daemon=True).start()
+
+
+_start_auto_cluster_heartbeat()
 
 
 @app.post("/api/worker/register")

@@ -76,7 +76,7 @@ def get_best_worker_url() -> str:
     return best_url
 
 
-def acquire_worker(timeout: float = 120.0) -> str:
+def acquire_worker(timeout: float = 35.0) -> str:
     """Acquire a worker node that has available capacity (active < capacity).
     Uses strict Fair Round-Robin load balancing so all connected Colab nodes share work equally.
     Returns worker_url, or None if no remote workers are available.
@@ -130,15 +130,15 @@ def release_worker(url: str, failed: bool = False):
             ACTIVE_NODES[url]["active"] = max(0, ACTIVE_NODES[url]["active"] - 1)
             if failed:
                 ACTIVE_NODES[url]["failures"] = ACTIVE_NODES[url].get("failures", 0) + 1
-                if ACTIVE_NODES[url]["failures"] >= 3:
-                    print(f"[Remote Worker] Evicting worker {url} after 3 consecutive failures")
+                if ACTIVE_NODES[url]["failures"] >= 6:
+                    print(f"[Remote Worker] Evicting worker {url} after 6 consecutive failures")
                     ACTIVE_NODES.pop(url, None)
             else:
                 ACTIVE_NODES[url]["failures"] = 0
         _CV.notify_all()
 
 
-def dispatch_to_remote_worker(worker_url: str, endpoint: str, payload: dict, timeout: int = 180):
+def dispatch_to_remote_worker(worker_url: str, endpoint: str, payload: dict, timeout: int = 70):
     url = f"{worker_url}{endpoint}"
     data = json.dumps(payload).encode("utf-8")
     req = urllib.request.Request(

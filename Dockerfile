@@ -5,6 +5,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libglib2.0-0 \
     libgomp1 \
     libfontconfig1 \
+    curl \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
@@ -13,15 +14,15 @@ WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy application files
+# Copy application files and make data directory writable for non-root containers (e.g. Hugging Face Spaces 16GB Free Tier)
 COPY . .
+RUN mkdir -p /app/data && chmod -R 777 /app
 
-# Production optimizations (Single-process shared memory with 4 worker threads)
+# Production optimizations (Auto-scales worker threads/processes based on detected RAM)
 ENV PYTHONUNBUFFERED=1
 ENV RELOAD=0
 ENV LINEWORK_INLINE=1
 ENV LINEWORK_WORKERS=1
-ENV PORT=8000
-EXPOSE 8000
+EXPOSE 7860 8000
 
 CMD ["python", "run.py"]
