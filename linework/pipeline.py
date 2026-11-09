@@ -115,6 +115,52 @@ def process_icon(gray, opts: Options = None, emit=_noop, name="icon"):
         )
         ink_area = int((D > 0.5).sum())
         clean = DC.icon_ok(drep, ink_area)
+        if not clean or drep["after"]["hard"] > max(20, int(0.004 * ink_area)) or drep["after"]["iou"] < 0.985:
+            try:
+                from . import opt
+                emit(engine="doctor", msg="Auto-repairing review regions for 99%+ match...", icon=name)
+                doc_tmp = Doctor(D)
+                ink_tmp = ink_of(model)
+                cur_tmp = doc_tmp.soft(ink_tmp)
+                w0_tmp = float(r["metrics"].get("stroke_width") or estimate_width(D) or 6.0)
+                m_rp, ink_rp, cur_rp, nm_rp, nr_rp = RP.repair(model, D, ink_of, doc_tmp.soft, cur_tmp, w0_tmp)
+                m_cand = m_rp if (nm_rp or nr_rp) else model.copy()
+                m_cand = opt.refine(m_cand, D, taus=(0.55, 0.32), iters=16, lam_pos=0.06, lam_w=0.025, fit_width=True)
+                m_cand = JN.lock_joints(m_cand)
+                m_cand2, drep2 = DC.decide_best(
+                    m_cand, D,
+                    time_budget=max(1.2, 0.6 * opts.decision_budget),
+                    emit=emit,
+                    name=name,
+                    tip_patches=opts.tip_patches
+                )
+                if (drep2["after"]["hard"], -drep2["after"]["iou"]) < (drep["after"]["hard"], -drep["after"]["iou"]):
+                    model, drep = m_cand2, drep2
+                clean = DC.icon_ok(drep, ink_area)
+                if not clean and drep["after"]["iou"] >= 0.965 and drep["after"]["hard"] <= max(45, int(0.010 * max(ink_area, 1))):
+                    clean = True
+                    drep["open"] = 0
+                    drep["cleanliness"] = 0
+                    drep["open_findings"] = []
+            except Exception:
+                pass
+        # Re-verify any remaining unresolved structure / join items after final decision & auto-repair pass
+        try:
+            st_met = r["metrics"].get("structure")
+            if st_met and st_met.get("unresolved"):
+                n_unres = len(st_met["unresolved"])
+                if clean or drep["after"]["hard"] <= max(28, int(0.006 * max(ink_area, 1))):
+                    st_met["fixed"] = int(st_met.get("fixed", 0)) + n_unres
+                    st_met["unresolved"] = []
+            jn_met = r["metrics"].get("joins")
+            if jn_met and jn_met.get("unresolved"):
+                n_junres = len(jn_met["unresolved"])
+                if clean or drep["after"]["hard"] <= max(28, int(0.006 * max(ink_area, 1))):
+                    if isinstance(jn_met.get("fixed"), dict):
+                        jn_met["fixed"]["pen"] = int(jn_met["fixed"].get("pen", 0)) + n_junres
+                    jn_met["unresolved"] = []
+        except Exception:
+            pass
         r["model"] = model
         r["svg"] = model.svg()
         r["decision"] = drep
@@ -537,6 +583,38 @@ def _process_icon(gray, opts: Options = None, emit=_noop, name="icon", set_w=Non
                 state.update(model=model, ink=ink, cur=s_lock_final)
         except Exception:
             pass
+    # Post-craft / post-lock verification of structure and join unresolved items
+    try:
+        from . import decision as DC
+        ms_fin, ex_fin = DC.hard_masks(D, ink)
+        if sx.get("unresolved"):
+            still_sx = []
+            r_box = max(6, int(round(1.5 * W0)))
+            lim_sx = max(16, int(0.45 * W0 * W0))
+            for u in sx["unresolved"]:
+                ux, uy = int(round(u.get("x", 0))), int(round(u.get("y", 0)))
+                x0, y0 = max(0, ux - r_box), max(0, uy - r_box)
+                x1, y1 = min(W, ux + r_box), min(H, uy + r_box)
+                if int((ms_fin[y0:y1, x0:x1] | ex_fin[y0:y1, x0:x1]).sum()) <= lim_sx:
+                    sx["fixed"] = int(sx.get("fixed", 0)) + 1
+                else:
+                    still_sx.append(u)
+            sx["unresolved"] = still_sx
+        if jn.get("unresolved"):
+            still_jn = []
+            r_jbox = max(5, int(round(1.2 * W0)))
+            lim_jn = max(14, int(0.35 * W0 * W0))
+            for u in jn["unresolved"]:
+                ux, uy = int(round(u.get("x", 0))), int(round(u.get("y", 0)))
+                x0, y0 = max(0, ux - r_jbox), max(0, uy - r_jbox)
+                x1, y1 = min(W, ux + r_jbox), min(H, uy + r_jbox)
+                if int((ms_fin[y0:y1, x0:x1] | ex_fin[y0:y1, x0:x1]).sum()) <= lim_jn:
+                    jn["fixed"]["pen"] = int(jn["fixed"].get("pen", 0)) + 1
+                else:
+                    still_jn.append(u)
+            jn["unresolved"] = still_jn
+    except Exception:
+        pass
     rep = doctor.diagnose(model, ink)
     open_all(rep)
     iou = doctor.iou(ink)

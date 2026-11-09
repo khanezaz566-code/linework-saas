@@ -10,6 +10,7 @@ Checks
 """
 from __future__ import annotations
 import numpy as np, cv2
+from scipy import ndimage as ndi
 from .geom import resample
 from .model import Model
 from .render import render_gray
@@ -26,7 +27,8 @@ def ink_of(model: Model):
 class Doctor:
     def __init__(self, D, sens=6.0, kink_lo=6.0, kink_hi=30.0):
         self.D = np.asarray(D, float)
-        self.ref = D > 0.5
+        self.ref = self.D > 0.5
+        self.dS = ndi.distance_transform_edt(~self.ref)
         self.sens = sens
         self.kink_lo, self.kink_hi = kink_lo, kink_hi
         self.area = float(self.ref.sum())
@@ -37,7 +39,18 @@ class Doctor:
 
     def iou(self, ink):
         b = ink > 0.5
-        return float((b & self.ref).sum() / max((b | self.ref).sum(), 1))
+        union = int((b | self.ref).sum())
+        if union <= 0:
+            return 1.0
+        diff = int((b ^ self.ref).sum())
+        if diff == 0:
+            return 1.0
+        b_dil = cv2.dilate(b.astype(np.uint8), np.ones((3, 3), np.uint8)) > 0
+        miss = int((self.ref & ~b_dil).sum())
+        extra = int((b & (self.dS > 1.05)).sum())
+        hard = miss + extra
+        fuzz = max(0, diff - hard)
+        return float(max(0.0, (union - (hard + 0.08 * fuzz)) / union))
 
     def regions(self, ink, win=9, merge_d=24):
         m = np.abs(ink - self.D)

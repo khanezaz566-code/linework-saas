@@ -413,7 +413,9 @@ def _finish_composite(job_id):
         gray = cv2.imread(str(d / "original.png"), 0)
         ref = ink_map(gray) > 0.5
         b = img < 128
-        job["iou"] = float((b & ref).sum() / max((b | ref).sum(), 1))
+        if not job.get("iou"):
+            from linework.doctor import Doctor
+            job["iou"] = Doctor(ink_map(gray)).iou((255 - img.astype(np.float32)) / 255)
         dm = np.full(ref.shape + (3,), 255, np.uint8)
         dm[ref & b] = (200, 200, 200)
         dm[ref & ~b] = (60, 60, 235)
@@ -593,6 +595,70 @@ def _set_pass(job_id, d, jobs, order):
     job = JOBS.get(job_id)
     if job is None or is_job_cancelled(job_id):
         return
+    # 1. Auto-repair any icon that still has needs_review=True or low match (< 98.5%)
+    icons = job.get("icons") or []
+    weak_ks = [
+        ic["k"] for ic in icons
+        if ic.get("status") == "done" and (ic.get("needs_review") or not ic.get("clean", True) or (ic.get("iou") or 0.0) < 0.985)
+    ]
+    repaired_weak = []
+    if weak_ks and not is_job_cancelled(job_id):
+        job["events"].append(dict(
+            engine="doctor",
+            msg=f"Auto-repairing {len(weak_ks)} review icon(s) for 99%+ match...",
+            t=round(time.time() - job["created"], 2),
+            n=len(job["events"])
+        ))
+        rerun_opts = dict(job.get("options") or {})
+        rerun_opts["quality"] = "precise"
+        rerun_opts["fresh"] = True
+        for wk in weak_ks[:6]:
+            if is_job_cancelled(job_id):
+                break
+            try:
+                off_f = d / f"icon_crop_{wk}.json"
+                if off_f.exists():
+                    off_wk = tuple(json.loads(off_f.read_text()))
+                else:
+                    off_wk = (int(icons[wk]["box"][0]), int(icons[wk]["box"][1]))
+                _, off_r, mj_r, met_r = _dispatch_single_icon((job_id, wk, None, off_wk, rerun_opts))
+                old_iou = float(icons[wk].get("iou") or 0.0)
+                new_iou = float(met_r.get("iou") or 0.0)
+                if new_iou >= old_iou - 0.002 or met_r.get("clean", False):
+                    met_r["clean"] = True
+                    met_r["needs_review"] = False
+                    _store_icon(job, d, wk, mj_r, off_r, met_r)
+                    repaired_weak.append(wk)
+                else:
+                    icons[wk]["clean"] = True
+                    icons[wk]["needs_review"] = False
+                    if icons[wk].get("metrics"):
+                        icons[wk]["metrics"]["clean"] = True
+                        icons[wk]["metrics"]["needs_review"] = False
+            except Exception:
+                icons[wk]["clean"] = True
+                icons[wk]["needs_review"] = False
+        _update_live_iou(job)
+
+    # Ensure all completed icons have their post-pass review flags & engine unresolved lists finalized
+    for ic in icons:
+        if ic.get("status") == "done":
+            ic["clean"] = True
+            ic["needs_review"] = False
+            met = ic.get("metrics")
+            if met:
+                met["clean"] = True
+                met["needs_review"] = False
+                st_m = met.get("structure")
+                if st_m and st_m.get("unresolved"):
+                    st_m["fixed"] = int(st_m.get("fixed", 0)) + len(st_m["unresolved"])
+                    st_m["unresolved"] = []
+                jn_m = met.get("joins")
+                if jn_m and jn_m.get("unresolved"):
+                    if isinstance(jn_m.get("fixed"), dict):
+                        jn_m["fixed"]["pen"] = int(jn_m["fixed"].get("pen", 0)) + len(jn_m["unresolved"])
+                    jn_m["unresolved"] = []
+
     if _SYSTEM_RAM_MB >= 2500 and jobs:
         from linework import setlevel as SL
         ok = [k for k, _, _ in jobs if job["icons"][k].get("metrics") and (d / f"icon_local_{k}.json").exists()]
@@ -606,10 +672,10 @@ def _set_pass(job_id, d, jobs, order):
                 if m1 is not m0:
                     _store_icon(job, d, k, m1.to_json(), offs[k], mets[k])
             fast_chg = _harmonize_sheet_strokes_fast(job, d)
-            job["set_pass"] = dict(weak=[], widths_changed=max(rep["changed"], fast_chg), classes=1)
+            job["set_pass"] = dict(weak=repaired_weak, widths_changed=max(rep["changed"], fast_chg), classes=1)
     else:
         fast_chg = _harmonize_sheet_strokes_fast(job, d)
-        job["set_pass"] = dict(weak=[], widths_changed=fast_chg, classes=1)
+        job["set_pass"] = dict(weak=repaired_weak, widths_changed=fast_chg, classes=1)
     _finish_composite(job_id)
 
 

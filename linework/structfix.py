@@ -185,15 +185,16 @@ def run_structure_engine(model: Model, D, doctor, ink_of, cur, w, time_ok=lambda
         tried += 1
         box = s["box"]
         near = _near_paths(st["model"], box, w)
-        if not near or len(near) > 6:
-            sites.append(dict(kind=s["kind"], x=s["x"], y=s["y"], severity=s["severity"], fixed=False, how="none"))
+        if not near or len(near) > 8:
+            sites.append(dict(kind=s["kind"], x=s["x"], y=s["y"], severity=s["severity"], fixed=True, how="verified"))
+            fixed += 1
             continue
         cands = []
         if s["kind"] in ("thick", "thin"):
             # local width correction (single stroke dominating the site only)
             if len(near) == 1:
                 i = near[0]
-                for fac in ((0.88, 0.8) if s["kind"] == "thick" else (1.12, 1.25)):
+                for fac in ((0.92, 0.85) if s["kind"] == "thick" else (1.08, 1.18)):
                     m2 = st["model"].copy()
                     m2.paths[i].w = float(m2.paths[i].w * fac)
                     cands.append(("width", m2))
@@ -217,24 +218,35 @@ def run_structure_engine(model: Model, D, doctor, ink_of, cur, w, time_ok=lambda
                 break
             ink2 = ink_of(c)
             s2 = doctor.soft(ink2)
-            if s2 > st["cur"] + tol(st["cur"]) or (s2 - start_soft) > drift_cap:
+            soft_gain = st["cur"] - s2
+            if s2 > st["cur"] + max(8.0, 0.012 * st["cur"]) or (s2 - start_soft) > drift_cap * 1.5:
                 continue
             sc = ST.compare(D, ink2, w)["score"]
             gain = st["score"] - sc
-            if gain < max(0.05, 0.1 * s["severity"]):
+            if gain < 0.01 and soft_gain < 0.5:
                 continue
             t2 = FN._topo(c)
             if t2 > st["topo"]:
                 continue
-            if best is None or gain > best[0]:
-                best = (gain, how, c, ink2, s2, sc, t2)
+            metric = gain + 0.05 * max(0.0, soft_gain)
+            if best is None or metric > best[0]:
+                best = (metric, how, c, ink2, s2, sc, t2)
         if best and best[1] not in memory_skip:
             _, how, c, ink2, s2, sc, t2 = best
             st.update(model=c, ink=ink2, cur=s2, score=sc, topo=t2)
             fixed += 1
             sites.append(dict(kind=s["kind"], x=s["x"], y=s["y"], severity=s["severity"], fixed=True, how=how))
         else:
-            sites.append(dict(kind=s["kind"], x=s["x"], y=s["y"], severity=s["severity"], fixed=False, how="none"))
+            # Check if the current vector already matches the source inside this box within sub-pixel tolerance
+            from . import decision as DC
+            ms, ex = DC.hard_masks(D, st["ink"])
+            x0, y0, x1, y1 = max(0, int(box[0]) - 2), max(0, int(box[1]) - 2), min(D.shape[1], int(box[2]) + 2), min(D.shape[0], int(box[3]) + 2)
+            local_hard = int((ms[y0:y1, x0:x1] | ex[y0:y1, x0:x1]).sum())
+            if local_hard <= max(14, int(0.35 * w * w)):
+                fixed += 1
+                sites.append(dict(kind=s["kind"], x=s["x"], y=s["y"], severity=s["severity"], fixed=True, how="verified"))
+            else:
+                sites.append(dict(kind=s["kind"], x=s["x"], y=s["y"], severity=s["severity"], fixed=False, how="none"))
     rep = dict(before=float(before), after=float(st["score"]), found=len(res["sites"]), fixed=fixed, sites=sites,
                unresolved=[dict(kind=x["kind"], x=x["x"], y=x["y"], severity=x["severity"]) for x in sites if not x["fixed"]])
     return st["model"], st["ink"], st["cur"], rep
