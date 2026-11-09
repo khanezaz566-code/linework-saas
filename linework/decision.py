@@ -835,6 +835,9 @@ def decide_best(model: Model, D, **kw):
             if best is None or key < best[0]:
                 rep["sharp_factor"] = fac
                 best = (key, m2, rep)
+            # Skip redundant second pass if no corner/tip findings exist or icon is already clean
+            if rep["after"]["hard"] <= 4 or rep["after"]["iou"] >= 0.980 or not any(f.get("kind") in ("corner", "tip") for f in rep.get("first_findings", [])):
+                break
     finally:
         _TLS.sharp_factor = keep
         SHARP_FACTOR = keep

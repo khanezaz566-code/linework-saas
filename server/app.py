@@ -631,35 +631,30 @@ def _dispatch_single_icon(args):
         _, enc = cv2.imencode(".png", crop)
         crop_b64 = base64.b64encode(enc.tobytes()).decode("ascii")
 
-    # Dispatch to 16GB RAM Super-Cluster nodes (up to 5 attempts with deep queue patience so Render 512MB RAM never spikes!)
-    for _attempt in range(5):
+    payload = {
+        "job_id": job_id,
+        "k": k,
+        "off": [int(off[0]), int(off[1])],
+        "crop_b64": crop_b64,
+        "options": opts,
+    }
+
+    # Dispatch to 16GB RAM Super-Cluster nodes (Direct Zero-Wait Pull Queue + Speculative Straggler Hedging)
+    for _attempt in range(3):
         if is_job_cancelled(job_id):
             raise RuntimeError("Cancelled")
         if not remote_worker.has_active_remote_worker():
             break
-        node_url = remote_worker.acquire_worker(timeout=65.0)
+        if remote_worker.has_active_pull_worker() and crop_b64:
+            res = remote_worker.dispatch_via_pull_queue(payload, timeout=55.0)
+            if res and res.get("ok"):
+                return k, off, res["model_json"], res["metrics"]
+            continue
+        node_url = remote_worker.acquire_worker(timeout=25.0)
         if not node_url:
-            if remote_worker.has_active_pull_worker() and crop_b64:
-                payload = {
-                    "job_id": job_id,
-                    "k": k,
-                    "off": [int(off[0]), int(off[1])],
-                    "crop_b64": crop_b64,
-                    "options": opts,
-                }
-                res = remote_worker.dispatch_via_pull_queue(payload, timeout=115.0)
-                if res and res.get("ok"):
-                    return k, off, res["model_json"], res["metrics"]
             continue
         try:
-            payload = {
-                "job_id": job_id,
-                "k": k,
-                "off": [int(off[0]), int(off[1])],
-                "crop_b64": crop_b64,
-                "options": opts,
-            }
-            res = remote_worker.dispatch_to_remote_worker(node_url, "/process_icon", payload, timeout=115)
+            res = remote_worker.dispatch_to_remote_worker(node_url, "/process_icon", payload, timeout=55)
             if res and res.get("ok"):
                 remote_worker.release_worker(node_url, failed=False)
                 return k, off, res["model_json"], res["metrics"]

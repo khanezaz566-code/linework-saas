@@ -181,9 +181,10 @@ def start_direct_pull_cluster():
     threading.Thread(target=_heartbeat_loop, daemon=True).start()
 
     def _pull_worker_slot(slot_idx: int):
+        global _INFLIGHT_COUNT
         # Stagger initial connection slightly
-        time.sleep(slot_idx * 0.4)
-        while True:
+        time.sleep(slot_idx * 0.25)
+        while not _SHUTTING_DOWN.is_set():
             try:
                 pull_req_body = json.dumps({
                     "worker_id": WORKER_ID,
@@ -202,20 +203,26 @@ def start_direct_pull_cluster():
                 if data.get("ok") and data.get("has_task") and data.get("task_id"):
                     task_id = data["task_id"]
                     payload = data.get("payload") or {}
-                    result = _execute_task_payload(payload)
-                    comp_body = json.dumps({
-                        "task_id": task_id,
-                        "worker_id": WORKER_ID,
-                        "secret": WORKER_SECRET,
-                        "result": result,
-                    }).encode("utf-8")
-                    creq = urllib.request.Request(
-                        f"{MASTER_URL}/api/worker/complete",
-                        data=comp_body,
-                        headers={"Content-Type": "application/json"}
-                    )
-                    with urllib.request.urlopen(creq, timeout=20):
-                        pass
+                    with _POOL_LOCK:
+                        _INFLIGHT_COUNT += 1
+                    try:
+                        result = _execute_task_payload(payload)
+                        comp_body = json.dumps({
+                            "task_id": task_id,
+                            "worker_id": WORKER_ID,
+                            "secret": WORKER_SECRET,
+                            "result": result,
+                        }).encode("utf-8")
+                        creq = urllib.request.Request(
+                            f"{MASTER_URL}/api/worker/complete",
+                            data=comp_body,
+                            headers={"Content-Type": "application/json"}
+                        )
+                        with urllib.request.urlopen(creq, timeout=20):
+                            pass
+                    finally:
+                        with _POOL_LOCK:
+                            _INFLIGHT_COUNT = max(0, _INFLIGHT_COUNT - 1)
             except urllib.error.HTTPError as he:
                 if he.code == 404:
                     # Master server hasn't updated to /api/worker/pull yet; wait briefly
@@ -229,12 +236,25 @@ def start_direct_pull_cluster():
         threading.Thread(target=_pull_worker_slot, args=(slot,), daemon=True).start()
 
 
+_SHUTTING_DOWN = threading.Event()
+_INFLIGHT_COUNT = 0
+
+
 def main():
     max_sec = int(os.environ.get("WORKER_MAX_SECONDS", "0") or "0")
     if max_sec > 0:
         def _auto_exit():
-            time.sleep(max_sec)
-            print(f"[+] Reached max scheduled shift ({max_sec}s); exiting cleanly for next shift.", flush=True)
+            drain_wait = max(10, max_sec - 25)
+            time.sleep(drain_wait)
+            _SHUTTING_DOWN.set()
+            # Wait up to 25s for any active 1-4 icons on this node to complete and report back
+            t_end = time.time() + 25.0
+            while time.time() < t_end:
+                with _POOL_LOCK:
+                    if _INFLIGHT_COUNT <= 0:
+                        break
+                time.sleep(0.5)
+            print(f"[+] Reached max scheduled shift ({max_sec}s); all in-flight tasks drained cleanly.", flush=True)
             os._exit(0)
         threading.Thread(target=_auto_exit, daemon=True).start()
 

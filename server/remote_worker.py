@@ -14,7 +14,7 @@ import threading
 from pathlib import Path
 
 WORKER_SECRET = os.environ.get("LINEWORK_WORKER_SECRET", "linework_super_secret_2026")
-NODE_TTL_SECONDS = 180  # 3-minute heartbeat window for rock-solid cluster stability
+NODE_TTL_SECONDS = 55  # Fast 55-second heartbeat window so rotated/closed nodes are pruned quickly
 
 ROOT = Path(__file__).resolve().parent.parent
 DATA_DIR = ROOT / "data"
@@ -195,8 +195,11 @@ def release_worker(url: str, failed: bool = False):
         _CV.notify_all()
 
 
-def dispatch_via_pull_queue(payload: dict, timeout: float = 115.0) -> dict:
-    """Enqueue an icon task for any Zero-Tunnel Pull Worker and wait for its completion."""
+def dispatch_via_pull_queue(payload: dict, timeout: float = 55.0) -> dict:
+    """Enqueue an icon task for any Zero-Tunnel Pull Worker with Speculative Straggler Hedging.
+    If the last 1-4 icons on a sheet are held by a slow or rotating worker node, they are
+    automatically cloned back to the front of _PULL_QUEUE so idle cluster nodes race to finish them first!
+    """
     task_id = uuid.uuid4().hex[:16]
     ev = threading.Event()
     now = time.time()
@@ -204,7 +207,11 @@ def dispatch_via_pull_queue(payload: dict, timeout: float = 115.0) -> dict:
         "event": ev,
         "result": None,
         "worker_id": None,
+        "payload": payload,
         "created": now,
+        "popped_at": None,
+        "requeued": 0,
+        "dispatched_workers": set(),
     }
     with _CV:
         _INFLIGHT_TASKS[task_id] = entry
@@ -216,14 +223,69 @@ def dispatch_via_pull_queue(payload: dict, timeout: float = 115.0) -> dict:
         _CV.notify_all()
 
     try:
-        finished = ev.wait(timeout=timeout)
-        if not finished:
+        deadline = now + timeout
+        while not ev.is_set():
+            rem = deadline - time.time()
+            if rem <= 0:
+                break
+            if ev.wait(timeout=min(1.0, rem)):
+                break
+            now_chk = time.time()
+            with _CV:
+                if ev.is_set():
+                    break
+                popped_at = entry.get("popped_at")
+                if popped_at is not None:
+                    elapsed_pop = now_chk - popped_at
+                    # Aggressive 5.0s straggler hedging for the final 1-4 icons of a sheet; 8.5s otherwise
+                    is_tail_straggler = (len(_PULL_QUEUE) == 0 and len(_INFLIGHT_TASKS) <= 4)
+                    hedge_threshold = 5.0 if is_tail_straggler else 8.5
+                    if elapsed_pop >= hedge_threshold and entry.get("requeued", 0) < 3:
+                        entry["requeued"] = entry.get("requeued", 0) + 1
+                        entry["popped_at"] = now_chk
+                        if not any(t["task_id"] == task_id for t in _PULL_QUEUE):
+                            _PULL_QUEUE.insert(0, {
+                                "task_id": task_id,
+                                "payload": payload,
+                                "created": now_chk,
+                            })
+                            _CV.notify_all()
+                elif now_chk - now >= 12.0 and not has_active_pull_worker():
+                    break
+
+        if not ev.is_set():
             return {"ok": False, "error": "Pull queue task timed out"}
         return entry.get("result") or {"ok": False, "error": "Empty pull result"}
     finally:
         with _CV:
             _INFLIGHT_TASKS.pop(task_id, None)
             _PULL_QUEUE[:] = [t for t in _PULL_QUEUE if t["task_id"] != task_id]
+
+
+def _pop_task_for_worker_locked(worker_id: str, now: float):
+    """Pop the best pending task for worker_id, preferring tasks not already hedged to this same worker."""
+    _PULL_QUEUE[:] = [t for t in _PULL_QUEUE if now - t["created"] < 150.0 and t["task_id"] in _INFLIGHT_TASKS]
+    if not _PULL_QUEUE:
+        return None
+    chosen_idx = 0
+    for idx, t in enumerate(_PULL_QUEUE):
+        ent = _INFLIGHT_TASKS.get(t["task_id"])
+        if ent and worker_id not in ent.get("dispatched_workers", set()):
+            chosen_idx = idx
+            break
+    task = _PULL_QUEUE.pop(chosen_idx)
+    tid = task["task_id"]
+    if tid in _INFLIGHT_TASKS:
+        ent = _INFLIGHT_TASKS[tid]
+        ent["worker_id"] = worker_id
+        ent["popped_at"] = now
+        ent.setdefault("dispatched_workers", set()).add(worker_id)
+    if worker_id in ACTIVE_NODES:
+        ACTIVE_NODES[worker_id]["last_ping"] = now
+        ACTIVE_NODES[worker_id]["last_dispatched"] = now
+        ACTIVE_NODES[worker_id]["active"] = ACTIVE_NODES[worker_id].get("active", 0) + 1
+        ACTIVE_NODES[worker_id]["total_dispatched"] = ACTIVE_NODES[worker_id].get("total_dispatched", 0) + 1
+    return task
 
 
 def try_pop_pending_task(worker_id: str, secret: str, specs: dict = None, register: bool = False) -> dict:
@@ -240,18 +302,12 @@ def try_pop_pending_task(worker_id: str, secret: str, specs: dict = None, regist
     with _CV:
         if worker_id in ACTIVE_NODES:
             ACTIVE_NODES[worker_id]["last_ping"] = now
-        _PULL_QUEUE[:] = [t for t in _PULL_QUEUE if now - t["created"] < 150.0 and t["task_id"] in _INFLIGHT_TASKS]
-        if _PULL_QUEUE:
-            task = _PULL_QUEUE.pop(0)
-            tid = task["task_id"]
-            if tid in _INFLIGHT_TASKS:
-                _INFLIGHT_TASKS[tid]["worker_id"] = worker_id
-            if worker_id in ACTIVE_NODES:
-                ACTIVE_NODES[worker_id]["last_dispatched"] = now
+        task = _pop_task_for_worker_locked(worker_id, now)
+        if task is not None:
             return {
                 "ok": True,
                 "has_task": True,
-                "task_id": tid,
+                "task_id": task["task_id"],
                 "payload": task["payload"],
             }
         return {"ok": True, "has_task": False}
@@ -270,21 +326,12 @@ def pull_pending_task(worker_id: str, secret: str, specs: dict = None, wait_time
     with _CV:
         while True:
             now = time.time()
-            # Discard stale queued tasks older than 150s
-            _PULL_QUEUE[:] = [t for t in _PULL_QUEUE if now - t["created"] < 150.0 and t["task_id"] in _INFLIGHT_TASKS]
-
-            if _PULL_QUEUE:
-                task = _PULL_QUEUE.pop(0)
-                tid = task["task_id"]
-                if tid in _INFLIGHT_TASKS:
-                    _INFLIGHT_TASKS[tid]["worker_id"] = worker_id
-                if worker_id in ACTIVE_NODES:
-                    ACTIVE_NODES[worker_id]["last_ping"] = now
-                    ACTIVE_NODES[worker_id]["last_dispatched"] = now
+            task = _pop_task_for_worker_locked(worker_id, now)
+            if task is not None:
                 return {
                     "ok": True,
                     "has_task": True,
-                    "task_id": tid,
+                    "task_id": task["task_id"],
                     "payload": task["payload"],
                 }
 
@@ -304,12 +351,30 @@ def complete_pulled_task(task_id: str, worker_id: str, secret: str, result: dict
     with _CV:
         if worker_id and worker_id in ACTIVE_NODES:
             ACTIVE_NODES[worker_id]["last_ping"] = now
+            ACTIVE_NODES[worker_id]["active"] = max(0, ACTIVE_NODES[worker_id].get("active", 1) - 1)
         entry = _INFLIGHT_TASKS.get(task_id)
         if not entry:
             return False
-        entry["result"] = result
-        entry["event"].set()
-        _CV.notify_all()
+        if result and result.get("ok"):
+            entry["result"] = result
+            entry["event"].set()
+            _PULL_QUEUE[:] = [t for t in _PULL_QUEUE if t["task_id"] != task_id]
+            _CV.notify_all()
+        elif not entry["event"].is_set():
+            # Worker reported an error on this task; immediately re-queue for another healthy node!
+            if entry.get("requeued", 0) < 3 and not any(t["task_id"] == task_id for t in _PULL_QUEUE):
+                entry["requeued"] = entry.get("requeued", 0) + 1
+                entry["popped_at"] = now
+                _PULL_QUEUE.insert(0, {
+                    "task_id": task_id,
+                    "payload": entry.get("payload", {}),
+                    "created": now,
+                })
+                _CV.notify_all()
+            else:
+                entry["result"] = result
+                entry["event"].set()
+                _CV.notify_all()
         return True
 
 

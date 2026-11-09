@@ -187,7 +187,7 @@ def _process_icon(gray, opts: Options = None, emit=_noop, name="icon", set_w=Non
     # how many icons run in parallel, or where in the queue this icon sits.  Complex icons get a larger budget (set below).
     c0 = time.process_time()
     bud = [float(cfg["time_budget"])]
-    max_wall = 24.0 if opts.quality != "precise" else 38.0
+    max_wall = 15.0 if opts.quality != "precise" else 26.0
     left = lambda: min(bud[0] - (time.process_time() - c0), max_wall - (time.time() - t0))
 
     ev("trace", "Tracing skeleton and centring strokes on their edges")
@@ -211,12 +211,12 @@ def _process_icon(gray, opts: Options = None, emit=_noop, name="icon", set_w=Non
     # and keep the one whose first render matches the source best; stop as soon as one is good enough.
     if opts.superres:
         cands = [(opts.superres, 0.6 if opts.superres > 1 else 1.0)]
-    elif w_est < 8:
-        cands = [(3, 0.6), (2, 0.6), (3, 0.35)]
-    elif w_est < 14:
-        cands = [(2, 0.6), (3, 0.6), (1, 0.6)]
+    elif w_est < 6.5:
+        cands = [(2, 0.6), (3, 0.6)]
+    elif w_est < 11.5:
+        cands = [(2, 0.6), (1, 0.6)]
     else:
-        cands = [(1, 0.6), (2, 0.6), (1, 1.0)]
+        cands = [(1, 0.6), (2, 0.6)]
     wb = int(min(30, round(w_est)))
     if not opts.superres and opts.memory and not opts.fresh:
         cands = LS.trace_order(wb, cands)
@@ -231,7 +231,7 @@ def _process_icon(gray, opts: Options = None, emit=_noop, name="icon", set_w=Non
         if iou_c >= opts.trace_good:
             break
         # another trace is only worth its time when this one is clearly poor (the optimiser evens out small differences)
-        if best[0] >= opts.trace_ok:
+        if best[0] >= min(opts.trace_ok, 0.885):
             break
     if best is None:
         return dict(model=Model([], W, H), svg=Model([], W, H).svg(), metrics=dict(iou=0, error="no ink"))
@@ -425,7 +425,7 @@ def _process_icon(gray, opts: Options = None, emit=_noop, name="icon", set_w=Non
     sx = dict(before=0.0, after=0.0, found=0, fixed=0, sites=[], unresolved=[])
     if opts.structure:
         sc0 = time.process_time()
-        scap = min(4.0, max(2.0, 0.16 * bud[0]))
+        scap = min(2.4, max(1.4, 0.14 * bud[0]))
         m6, ink6, cur6, sx = SF.run_structure_engine(state["model"], D, doctor, ink_of, state["cur"], W0, time_ok=lambda: time.process_time() - sc0 < scap,
                                                     memory_skip=(LS.skip_kinds() if opts.memory else ()))
         if sx["fixed"]:
@@ -435,7 +435,7 @@ def _process_icon(gray, opts: Options = None, emit=_noop, name="icon", set_w=Non
     fin = dict(found=0, fixed=0, sites=[])
     if opts.finish:
         fc0 = time.process_time()
-        fcap = min(4.5, max(2.5, 0.18 * bud[0]))
+        fcap = min(2.6, max(1.5, 0.15 * bud[0]))
         m3, ink3, cur3, fin = FN.finish(state["model"], D, doctor, ink_of, state["cur"], W0, time_ok=lambda: time.process_time() - fc0 < fcap,
                                        set_w=set_w, skip=(LS.skip_kinds() if opts.memory else ()))
         if fin["fixed"]:
@@ -445,7 +445,7 @@ def _process_icon(gray, opts: Options = None, emit=_noop, name="icon", set_w=Non
     jn = dict(total=0, clean_first=0, fixed=dict(unite=0, pen=0, line=0, arc=0, shape=0), unresolved=[], built=0)
     if opts.joins:
         jc0 = time.process_time()
-        jcap = min(4.0, max(2.0, 0.16 * bud[0]))
+        jcap = min(2.4, max(1.4, 0.14 * bud[0]))
         m5, ink5, cur5, jn = JN.run_join_engine(state["model"], D, doctor, ink_of, state["cur"], W0, time_ok=lambda: time.process_time() - jc0 < jcap)
         # Quality Guard: only accept join modifications if it does not degrade the icon match!
         iou_pre_join = doctor.iou(state["ink"])
@@ -458,7 +458,7 @@ def _process_icon(gray, opts: Options = None, emit=_noop, name="icon", set_w=Non
     nsp = 0
     if opts.joins and not os.environ.get("DISABLE_SPIKE_GUARD"):
         pc0 = time.process_time()
-        m8, ink8, cur8, nsp = JP.spike_guard(state["model"], D, doctor, ink_of, state["cur"], time_ok=lambda: time.process_time() - pc0 < min(3.5, max(2.0, 0.15 * bud[0])))
+        m8, ink8, cur8, nsp = JP.spike_guard(state["model"], D, doctor, ink_of, state["cur"], time_ok=lambda: time.process_time() - pc0 < min(2.0, max(1.2, 0.12 * bud[0])))
         if nsp:
             state.update(model=m8, ink=ink8, cur=cur8)
         ev("doctor", f"Join policy: {nsp} path(s) got a better join type / miter limit", iou=doctor.iou(state["ink"]))
