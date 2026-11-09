@@ -124,7 +124,8 @@ def process_icon(gray, opts: Options = None, emit=_noop, name="icon"):
                 cur_tmp = doc_tmp.soft(ink_tmp)
                 w0_tmp = float(r["metrics"].get("stroke_width") or estimate_width(D) or 6.0)
                 m_rp, ink_rp, cur_rp, nm_rp, nr_rp = RP.repair(model, D, ink_of, doc_tmp.soft, cur_tmp, w0_tmp)
-                m_cand = m_rp if (nm_rp or nr_rp) else model.copy()
+                # Never discard valid paths in auto-repair; only add restored missing strokes
+                m_cand = m_rp if (nm_rp and len(m_rp.paths) >= len(model.paths)) else model.copy()
                 m_cand = opt.refine(m_cand, D, taus=(0.55, 0.32), iters=16, lam_pos=0.06, lam_w=0.025, fit_width=True)
                 m_cand = JN.lock_joints(m_cand)
                 m_cand2, drep2 = DC.decide_best(
@@ -134,7 +135,7 @@ def process_icon(gray, opts: Options = None, emit=_noop, name="icon"):
                     name=name,
                     tip_patches=opts.tip_patches
                 )
-                if (drep2["after"]["hard"], -drep2["after"]["iou"]) < (drep["after"]["hard"], -drep["after"]["iou"]):
+                if (drep2["after"]["hard"], -drep2["after"]["iou"]) < (drep["after"]["hard"], -drep["after"]["iou"]) and len(m_cand2.paths) >= len(model.paths):
                     model, drep = m_cand2, drep2
                 clean = DC.icon_ok(drep, ink_area)
                 if not clean and drep["after"]["iou"] >= 0.965 and drep["after"]["hard"] <= max(45, int(0.010 * max(ink_area, 1))):
@@ -257,12 +258,12 @@ def _process_icon(gray, opts: Options = None, emit=_noop, name="icon", set_w=Non
     # and keep the one whose first render matches the source best; stop as soon as one is good enough.
     if opts.superres:
         cands = [(opts.superres, 0.6 if opts.superres > 1 else 1.0)]
-    elif w_est < 6.5:
-        cands = [(2, 0.6), (3, 0.6)]
-    elif w_est < 11.5:
-        cands = [(2, 0.6), (1, 0.6)]
+    elif w_est < 8.0:
+        cands = [(3, 0.6), (2, 0.6), (3, 0.35)]
+    elif w_est < 14.0:
+        cands = [(2, 0.6), (3, 0.6), (1, 0.6)]
     else:
-        cands = [(1, 0.6), (2, 0.6)]
+        cands = [(1, 0.6), (2, 0.6), (1, 1.0)]
     wb = int(min(30, round(w_est)))
     if not opts.superres and opts.memory and not opts.fresh:
         cands = LS.trace_order(wb, cands)
@@ -277,7 +278,7 @@ def _process_icon(gray, opts: Options = None, emit=_noop, name="icon", set_w=Non
         if iou_c >= opts.trace_good:
             break
         # another trace is only worth its time when this one is clearly poor (the optimiser evens out small differences)
-        if best[0] >= min(opts.trace_ok, 0.885):
+        if best[0] >= opts.trace_ok:
             break
     if best is None:
         return dict(model=Model([], W, H), svg=Model([], W, H).svg(), metrics=dict(iou=0, error="no ink"))

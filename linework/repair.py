@@ -67,7 +67,9 @@ def repair(model: Model, D, ink_of, soft, state_cur, w, max_items=8):
             xs = np.clip(np.round(f[:, 0] - 0.5).astype(int), 0, dil.shape[1] - 1)
             ys = np.clip(np.round(f[:, 1] - 0.5).astype(int), 0, dil.shape[0] - 1)
             share = float(dil[ys, xs].mean())
-            if share > 0.5:
+            # NEVER delete a stroke if its centerline sits on actual source ink!
+            src_ink_share = float((D[ys, xs] > 0.35).mean())
+            if share > 0.65 and src_ink_share < 0.20:
                 hits.append(i)
         for i in sorted(hits, reverse=True):
             cand = Model([p for j, p in enumerate(model.paths) if j != i], model.width, model.height)

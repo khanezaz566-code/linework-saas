@@ -378,7 +378,7 @@ def build_chains(branches, snap_width=True):
                                         circle_bridges[(a, b)] = arc_pts
                                         eff_ang = min(eff_ang, 10.0 + 12.0 * float(np.percentile(rad_err, 90)) / max(0.18 * w, 0.5))
 
-                    if len(l) >= 3 and info[a].get("is_arch") and info[b].get("is_arch") and not on_common_circle:
+                    if len(l) >= 3 and info[a].get("is_arch") and info[b].get("is_arch") and not on_common_circle and eff_ang > 45.0:
                         continue
                     pair_cands.append((eff_ang, a, b))
             pair_cands.sort(key=lambda t: t[0])

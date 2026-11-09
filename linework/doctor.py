@@ -92,20 +92,24 @@ class Doctor:
             return [], []
         count = np.sum(covs, axis=0)
         red, tails = [], []
+        # Pre-build KDTree of other paths to check true centerline-to-centerline duplication
+        all_flats = [f for f in flats]
         for i, (c, f) in enumerate(zip(covs, flats)):
             w = model.paths[i].w
             excl = c & (count == 1)
-            ek = cv2.dilate(excl.astype(np.uint8), np.ones((5, 5), np.uint8)) > 0
-            if excl.sum() < max(4, 0.01 * c.sum()):
+            other_entries = [(m, all_flats[m]) for m in range(len(all_flats)) if m != i and len(all_flats[m]) > 0]
+            if not other_entries:
+                continue
+            tree_other = cKDTree(np.vstack([fm for _, fm in other_entries]))
+            tree_owners = np.concatenate([[m] * len(fm) for m, fm in other_entries])
+            # A stroke is ONLY redundant if its centerline points lie right on top of another stroke (< 0.25*w)
+            d_cl, _ = tree_other.query(f)
+            median_cl_dist = float(np.median(d_cl))
+            frac_coincident = float((d_cl < 0.28 * w).mean())
+            if frac_coincident >= 0.88 and median_cl_dist <= 0.22 * w:
                 red.append(i)
                 continue
-            other_entries = [(m, flats[m]) for m in range(len(flats)) if m != i and m not in red and len(flats[m]) > 0]
-            if other_entries:
-                tree_other = cKDTree(np.vstack([fm for _, fm in other_entries]))
-                tree_owners = np.concatenate([[m] * len(fm) for m, fm in other_entries])
-            else:
-                tree_other = None
-                tree_owners = None
+            ek = cv2.dilate(excl.astype(np.uint8), np.ones((5, 5), np.uint8)) > 0
             xs = np.clip(np.round(f[:, 0] - 0.5).astype(int), 0, ek.shape[1] - 1)
             ys = np.clip(np.round(f[:, 1] - 0.5).astype(int), 0, ek.shape[0] - 1)
             has = ek[ys, xs]
@@ -119,30 +123,28 @@ class Doctor:
                     j += 1
                 # Only true tails at stroke endpoints should ever be cut; interior spans are junctions/crossings
                 if (k <= 3 or j >= len(has) - 3) and j - k >= max(0.9 * w, 8):
-                    if tree_other is not None:
-                        d_cl, idx_cl = tree_other.query(f[k:j])
-                        if float(np.median(d_cl)) > 0.32 * w:
-                            k = j
-                            continue
-                        tail_pts = f[k:j]
-                        if len(tail_pts) >= 2:
-                            v_tail = tail_pts[-1] - tail_pts[0] if (j >= len(has) - 3) else (tail_pts[0] - tail_pts[-1])
-                            lv = np.linalg.norm(v_tail)
-                            if lv > 1e-4:
-                                t_tail = v_tail / lv
-                                m_other = int(np.bincount(tree_owners[idx_cl]).argmax())
-                                fm = flats[m_other]
-                                if len(fm) >= 2:
-                                    k_oth = int(np.argmin(np.linalg.norm(fm - tail_pts[len(tail_pts) // 2], axis=1)))
-                                    lo_o = max(0, k_oth - 4)
-                                    hi_o = min(len(fm) - 1, k_oth + 4)
-                                    v_oth = fm[hi_o] - fm[lo_o]
-                                    if np.linalg.norm(v_oth) > 1e-4:
-                                        t_oth = v_oth / np.linalg.norm(v_oth)
-                                        if abs(float(t_tail @ t_oth)) < 0.88:
-                                            k = j
-                                            continue
-                    tails.append((i, k, j - 1))
+                    d_sub, idx_cl = tree_other.query(f[k:j])
+                    if float(np.median(d_sub)) > 0.28 * w:
+                        k = j
+                        continue
+                    tail_pts = f[k:j]
+                    if len(tail_pts) >= 2:
+                        v_tail = tail_pts[-1] - tail_pts[0] if (j >= len(has) - 3) else (tail_pts[0] - tail_pts[-1])
+                        lv = np.linalg.norm(v_tail)
+                        if lv > 1e-4:
+                            t_tail = v_tail / lv
+                            m_other = int(np.bincount(tree_owners[idx_cl]).argmax())
+                            f_oth = all_flats[m_other]
+                            if len(f_oth) >= 2:
+                                _, idx_near = cKDTree(f_oth).query(tail_pts)
+                                idx_near = np.clip(idx_near, 0, len(f_oth) - 2)
+                                v_oth = f_oth[idx_near + 1] - f_oth[idx_near]
+                                t_oth = v_oth / np.maximum(np.linalg.norm(v_oth, axis=1, keepdims=True), 1e-6)
+                                cos_align = np.abs(np.sum(t_tail[None, :] * t_oth, axis=1))
+                                if float(np.mean(cos_align > 0.88)) < 0.65:
+                                    k = j
+                                    continue
+                    tails.append((i, 0 if k <= 3 else 1, j - k))
                 k = j
         return red, tails
 

@@ -258,6 +258,7 @@ def craft_model(model: Model, D: np.ndarray, doctor: Doctor, W0: float = 10.0) -
     if not model.paths:
         return model
 
+    H_im, W_im = D.shape
     cur_m = model.copy()
     cur_ink = ink_of(cur_m)
     s0 = doctor.soft(cur_ink)
@@ -327,7 +328,13 @@ def craft_model(model: Model, D: np.ndarray, doctor: Doctor, W0: float = 10.0) -
     # ------------------------------------------------------------------
     for i in range(len(cur_m.paths) - 1, -1, -1):
         p = cur_m.paths[i]
-        if not p.closed and len(p.A) <= 3 and p.length() < 0.45 * p.w:
+        if not p.closed and len(p.A) <= 3 and p.length() < 0.40 * p.w:
+            f = p.flat(1.0)
+            xs = np.clip(np.round(f[:, 0] - 0.5).astype(int), 0, W_im - 1)
+            ys = np.clip(np.round(f[:, 1] - 0.5).astype(int), 0, H_im - 1)
+            # Never remove strokes that sit on real source ink (e.g. dots, small ticks, accent marks)
+            if float((D[ys, xs] > 0.42).mean()) >= 0.70:
+                continue
             cand = cur_m.copy()
             del cand.paths[i]
             try_accept(cand, step_soft_tol=0.5, step_iou_drop=0.0001)
@@ -545,7 +552,9 @@ def craft_model(model: Model, D: np.ndarray, doctor: Doctor, W0: float = 10.0) -
                                 continue
                             if not _has_ink_line(p_prev_i, p_prev_j, min_frac=0.90):
                                 continue
-                            # Weld pi (without its hook) and pj (without its hook) across straight segment p_prev_i <-> p_prev_j
+                            # Weld pi and pj across straight segment p_prev_i <-> p_prev_j
+                            hook_i = pi.segs()[0] if ei == 0 else pi.segs()[-1]
+                            hook_j = pj.segs()[0] if ej == 0 else pj.segs()[-1]
                             segs_i = pi.segs()[1:] if ei == 0 else pi.segs()[:-1]
                             segs_j = pj.segs()[1:] if ej == 0 else pj.segs()[:-1]
                             if not segs_i or not segs_j:
@@ -566,6 +575,11 @@ def craft_model(model: Model, D: np.ndarray, doctor: Doctor, W0: float = 10.0) -
                             np_m.ml = pi.ml
                             cand.paths[i] = np_m
                             del cand.paths[j]
+                            # Never lose real lines: if the side branches have solid source ink, preserve them as their own paths!
+                            if _has_ink_line(hook_i[0], hook_i[3], min_frac=0.80):
+                                cand.paths.append(Path.from_segs([hook_i], pi.w, closed=False, join="round"))
+                            if _has_ink_line(hook_j[0], hook_j[3], min_frac=0.80):
+                                cand.paths.append(Path.from_segs([hook_j], pj.w, closed=False, join="round"))
                             # Also snap any nearby open endpoints (within 2.0 * w of the junction) onto the restored straight line
                             mid_junc = 0.5 * (p_base_i + p_base_j)
                             u_line = unit(pt_b - pt_a)
