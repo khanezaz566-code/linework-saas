@@ -770,10 +770,11 @@ def job_template_icons(job_id: str):
     icons = job.get("icons", [])
     result = []
     for i, ic in enumerate(icons):
+        k_val = ic.get("k", i)
         result.append({
             "index": i,
             "name": ic.get("name") or f"Icon #{i+1}",
-            "svg_url": f"/api/jobs/{job_id}/icons/{i}.svg?stroke=%23000000"
+            "svg_url": f"/api/jobs/{job_id}/icons/{k_val}.svg?stroke=%23000000"
         })
     return JSONResponse(result)
 
@@ -933,6 +934,28 @@ def template_presets():
     return PRESETS
 
 
+def _prepare_template_icons(job_id, job):
+    if str(job_id).lower() in ("demo", "sample", "preview", "none", "null", "undefined"):
+        from linework.template import generate_demo_sheet
+        _, icons = generate_demo_sheet()
+        return icons
+    d = _jobdir(job_id)
+    raw_icons = job.get("icons", [])
+    prepared = []
+    for i, ic in enumerate(raw_icons):
+        ic_copy = dict(ic)
+        k = ic.get("k", i)
+        fn = d / f"icon_{k}.json"
+        if fn.exists():
+            try:
+                m = Model.from_json(fn.read_text())
+                ic_copy["paths"] = m.paths
+            except Exception:
+                pass
+        prepared.append(ic_copy)
+    return prepared
+
+
 @app.get("/api/jobs/{job_id}/template.svg")
 def job_template_svg(
     job_id: str,
@@ -992,7 +1015,8 @@ def job_template_svg(
     if panel_bg: cfg["banner_bg"] = panel_bg
     if accent: cfg["accent"] = accent
     
-    svg = build_template_svg(m, job.get("icons", []), cfg)
+    icons_list = _prepare_template_icons(job_id, job)
+    svg = build_template_svg(m, icons_list, cfg)
     headers = {"Cache-Control": "no-store"}
     if download:
         headers["Content-Disposition"] = _attachment_disposition(job["name"], "-presentation.svg")
@@ -1056,7 +1080,8 @@ def job_template_eps(
     if panel_bg: cfg["banner_bg"] = panel_bg
     if accent: cfg["accent"] = accent
 
-    eps = build_template_eps(m, job.get("icons", []), cfg)
+    icons_list = _prepare_template_icons(job_id, job)
+    eps = build_template_eps(m, icons_list, cfg)
     headers = {"Cache-Control": "no-store"}
     if download:
         headers["Content-Disposition"] = _attachment_disposition(job["name"], "-presentation.eps")
@@ -1114,7 +1139,8 @@ def job_template_png(
     if artboard_bg: cfg["artboard_bg"] = artboard_bg
     if stroke: cfg["icon_stroke"] = stroke
 
-    svg = build_template_svg(m, job.get("icons", []), cfg)
+    icons_list = _prepare_template_icons(job_id, job)
+    svg = build_template_svg(m, icons_list, cfg)
     try:
         import resvg_py
         png_bytes = bytes(resvg_py.svg_to_bytes(svg_string=svg))

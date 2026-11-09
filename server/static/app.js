@@ -196,6 +196,7 @@
   function begin(id, name) {
     Object.assign(S, {
       job: id,
+      name: name,
       since: 0,
       version: -1,
       done: false,
@@ -1989,14 +1990,17 @@
     // Auto-populate title if empty or default
     const titleInput = $('#tplTitle');
     if (titleInput && (!titleInput.value || titleInput.value === 'TECHNOLOGY' || titleInput.value === 'Minimal Vector Line Icons')) {
-      titleInput.value = S.job ? formatStockTitle(S.name) : 'TECHNOLOGY';
+      titleInput.value = (S.job && S.name) ? formatStockTitle(S.name) : 'TECHNOLOGY';
     }
 
-    // Auto-detect count if empty or default
+    // Auto-detect count
     const countInput = $('#tplCount');
-    if (countInput && (!countInput.value || countInput.value === '24')) {
-      const count = (S.icons && S.icons.length) ? S.icons.length : 24;
-      countInput.value = count;
+    if (countInput) {
+      if (S.icons && S.icons.length > 0) {
+        countInput.value = S.icons.length;
+      } else if (!countInput.value) {
+        countInput.value = 24;
+      }
     }
 
     // Dynamic header subtitle
@@ -2175,6 +2179,15 @@
       if (!S.job) {
         toast('Please load an icon sheet first', 1);
         return;
+      }
+      S.template.highlight_index = 0;
+      const countInput = $('#tplCount');
+      if (countInput && S.icons && S.icons.length > 0) {
+        countInput.value = S.icons.length;
+      }
+      const titleInput = $('#tplTitle');
+      if (titleInput && S.name) {
+        titleInput.value = formatStockTitle(S.name);
       }
       openTemplateStudio();
     });
