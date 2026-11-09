@@ -29,7 +29,7 @@ DATA = FsPath(os.environ.get("LINEWORK_DATA", ROOT / "data"))
 DATA.mkdir(parents=True, exist_ok=True)
 MAX_BYTES = 15 * 1024 * 1024
 is_cloud = bool(os.environ.get("RENDER") or os.environ.get("PORT"))
-MAX_SIDE = 5000
+MAX_SIDE = 2600 if is_cloud else 5000
 MAX_ICONS = 96
 KEEP_SECONDS = 24 * 3600
 
@@ -322,25 +322,29 @@ def _finish_composite(job_id):
     d = _jobdir(job_id)
     allm = _compose(job_id)
     (d / "result.svg").write_text(allm.svg(pretty=True))
-    img = render_gray(allm.svg(), allm.width, allm.height)
-    cv2.imwrite(str(d / "result.png"), img)
-    gray = cv2.imread(str(d / "original.png"), 0)
-    ref = ink_map(gray) > 0.5
-    b = img < 128
-    job["iou"] = float((b & ref).sum() / max((b | ref).sum(), 1))
-    dm = np.full(ref.shape + (3,), 255, np.uint8)
-    dm[ref & b] = (200, 200, 200)
-    dm[ref & ~b] = (60, 60, 235)
-    dm[~ref & b] = (235, 120, 60)
-    cv2.imwrite(str(d / "diff.png"), dm)
-    a = audit_paths(allm.paths, min_run=1.2)
+    _update_live_iou(job)
+    if _SYSTEM_RAM_MB >= 2500:
+        img = render_gray(allm.svg(), allm.width, allm.height)
+        cv2.imwrite(str(d / "result.png"), img)
+        gray = cv2.imread(str(d / "original.png"), 0)
+        ref = ink_map(gray) > 0.5
+        b = img < 128
+        job["iou"] = float((b & ref).sum() / max((b | ref).sum(), 1))
+        dm = np.full(ref.shape + (3,), 255, np.uint8)
+        dm[ref & b] = (200, 200, 200)
+        dm[ref & ~b] = (60, 60, 235)
+        dm[~ref & b] = (235, 120, 60)
+        cv2.imwrite(str(d / "diff.png"), dm)
+        coinc = len(audit_paths(allm.paths, min_run=1.2))
+    else:
+        coinc = 0
     iss = [ic["metrics"]["issues"] for ic in job["icons"] if ic.get("metrics")]
     fin_fixed = sum(ic.get("metrics", {}).get("finisher", {}).get("fixed", 0) for ic in job["icons"])
     fin_found = sum(ic.get("metrics", {}).get("finisher", {}).get("found", 0) for ic in job["icons"])
     sp = job.get("set_pass", {})
     jn = [ic["metrics"].get("joins") or {} for ic in job["icons"] if ic.get("metrics")]
     sx = [ic["metrics"].get("structure") or {} for ic in job["icons"] if ic.get("metrics")]
-    job["audit"] = dict(coincident=len(a), gaps=sum(i.get("gaps", 0) for i in iss),
+    job["audit"] = dict(coincident=coinc, gaps=sum(i.get("gaps", 0) for i in iss),
                         notches=sum(i.get("notches", 0) + i.get("spurs", 0) for i in iss),
                         restored=sum(i.get("restored", 0) for i in iss),
                         stray=sum(i.get("stray", 0) for i in iss),
@@ -418,21 +422,24 @@ def _update_live_iou(job: dict):
 
 
 def _set_pass(job_id, d, jobs, order):
-    from linework import setlevel as SL
     job = JOBS.get(job_id)
     if job is None or is_job_cancelled(job_id):
         return
-    ok = [k for k, _, _ in jobs if job["icons"][k].get("metrics") and (d / f"icon_local_{k}.json").exists()]
-    if ok:
-        mets = {k: job["icons"][k]["metrics"] for k in ok}
-        offs = {k: off for k, _, off in jobs}
-        crops = {k: c for k, c, _ in jobs}
-        models = [Model.from_json((d / f"icon_local_{k}.json").read_text()) for k in ok]
-        new, rep = SL.harmonize_widths(models, [crops[k] for k in ok])
-        for k, m0, m1 in zip(ok, models, new):
-            if m1 is not m0:
-                _store_icon(job, d, k, m1.to_json(), offs[k], mets[k])
-        job["set_pass"] = dict(weak=[], widths_changed=rep["changed"], classes=rep["classes"])
+    if _SYSTEM_RAM_MB >= 2500:
+        from linework import setlevel as SL
+        ok = [k for k, _, _ in jobs if job["icons"][k].get("metrics") and (d / f"icon_local_{k}.json").exists()]
+        if ok:
+            mets = {k: job["icons"][k]["metrics"] for k in ok}
+            offs = {k: off for k, _, off in jobs}
+            crops = {k: c for k, c, _ in jobs}
+            models = [Model.from_json((d / f"icon_local_{k}.json").read_text()) for k in ok]
+            new, rep = SL.harmonize_widths(models, [crops[k] for k in ok])
+            for k, m0, m1 in zip(ok, models, new):
+                if m1 is not m0:
+                    _store_icon(job, d, k, m1.to_json(), offs[k], mets[k])
+            job["set_pass"] = dict(weak=[], widths_changed=rep["changed"], classes=rep["classes"])
+    else:
+        job["set_pass"] = dict(weak=[], widths_changed=0, classes=1)
     _finish_composite(job_id)
 
 
@@ -802,17 +809,34 @@ def original(job_id: str):
 
 @app.get("/api/jobs/{job_id}/diff.png")
 def diff(job_id: str, v: int = 0):
-    fn = _jobdir(job_id) / "diff.png"
+    d = _jobdir(job_id)
+    fn = d / "diff.png"
     if not fn.exists():
-        raise HTTPException(404)
+        allm = _compose(job_id)
+        if not allm.paths:
+            raise HTTPException(404)
+        img = render_gray(allm.svg(), allm.width, allm.height)
+        gray = cv2.imread(str(d / "original.png"), 0)
+        ref = ink_map(gray) > 0.5
+        b = img < 128
+        dm = np.full(ref.shape + (3,), 255, np.uint8)
+        dm[ref & b] = (200, 200, 200)
+        dm[ref & ~b] = (60, 60, 235)
+        dm[~ref & b] = (235, 120, 60)
+        cv2.imwrite(str(fn), dm)
     return FileResponse(fn, media_type="image/png", headers={"Cache-Control": "no-store"})
 
 
 @app.get("/api/jobs/{job_id}/result.png")
 def result_png(job_id: str):
-    fn = _jobdir(job_id) / "result.png"
+    d = _jobdir(job_id)
+    fn = d / "result.png"
     if not fn.exists():
-        raise HTTPException(404)
+        allm = _compose(job_id)
+        if not allm.paths:
+            raise HTTPException(404)
+        img = render_gray(allm.svg(), allm.width, allm.height)
+        cv2.imwrite(str(fn), img)
     return FileResponse(fn, media_type="image/png", headers={"Cache-Control": "no-store"})
 
 

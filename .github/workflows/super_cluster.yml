@@ -1,0 +1,48 @@
+name: Linework 24/7 Free Super-Cluster (16 CPU Cores / 64GB RAM)
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+  schedule:
+    # Automatically starts a fresh 4-node cluster shift every 5 hours (24/7)
+    - cron: '15 */5 * * *'
+
+concurrency:
+  group: linework-super-cluster
+  cancel-in-progress: true
+
+jobs:
+  super-worker-cluster:
+    name: Super Worker Node #${{ matrix.node }} (4 vCPU / 16GB RAM)
+    runs-on: ubuntu-latest
+    timeout-minutes: 340
+    strategy:
+      fail-fast: false
+      matrix:
+        node: [1, 2, 3, 4]
+
+    steps:
+      - name: Checkout Linework AI Engine
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install Native Vector & OpenCV Libraries
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends libglib2.0-0 libgomp1 libfontconfig1 curl
+          pip install -r requirements.txt
+
+      - name: Run 4-Core Super-Worker Connected to Render (5.2 Hours Shift)
+        env:
+          MASTER_SERVER_URL: https://linework-saas.onrender.com
+          LINEWORK_WORKER_SECRET: linework_super_secret_2026
+          WORKER_MAX_SECONDS: "18600"
+          WORKER_PORT: ${{ 5000 + matrix.node }}
+        run: |
+          python colab_worker.py

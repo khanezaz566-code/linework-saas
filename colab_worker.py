@@ -210,6 +210,13 @@ def start_tunnel_and_register(local_port=5000):
 
 
 def main():
+    max_sec = int(os.environ.get("WORKER_MAX_SECONDS", "0") or "0")
+    if max_sec > 0:
+        def _auto_exit():
+            time.sleep(max_sec)
+            print(f"[+] Reached max scheduled shift ({max_sec}s); exiting cleanly for next shift.")
+            os._exit(0)
+        threading.Thread(target=_auto_exit, daemon=True).start()
     port = int(os.environ.get("WORKER_PORT", os.environ.get("PORT", 5000)))
     t = threading.Thread(target=start_tunnel_and_register, args=(port,), daemon=True)
     t.start()
