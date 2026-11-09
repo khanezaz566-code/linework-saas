@@ -86,7 +86,7 @@
 
 
 
-<link rel="stylesheet" href="/static/style.css?v=4.0.0">
+<link rel="stylesheet" href="/static/style.css?v=5.0.0">
 
 
 
@@ -5423,388 +5423,133 @@
 
 
       <section id="templateStudio" class="template-studio-view" hidden>
-
-
-
-
-
-
-
-        
-
-
-
-
-
-
-
         <!-- Top Toolbar -->
-
-
-
-
-
-
-
         <div class="template-topbar">
-
-
-
-
-
-
-
           <div class="topbar-left">
-
-
-
-
-
-
-
             <button class="btn secondary-action-btn back-btn" id="btnBackToWork">
-
-
-
-
-
-
-
               <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2"><path d="m15 18-6-6 6-6"/></svg>
-
-
-
-
-
-
-
               <span>Back to Redraw</span>
-
-
-
-
-
-
-
             </button>
-
-
-
-
-
-
-
             <div class="template-title-group">
-
-
-
-
-
-
-
-              <h2>Template Maker Studio</h2>
-
-
-
-
-
-
-
-              <span class="template-sub" id="tplMetaSub">Adobe Stock / Vectuz Style Merged Presentation</span>
-
-
-
-
-
-
-
+              <h2>DIY Template Maker Studio</h2>
+              <span class="template-sub" id="tplMetaSub">100+ Modular Shapes, Highlighters, Square Boxes &amp; Borders · Build &amp; Save Your Own Template</span>
             </div>
-
-
-
-
-
-
-
           </div>
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
           <div class="topbar-right">
-
-
-
-
-
-
-
-            <button class="btn secondary-action-btn" id="btnSaveCustomTemplate" title="Save current colors & layout as a reusable preset">
-
-
-
-
-
-
-
-              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
-
-
-
-
-
-
-
-              <span>Save Template</span>
-
-
-
-
-
-
-
+            <button class="btn secondary-action-btn" id="btnResetMakerDefault" title="Reset to clean Square Box default">
+              <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
+              <span>Reset Square Box</span>
             </button>
-
-
-
-
-
-
-
+            <button class="btn secondary-action-btn" id="btnSaveCustomTemplate" title="Save your custom-built template for future icon sets">
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+              <span>Save My Template</span>
+            </button>
             <a class="btn primary-action-btn" id="btnDlTemplateSvg" href="#" download="stock-presentation.svg">
-
-
-
-
-
-
-
               <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-
-
-
-
-
-
-
               <span>Download SVG</span>
-
-
-
-
-
-
-
             </a>
-
-
-
-
-
-
-
             <a class="btn primary-action-btn png-btn" id="btnDlTemplatePng" href="#" download="stock-presentation.png">
-
-
-
-
-
-
-
               <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2"><rect width="18" height="18" x="3" y="3" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg>
-
-
-
-
-
-
-
               <span>4K Stock PNG</span>
-
-
-
-
-
-
-
             </a>
-
-
-
-
-
-
-
             <a class="btn primary-action-btn eps-btn" id="btnDlTemplateEps" href="#" download="stock-presentation.eps">
-
-
-
-
-
-
-
               <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><path d="M8 13h4M8 17h6"/></svg>
-
-
-
-
-
-
-
               <span>Download EPS</span>
-
-
-
-
-
-
-
             </a>
-
-
-
-
-
-
-
             <a class="btn secondary-action-btn" id="btnDlTemplateZip" href="#">
-
-
-
-
-
-
-
               <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="m3.3 7 8.7 5 8.7-5"/><path d="M12 22V12"/></svg>
-
-
-
-
-
-
-
               <span>All Assets (.ZIP)</span>
-
-
-
-
-
-
-
             </a>
-
-
-
-
-
-
-
           </div>
-
-
-
-
-
-
-
         </div>
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
         <!-- Studio Main Workspace Grid -->
-
-
-
-
-
-
-
         <div class="template-grid">
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
           <!-- Left Controls Column -->
-
-
-
-
-
-
-
           <div class="template-controls-sidebar">
 
-            <!-- 1. Layout & Cover Architecture -->
-            <div class="card panel tpl-panel" id="designLayoutsPanel">
+            <!-- 1. Modular Template Maker Elements (100 Visual Shapes, Highlighters, Showcase Boxes & Grid Frames) -->
+            <div class="card panel tpl-panel" id="makerElementsPanel">
               <div class="panel-header">
-                <h3><span class="component-step-badge">1</span> Layout &amp; Architecture</h3>
-                <span class="badge-live" id="designCountBadge">17 Styles</span>
+                <h3><span class="component-step-badge">1</span> Template Maker Elements</h3>
+                <span class="badge-live" id="makerTotalBadge">100 Elements</span>
               </div>
               <div class="panel-body">
-                <!-- Design Families Filter Tabs -->
-                <div class="design-filter-tabs" id="designFilterTabs">
-                  <button type="button" class="design-tab-btn active" data-f="all">All (17)</button>
-                  <button type="button" class="design-tab-btn" data-f="bestsellers">⭐ Bestsellers (8)</button>
-                  <button type="button" class="design-tab-btn" data-f="organic">🌊 Waves (3)</button>
-                  <button type="button" class="design-tab-btn" data-f="geometric">🛡️ Tech (6)</button>
+                <!-- Cover Panel Dock Position -->
+                <div style="margin-bottom:10px;">
+                  <span style="font-size:11px; color:var(--text-muted); font-weight:700; display:block; margin-bottom:5px; text-transform:uppercase; letter-spacing:0.5px;">Cover Panel Position (Around Square Icon Box):</span>
+                  <div class="seg" id="tplPanelPosSeg" style="display:grid; grid-template-columns:repeat(4, 1fr); gap:4px; width:100%;">
+                    <button type="button" data-v="left" class="on" style="font-size:11px; padding:5px 2px;">◧ Left</button>
+                    <button type="button" data-v="right" style="font-size:11px; padding:5px 2px;">◨ Right</button>
+                    <button type="button" data-v="top" style="font-size:11px; padding:5px 2px;">⬒ Top</button>
+                    <button type="button" data-v="bottom" style="font-size:11px; padding:5px 2px;">⬓ Bottom</button>
+                  </div>
                 </div>
-                <!-- Visual Cards Grid -->
-                <div class="design-card-grid" id="designList">
-                  <!-- Populated dynamically with preview SVGs -->
+
+                <!-- 4 Element Category Tabs (25 items each with visual SVG previews!) -->
+                <div class="maker-cat-tabs" id="makerCatTabs">
+                  <button type="button" class="maker-cat-btn active" data-cat="banner_shape">
+                    <span class="cat-icon">🟦</span>
+                    <span class="cat-label">Shapes</span>
+                    <span class="cat-count">25</span>
+                  </button>
+                  <button type="button" class="maker-cat-btn" data-cat="title_highlight">
+                    <span class="cat-icon">✨</span>
+                    <span class="cat-label">Highlighters</span>
+                    <span class="cat-count">25</span>
+                  </button>
+                  <button type="button" class="maker-cat-btn" data-cat="showcase_shape">
+                    <span class="cat-icon">🔲</span>
+                    <span class="cat-label">Icon Box</span>
+                    <span class="cat-count">25</span>
+                  </button>
+                  <button type="button" class="maker-cat-btn" data-cat="decor_element">
+                    <span class="cat-icon">▦</span>
+                    <span class="cat-label">Square Grid</span>
+                    <span class="cat-count">25</span>
+                  </button>
+                </div>
+
+                <div class="maker-cat-subtitle" id="makerCatSubtitle">
+                  Select a Cover / Banner Shape (25 visual shapes available):
+                </div>
+
+                <!-- Visual Component Preview Grid (Populated dynamically with 25 SVG cards per tab) -->
+                <div class="maker-element-grid" id="makerElementGrid">
                 </div>
               </div>
             </div>
 
-            <!-- 2. Featured Showcase Icon Selector (Requested by User!) -->
+            <!-- 2. Featured Showcase Icon Selector -->
             <div class="card panel tpl-panel" id="featuredIconPanel">
               <div class="panel-header">
-                <h3><span class="component-step-badge">2</span> Featured Showcase Hero Icon</h3>
+                <h3><span class="component-step-badge">2</span> Select Icon From Sheet</h3>
                 <span class="badge-live" id="featuredIconBadge">#1 Selected</span>
               </div>
               <div class="panel-body">
-                <div style="font-size:12px; color:var(--text-muted); margin-bottom:8px; line-height:1.4;">
-                  Click any icon from your active sheet below to feature it inside the hero showcase box:
+                <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:8px;">
+                  <label class="check-row" style="margin:0;">
+                    <input type="checkbox" id="tplShowHighlight" checked style="accent-color:var(--accent);">
+                    <span style="font-size:12px; font-weight:600;">Show Icon Showcase Box</span>
+                  </label>
+                </div>
+                <div class="param-row" style="margin-bottom:8px; flex-direction:column; gap:5px; align-items:flex-start;">
+                  <span style="font-size:11px; color:var(--text-muted); font-weight:600;">Showcase Display Mode:</span>
+                  <div class="seg tpl-hl-mode-seg" id="tplHighlightModeSeg" style="width:100%; display:grid; grid-template-columns: repeat(3, 1fr); gap:4px;">
+                    <button type="button" data-v="hero_1" class="on" style="font-size:11px; padding:5px 2px;">⭐ 1 Hero Icon</button>
+                    <button type="button" data-v="mini_4" style="font-size:11px; padding:5px 2px;">⊞ 4 Icons</button>
+                    <button type="button" data-v="mini_6" style="font-size:11px; padding:5px 2px;">▦ 6 Icons</button>
+                  </div>
+                </div>
+                <div style="font-size:11.5px; color:var(--text-muted); margin-bottom:6px; line-height:1.35;">
+                  Click any icon from your sheet below to place it inside the Showcase Box:
                 </div>
                 <div class="featured-icon-grid" id="featuredIconGrid">
                   <!-- Populated dynamically with icon cards -->
                 </div>
                 <div style="display:flex; gap:6px; margin-top:8px;">
                   <button type="button" class="btn btn-sm btn-outline" id="btnRandomFeaturedIcon" style="flex:1; justify-content:center; font-size:11px;">
-                    🎲 Random Hero Icon
+                    🎲 Random Icon
                   </button>
                   <button type="button" class="btn btn-sm btn-outline" id="btnResetFeaturedIcon" style="flex:1; justify-content:center; font-size:11px;">
                     ⏮️ First Icon (#1)
@@ -5813,44 +5558,15 @@
               </div>
             </div>
 
-            <!-- 3. Showcase Feature Box Design -->
-            <div class="card panel tpl-panel" id="showcasePanel">
-              <div class="panel-header">
-                <h3><span class="component-step-badge">3</span> Showcase Box Design</h3>
-              </div>
-              <div class="panel-body">
-                <label class="check-row" style="margin-bottom:8px;">
-                  <input type="checkbox" id="tplShowHighlight" checked style="accent-color:var(--accent);">
-                  <span style="font-size:12.5px; font-weight:600;">Enable Dark Showcase Feature Box</span>
-                </label>
-                <div class="param-row" style="margin-top:6px; flex-direction:column; gap:6px; align-items:flex-start;">
-                  <span style="font-size:11.5px; color:var(--text-muted); font-weight:600;">Showcase Card Style:</span>
-                  <div class="seg tpl-sc-shape-seg" id="tplShowcaseShapeSeg" style="width:100%; display:grid; grid-template-columns: repeat(3, 1fr); gap:4px;">
-                    <button type="button" data-v="card" class="on" style="font-size:11px; padding:6px 2px;">🔲 Squircle Card</button>
-                    <button type="button" data-v="circle" style="font-size:11px; padding:6px 2px;">🪐 Orbital Ring</button>
-                    <button type="button" data-v="hexagon" style="font-size:11px; padding:6px 2px;">🛡️ Cyber Hexagon</button>
-                  </div>
-                </div>
-                <div class="param-row" style="margin-top:10px; flex-direction:column; gap:6px; align-items:flex-start;">
-                  <span style="font-size:11.5px; color:var(--text-muted);">Showcase Icon Mode:</span>
-                  <div class="seg tpl-hl-mode-seg" id="tplHighlightModeSeg" style="width:100%; display:grid; grid-template-columns: repeat(3, 1fr); gap:4px;">
-                    <button type="button" data-v="hero_1" class="on" style="font-size:11px; padding:6px 2px;">⭐ 1 Hero Icon</button>
-                    <button type="button" data-v="mini_4" style="font-size:11px; padding:6px 2px;">⊞ 4 Mini Grid</button>
-                    <button type="button" data-v="mini_6" style="font-size:11px; padding:6px 2px;">▦ 6 Mini Grid</button>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <!-- 4. Content, Typography & Live Font Sizing ("Text Boro/Choto") -->
+            <!-- 3. Content, Typography & Live Font Sizing ("Text Boro/Choto") -->
             <div class="card panel tpl-panel" id="typographyPanel">
               <div class="panel-header">
-                <h3><span class="component-step-badge">4</span> Content &amp; Font Sizing</h3>
+                <h3><span class="component-step-badge">3</span> Text &amp; Font Sizing</h3>
               </div>
               <div class="panel-body">
                 <div class="param-row">
                   <label for="tplTitle">Collection Title</label>
-                  <input type="text" id="tplTitle" value="TECHNOLOGY" placeholder="e.g. TECHNOLOGY, BUSINESS, HEALTHCARE">
+                  <input type="text" id="tplTitle" value="TECHNOLOGY" placeholder="e.g. TECHNOLOGY, BUSINESS">
                 </div>
                 <div class="param-row">
                   <label for="tplCount">Icon Count</label>
@@ -5862,86 +5578,74 @@
                   </div>
                 </div>
                 <div class="param-row">
-                  <label for="tplSubtitle">Category Subtitle</label>
+                  <label for="tplSubtitle">Subtitle Text</label>
                   <input type="text" id="tplSubtitle" value="Editable Line Icons" placeholder="e.g. Editable Line Icons">
                 </div>
-
                 <div style="border-top:1px solid rgba(255,255,255,0.08); margin:12px 0 8px; padding-top:8px;">
-                  <span style="font-size:11px; font-weight:700; color:var(--accent); text-transform:uppercase; letter-spacing:0.5px;">Direct Font Sizing Controls ("Text Boro / Choto")</span>
+                  <span style="font-size:11px; font-weight:700; color:var(--accent); text-transform:uppercase; letter-spacing:0.5px;">Text Size Sliders (বড় / ছোট করুন)</span>
                 </div>
-
                 <!-- Title Font Size Slider -->
                 <div class="font-size-ctrl">
                   <div class="ctrl-header">
-                    <span>Title Font Size:</span>
+                    <span>Title Text Size:</span>
                     <b id="tplTitleSizeVal" class="val-pill">54 px</b>
                   </div>
-                  <input type="range" id="tplTitleSize" min="24" max="100" step="2" value="54" style="width:100%;">
+                  <input type="range" id="tplTitleSize" min="24" max="110" step="2" value="54" style="width:100%;">
                 </div>
-
                 <!-- Count Font Size Slider -->
                 <div class="font-size-ctrl">
                   <div class="ctrl-header">
-                    <span>Count Number Font Size:</span>
+                    <span>Count Number Size:</span>
                     <b id="tplCountSizeVal" class="val-pill">160 px</b>
                   </div>
                   <input type="range" id="tplCountSize" min="48" max="260" step="4" value="160" style="width:100%;">
                 </div>
-
                 <!-- Subtitle Font Size Slider -->
                 <div class="font-size-ctrl">
                   <div class="ctrl-header">
-                    <span>Subtitle Font Size:</span>
+                    <span>Subtitle Text Size:</span>
                     <b id="tplSubSizeVal" class="val-pill">20 px</b>
                   </div>
-                  <input type="range" id="tplSubSize" min="12" max="36" step="1" value="20" style="width:100%;">
+                  <input type="range" id="tplSubSize" min="12" max="40" step="1" value="20" style="width:100%;">
                 </div>
-
                 <!-- Font Family -->
                 <div class="param-row" style="margin-top:12px; flex-direction:column; gap:6px; align-items:flex-start;">
-                  <span style="font-size:12px; color:var(--text-muted); font-weight:600;">Font Family:</span>
+                  <span style="font-size:12px; color:var(--text-muted); font-weight:600;">Font Style (8 Premium Fonts):</span>
                   <div class="seg tpl-font-seg" id="tplFontSeg" style="width:100%; display:grid; grid-template-columns: repeat(2, 1fr); gap:4px;">
                     <button type="button" data-v="bebas" class="on" style="font-family:'Bebas Neue', Impact, sans-serif; font-size:13px;">Bebas Neue</button>
                     <button type="button" data-v="jakarta" style="font-family:'Plus Jakarta Sans', sans-serif; font-weight:700; font-size:11px;">Jakarta Sans</button>
                     <button type="button" data-v="montserrat" style="font-family:'Montserrat', sans-serif; font-weight:800; font-size:11px;">Montserrat</button>
                     <button type="button" data-v="space" style="font-family:'Space Grotesk', sans-serif; font-weight:700; font-size:11px;">Space Grotesk</button>
+                    <button type="button" data-v="oswald" style="font-family:'Oswald', sans-serif; font-weight:700; font-size:12px;">Oswald Bold</button>
+                    <button type="button" data-v="outfit" style="font-family:'Outfit', sans-serif; font-weight:800; font-size:11px;">Outfit Geometric</button>
                     <button type="button" data-v="playfair" style="font-family:'Playfair Display', serif; font-weight:700; font-size:11px;">Playfair Serif</button>
                     <button type="button" data-v="mono" style="font-family:'JetBrains Mono', monospace; font-size:11px;">JetBrains Mono</button>
-                  </div>
-                </div>
-
-                <!-- Title Highlight Shape -->
-                <div class="param-row" style="margin-top:10px; flex-direction:column; gap:6px; align-items:flex-start;">
-                  <span style="font-size:12px; color:var(--text-muted); font-weight:600;">Title Highlight Element:</span>
-                  <div class="seg tpl-title-hl-seg" id="tplTitleHlSeg" style="width:100%; display:grid; grid-template-columns: repeat(2, 1fr); gap:4px;">
-                    <button type="button" data-v="pill" class="on" style="font-size:11px;">💊 Frosted Pill</button>
-                    <button type="button" data-v="glow_bar" style="font-size:11px;">✨ Glow Accent Bar</button>
-                    <button type="button" data-v="brackets" style="font-size:11px;">📐 Brackets</button>
-                    <button type="button" data-v="ribbon" style="font-size:11px;">🏷️ Ribbon Tag</button>
-                    <button type="button" data-v="clean" style="font-size:11px; grid-column: span 2;">✨ Clean Minimal</button>
                   </div>
                 </div>
               </div>
             </div>
 
-            <!-- 5. Colors & Theme Palette -->
+            <!-- 4. Colors & Theme Palette -->
             <div class="card panel tpl-panel" id="colorsPanel">
               <div class="panel-header">
-                <h3><span class="component-step-badge">5</span> Colors &amp; Theme</h3>
-                <span id="customColorHint" style="font-size:11px; color:var(--text-dim);">Adobe Stock Gold</span>
+                <h3><span class="component-step-badge">4</span> Colors &amp; Stroke</h3>
+                <span id="customColorHint" style="font-size:11px; color:var(--text-dim);">Custom Palette</span>
               </div>
               <div class="panel-body">
-                <span style="font-size:11.5px; color:var(--text-muted); font-weight:600;">1-Click Color Presets:</span>
+                <span style="font-size:11.5px; color:var(--text-muted); font-weight:600;">Quick Color Themes:</span>
                 <div class="preset-card-grid" id="presetList" style="margin-top:6px; margin-bottom:12px;">
-                  <!-- Populated dynamically with color presets -->
+                  <!-- Populated dynamically with color palettes -->
                 </div>
-
                 <div class="param-row">
-                  <label for="tplBannerBg">Cover Banner Color</label>
+                  <label for="tplBannerBg">Cover Shape Color</label>
                   <input type="color" id="tplBannerBg" value="#F5B800">
                 </div>
                 <div class="param-row">
-                  <label>Banner Text Theme</label>
+                  <label for="tplShapeAccent">Highlighter / Accent Color</label>
+                  <input type="color" id="tplShapeAccent" value="#181B24">
+                </div>
+                <div class="param-row">
+                  <label>Cover Text Color</label>
                   <div class="seg seg-compact" id="tplBannerTextSeg">
                     <button type="button" data-v="#1E1E1E" class="on">Dark</button>
                     <button type="button" data-v="#FFFFFF">Light</button>
@@ -5956,7 +5660,7 @@
                   <input type="color" id="tplHighlightStroke" value="#FFFFFF">
                 </div>
                 <div class="param-row" style="flex-direction:column; gap:6px; align-items:flex-start;">
-                  <label>Artboard Background</label>
+                  <label>Icon Box Background</label>
                   <div class="seg tpl-bg-seg" id="tplArtboardBgSeg" style="width:100%; display:grid; grid-template-columns: repeat(4, 1fr); gap:4px;">
                     <button type="button" data-v="checkered" class="on" style="font-size:11px;">🏁 Stock</button>
                     <button type="button" data-v="#FFFFFF" style="font-size:11px;">⚪ White</button>
@@ -5970,56 +5674,54 @@
                 </div>
                 <div class="param-row">
                   <label for="tplStrokeScale">
-                    <span>Stroke Weight <b id="tplScaleVal">100%</b></span>
+                    <span>Icon Stroke Weight <b id="tplScaleVal">100%</b></span>
                   </label>
                   <input type="range" id="tplStrokeScale" min="0.5" max="2.0" step="0.05" value="1.0">
                 </div>
               </div>
             </div>
 
-            <!-- 6. Artboard Ratio, Margins & Grid -->
+            <!-- 5. Square Artboard Ratio & Margins -->
             <div class="card panel tpl-panel" id="artboardPanel">
               <div class="panel-header">
-                <h3><span class="component-step-badge">6</span> Artboard Ratio &amp; Margins</h3>
+                <h3><span class="component-step-badge">5</span> Square Box &amp; Grid</h3>
               </div>
               <div class="panel-body">
                 <div class="param-row" style="flex-direction:column; gap:6px; align-items:flex-start;">
-                  <span style="font-size:12px; color:var(--text-muted); font-weight:600;">Presentation Canvas Ratio:</span>
+                  <span style="font-size:12px; color:var(--text-muted); font-weight:600;">Canvas Aspect Ratio:</span>
                   <div class="seg tpl-layout-seg" id="tplLayoutSeg" style="display:grid; grid-template-columns: repeat(3, 1fr); gap:4px; width:100%;">
                     <button type="button" data-v="landscape_16_9" class="on" style="font-size:11px;">16:9 4K</button>
                     <button type="button" data-v="landscape_4_3" style="font-size:11px;">4:3 Stock</button>
                     <button type="button" data-v="square" style="font-size:11px;">1:1 Square</button>
                   </div>
                 </div>
-
                 <div class="param-row" style="margin-top:10px; flex-direction:column; gap:6px; align-items:flex-start;">
-                  <span style="font-size:12px; color:var(--text-muted); font-weight:600;">Icon Sheet Grid Engine:</span>
+                  <span style="font-size:12px; color:var(--text-muted); font-weight:600;">Icon Sheet Grid Mode:</span>
                   <div class="seg tpl-icon-layout-seg" id="tplIconLayoutSeg" style="width:100%; display:grid; grid-template-columns: repeat(2, 1fr); gap:4px;">
-                    <button type="button" data-v="auto_grid" class="on" style="font-size:11px;">⚡ Auto-Grid Balanced</button>
-                    <button type="button" data-v="tight_fit" style="font-size:11px;">📐 Tight Trim Fit</button>
+                    <button type="button" data-v="auto_grid" class="on" style="font-size:11px;">⚡ Auto Square Grid</button>
+                    <button type="button" data-v="tight_fit" style="font-size:11px;">📐 Original Sheet Fit</button>
                   </div>
                 </div>
-
                 <div class="param-row" style="margin-top:10px; flex-direction:column; gap:6px; align-items:flex-start;">
                   <div style="display:flex; justify-content:space-between; width:100%; align-items:center;">
-                    <span style="font-size:12px; color:var(--text-muted); font-weight:600;">Artboard Edge Margin:</span>
-                    <b id="tplMarginVal" style="font-size:11.5px; color:var(--accent);">6% (Stock Standard)</b>
+                    <span style="font-size:12px; color:var(--text-muted); font-weight:600;">Square Box Padding:</span>
+                    <b id="tplMarginVal" style="font-size:11.5px; color:var(--accent);">6% (Balanced)</b>
                   </div>
                   <input type="range" id="tplMarginRange" min="0.02" max="0.16" step="0.01" value="0.06" style="width:100%;">
                 </div>
               </div>
             </div>
 
-            <!-- 7. My Saved Templates ("Save Kore Rakha") -->
+            <!-- 6. My Saved Custom Templates ("Save Kore Rakha") -->
             <div class="card panel tpl-panel" id="savedTemplatesPanel">
               <div class="panel-header">
-                <h3><span class="component-step-badge">7</span> My Saved Templates</h3>
+                <h3><span class="component-step-badge">6</span> My Saved Templates</h3>
                 <span class="badge-live" id="savedCountBadge">0 saved</span>
               </div>
               <div class="panel-body">
                 <button type="button" class="btn primary-action-btn" id="btnSaveTemplateSidebar" style="width:100%; justify-content:center; margin-bottom:10px; font-size:12px; padding:9px;">
                   <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
-                  <span>Save Current Template</span>
+                  <span>Save My Custom Template</span>
                 </button>
                 <div class="saved-templates-list" id="savedTemplatesList">
                   <!-- Populated from LocalStorage -->
@@ -6030,300 +5732,37 @@
           </div>
 
           <!-- Right Preview Column -->
-
-
-
-
-
-
-
           <div class="template-preview-column">
-
-
-
-
-
-
-
             <div class="stage-frame template-stage-frame">
-
-
-
-
-
-
-
               <div class="artboard-indicator">
-
-
-
-
-
-
-
-                <span class="ab-tag">MICROSTOCK ARTBOARD</span>
-
-
-
-
-
-
-
+                <span class="ab-tag">SQUARE ICON BOX + CUSTOM TEMPLATE</span>
                 <span class="ab-size" id="tplDimsBadge">3840 × 2160 px · 16:9 Ultra-HD</span>
-
-
-
-
-
-
-
                 <span class="ab-zoom-badge" id="tplZoomBadge">100%</span>
-
-
-
-
-
-
-
               </div>
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
               <!-- Main scrollable / zoomable preview canvas -->
-
-
-
-
-
-
-
               <div class="template-stage" id="templateStage">
-
-
-
-
-
-
-
                 <div class="template-artboard-container" id="templateSvgContainer">
-
-
-
-
-
-
-
                   <!-- The merged SVG renders here live -->
-
-
-
-
-
-
-
                 </div>
-
-
-
-
-
-
-
               </div>
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
               <!-- Bottom zoom & pan control bar -->
-
-
-
-
-
-
-
               <div class="canvas-footer-bar">
-
-
-
-
-
-
-
                 <div class="footer-status-pill">
-
-
-
-
-
-
-
                   <span class="pulse-dot"></span>
-
-
-
-
-
-
-
-                  <span id="tplFooterHint">Adobe Stock Standard Presentation · Drag to pan · Scroll wheel to zoom</span>
-
-
-
-
-
-
-
+                  <span id="tplFooterHint">DIY Template Maker · Click any Shape, Highlighter, Showcase Box or Grid Border · Drag to pan · Scroll to zoom</span>
                 </div>
-
-
-
-
-
-
-
                 <div class="zoom-cluster">
-
-
-
-
-
-
-
                   <button id="tplZout" class="zoom-btn" title="Zoom Out (−)">−</button>
-
-
-
-
-
-
-
                   <button id="tplZfit" class="zoom-btn zoom-fit" title="Fit to View">Fit</button>
-
-
-
-
-
-
-
                   <button id="tplZ100" class="zoom-btn zoom-100" title="100% Actual Size">1:1</button>
-
-
-
-
-
-
-
                   <button id="tplZin" class="zoom-btn" title="Zoom In (+)">+</button>
-
-
-
-
-
-
-
                   <span class="zoom-readout" id="tplZoomReadout">100%</span>
-
-
-
-
-
-
-
                 </div>
-
-
-
-
-
-
-
               </div>
-
-
-
-
-
-
-
             </div>
-
-
-
-
-
-
-
           </div>
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
         </div>
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
       </section>
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
       <!-- ============ BG Studio View ============ -->
 
@@ -11253,7 +10692,7 @@
 
 
 
-<script src="/static/app.js?v=4.0.0"></script>
+<script src="/static/app.js?v=5.0.0"></script>
 
 
 

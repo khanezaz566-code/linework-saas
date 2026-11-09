@@ -959,7 +959,10 @@ def _prepare_template_icons(job_id, job):
 @app.get("/api/jobs/{job_id}/template.svg")
 def job_template_svg(
     job_id: str,
-    design: str = "vectuz_sidebar",
+    design: str = "modular_maker",
+    banner_shape: str = "square_solid",
+    decor_element: str = "artboard_square_box",
+    panel_pos: str = "left",
     preset: str = "vectuz_yellow",
     title: str = "TECHNOLOGY",
     count: str = "",
@@ -971,13 +974,13 @@ def job_template_svg(
     highlight_stroke: str = "",
     artboard_bg: str = "",
     show_highlight: int = 1,
-    highlight_mode: str = "mini_4",
+    highlight_mode: str = "hero_1",
     layout: str = "landscape_16_9",
     stroke: str = "",
     scale: float = 1.0,
     font_family: str = "bebas",
-    title_highlight: str = "pill",
-    showcase_shape: str = "card",
+    title_highlight: str = "solid_square",
+    showcase_shape: str = "square_box",
     icon_layout: str = "auto_grid",
     artboard_margin: float = 0.06,
     highlight_index: int = 0,
@@ -996,7 +999,8 @@ def job_template_svg(
     if not m.paths:
         raise HTTPException(404, "No finished icons yet")
     cfg = dict(
-        design=design, preset=preset, title=title, count=count, subtitle=subtitle,
+        design=design, banner_shape=banner_shape, decor_element=decor_element, panel_pos=panel_pos,
+        preset=preset, title=title, count=count, subtitle=subtitle,
         layout=layout, stroke_scale=float(scale),
         show_highlight=bool(show_highlight), highlight_mode=highlight_mode,
         font_family=font_family, title_highlight=title_highlight, showcase_shape=showcase_shape,
@@ -1026,7 +1030,10 @@ def job_template_svg(
 @app.get("/api/jobs/{job_id}/template.eps")
 def job_template_eps(
     job_id: str,
-    design: str = "vectuz_sidebar",
+    design: str = "modular_maker",
+    banner_shape: str = "square_solid",
+    decor_element: str = "artboard_square_box",
+    panel_pos: str = "left",
     preset: str = "vectuz_yellow",
     title: str = "TECHNOLOGY",
     count: str = "",
@@ -1037,13 +1044,13 @@ def job_template_eps(
     highlight_stroke: str = "",
     artboard_bg: str = "",
     show_highlight: int = 1,
-    highlight_mode: str = "mini_4",
+    highlight_mode: str = "hero_1",
     layout: str = "landscape_16_9",
     stroke: str = "",
     scale: float = 1.0,
     font_family: str = "bebas",
-    title_highlight: str = "pill",
-    showcase_shape: str = "card",
+    title_highlight: str = "solid_square",
+    showcase_shape: str = "square_box",
     icon_layout: str = "auto_grid",
     artboard_margin: float = 0.06,
     highlight_index: int = 0,
@@ -1062,7 +1069,8 @@ def job_template_eps(
     if not m.paths:
         raise HTTPException(404, "No finished icons yet")
     cfg = dict(
-        design=design, preset=preset, title=title, count=count, subtitle=subtitle,
+        design=design, banner_shape=banner_shape, decor_element=decor_element, panel_pos=panel_pos,
+        preset=preset, title=title, count=count, subtitle=subtitle,
         layout=layout, stroke_scale=float(scale),
         show_highlight=bool(show_highlight), highlight_mode=highlight_mode,
         font_family=font_family, title_highlight=title_highlight, showcase_shape=showcase_shape,
@@ -1091,7 +1099,10 @@ def job_template_eps(
 @app.get("/api/jobs/{job_id}/template.png")
 def job_template_png(
     job_id: str,
-    design: str = "vectuz_sidebar",
+    design: str = "modular_maker",
+    banner_shape: str = "square_solid",
+    decor_element: str = "artboard_square_box",
+    panel_pos: str = "left",
     preset: str = "vectuz_yellow",
     title: str = "TECHNOLOGY",
     count: str = "",
@@ -1102,7 +1113,7 @@ def job_template_png(
     highlight_stroke: str = "",
     artboard_bg: str = "",
     show_highlight: int = 1,
-    highlight_mode: str = "mini_4",
+    highlight_mode: str = "hero_1",
     layout: str = "landscape_16_9",
     stroke: str = "",
     scale: float = 1.0,
@@ -1112,8 +1123,8 @@ def job_template_png(
     count_fs: int = 0,
     sub_fs: int = 0,
     shape_accent: str = "",
-    title_highlight: str = "pill",
-    showcase_shape: str = "card",
+    title_highlight: str = "solid_square",
+    showcase_shape: str = "square_box",
     icon_layout: str = "auto_grid",
     artboard_margin: float = 0.06,
     download: int = 0,
@@ -1124,7 +1135,8 @@ def job_template_png(
     if not m.paths:
         raise HTTPException(404, "No finished icons yet")
     cfg = dict(
-        design=design, preset=preset, title=title, count=count, subtitle=subtitle,
+        design=design, banner_shape=banner_shape, decor_element=decor_element, panel_pos=panel_pos,
+        preset=preset, title=title, count=count, subtitle=subtitle,
         layout=layout, stroke_scale=float(scale),
         show_highlight=bool(show_highlight), highlight_mode=highlight_mode,
         font_family=font_family, title_highlight=title_highlight, showcase_shape=showcase_shape,

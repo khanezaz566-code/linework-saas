@@ -271,17 +271,20 @@ PRESETS: dict[str, dict[str, Any]] = {
 def resolve_config(cfg: dict | None) -> dict[str, Any]:
     c = dict(PRESETS["vectuz_yellow"])
     c.update({
-        "design": "vectuz_sidebar",
+        "design": "modular_maker",
+        "banner_shape": "square_solid",
+        "title_highlight": "solid_square",
+        "showcase_shape": "square_box",
+        "decor_element": "artboard_square_box",
+        "panel_pos": "left",
         "title": "TECHNOLOGY",
         "count": "24",
         "subtitle": "Editable Line Icons",
         "layout": "landscape_16_9",
         "stroke_scale": 1.0,
         "show_highlight": True,
-        "highlight_mode": "mini_4",
+        "highlight_mode": "hero_1",
         "font_family": "bebas",
-        "title_highlight": "pill",
-        "showcase_shape": "card",
         "icon_layout": "auto_grid",
         "artboard_margin": 0.06,
         "highlight_index": 0,
@@ -393,6 +396,118 @@ def _compute_optimal_grid(N: int, target_aspect: float = 1.3) -> tuple[int, int]
     return best_c, best_r
 
 
+def _render_artboard_outer_frame(
+    decor: str, sheet_x: float, sheet_y: float, sheet_w: float, sheet_h: float,
+    pad_x: float, pad_y: float, banner_bg: str, stroke_color: str, accent: str, title: str, count_val: str
+) -> str:
+    if decor == "none":
+        return ""
+    bx = sheet_x + pad_x * 0.45
+    by = sheet_y + pad_y * 0.45
+    bw = sheet_w - pad_x * 0.90
+    bh = sheet_h - pad_y * 0.90
+    frame_col = accent if accent else banner_bg
+
+    if decor == "artboard_double_frame":
+        return f"""
+      <g id="artboardDoubleFrame" opacity="0.85">
+        <rect x="{bx:.1f}" y="{by:.1f}" width="{bw:.1f}" height="{bh:.1f}" rx="8" fill="none" stroke="{frame_col}" stroke-width="4"/>
+        <rect x="{bx+14:.1f}" y="{by+14:.1f}" width="{bw-28:.1f}" height="{bh-28:.1f}" rx="4" fill="none" stroke="{stroke_color}" stroke-opacity="0.28" stroke-width="1.5" stroke-dasharray="12,6"/>
+      </g>"""
+    elif decor == "artboard_corner_ticks":
+        t = 28
+        return f"""
+      <g id="artboardCornerTicks" stroke="{stroke_color}" stroke-width="2.5" opacity="0.55" fill="none">
+        <rect x="{bx:.1f}" y="{by:.1f}" width="{bw:.1f}" height="{bh:.1f}" stroke-opacity="0.18" stroke-width="1.5"/>
+        <path d="M{bx-12:.1f},{by:.1f} h{t} M{bx:.1f},{by-12:.1f} v{t}"/>
+        <path d="M{bx+bw-t+12:.1f},{by:.1f} h{t} M{bx+bw:.1f},{by-12:.1f} v{t}"/>
+        <path d="M{bx-12:.1f},{by+bh:.1f} h{t} M{bx:.1f},{by+bh-t+12:.1f} v{t}"/>
+        <path d="M{bx+bw-t+12:.1f},{by+bh:.1f} h{t} M{bx+bw:.1f},{by+bh-t+12:.1f} v{t}"/>
+      </g>"""
+    elif decor == "artboard_hud_corners":
+        L = 48
+        return f"""
+      <g id="artboardHudCorners" fill="none">
+        <rect x="{bx:.1f}" y="{by:.1f}" width="{bw:.1f}" height="{bh:.1f}" stroke="{stroke_color}" stroke-opacity="0.15" stroke-width="1.5"/>
+        <path d="M{bx:.1f},{by+L:.1f} V{by:.1f} H{bx+L:.1f}" stroke="{frame_col}" stroke-width="6"/>
+        <path d="M{bx+bw-L:.1f},{by:.1f} H{bx+bw:.1f} V{by+L:.1f}" stroke="{frame_col}" stroke-width="6"/>
+        <path d="M{bx:.1f},{by+bh-L:.1f} V{by+bh:.1f} H{bx+L:.1f}" stroke="{frame_col}" stroke-width="6"/>
+        <path d="M{bx+bw-L:.1f},{by+bh:.1f} H{bx+bw:.1f} V{by+bh-L:.1f}" stroke="{frame_col}" stroke-width="6"/>
+      </g>"""
+    elif decor == "artboard_dashed_frame":
+        return f"""
+      <g id="artboardDashedFrame">
+        <rect x="{bx:.1f}" y="{by:.1f}" width="{bw:.1f}" height="{bh:.1f}" rx="12" fill="none" stroke="{stroke_color}" stroke-opacity="0.35" stroke-width="3" stroke-dasharray="16,10"/>
+      </g>"""
+    elif decor == "artboard_header_footer":
+        return f"""
+      <g id="artboardHeaderFooter">
+        <rect x="{bx:.1f}" y="{by:.1f}" width="{bw:.1f}" height="{bh:.1f}" rx="8" fill="none" stroke="{stroke_color}" stroke-opacity="0.22" stroke-width="2"/>
+        <line x1="{bx+24:.1f}" y1="{by+42:.1f}" x2="{bx+bw-24:.1f}" y2="{by+42:.1f}" stroke="{stroke_color}" stroke-opacity="0.18" stroke-width="1.5"/>
+        <text x="{bx+28:.1f}" y="{by+28:.1f}" font-size="13" font-weight="800" letter-spacing="2" fill="{stroke_color}" opacity="0.55" class="mono">{sanitize_text(title)} // {sanitize_text(count_val)} ICONS</text>
+        <text x="{bx+bw-28:.1f}" y="{by+28:.1f}" font-size="13" font-weight="800" letter-spacing="2" fill="{stroke_color}" opacity="0.55" text-anchor="end" class="mono">100% VECTOR GRID</text>
+        <line x1="{bx+24:.1f}" y1="{by+bh-38:.1f}" x2="{bx+bw-24:.1f}" y2="{by+bh-38:.1f}" stroke="{stroke_color}" stroke-opacity="0.18" stroke-width="1.5"/>
+        <text x="{bx+bw/2:.1f}" y="{by+bh-14:.1f}" font-size="12" font-weight="700" letter-spacing="3" fill="{stroke_color}" opacity="0.5" text-anchor="middle" class="mono">PIXEL PERFECT &#8226; EDITABLE STROKE &#8226; SCALABLE</text>
+      </g>"""
+    else:
+        # Default crisp Square Box around the Icon Set artboard
+        return f"""
+      <g id="artboardSquareBox">
+        <rect x="{bx:.1f}" y="{by:.1f}" width="{bw:.1f}" height="{bh:.1f}" rx="6" fill="none" stroke="{stroke_color}" stroke-opacity="0.22" stroke-width="2.5"/>
+        <rect x="{bx-4:.1f}" y="{by-4:.1f}" width="10" height="10" fill="{frame_col}"/>
+        <rect x="{bx+bw-6:.1f}" y="{by-4:.1f}" width="10" height="10" fill="{frame_col}"/>
+        <rect x="{bx-4:.1f}" y="{by+bh-6:.1f}" width="10" height="10" fill="{frame_col}"/>
+        <rect x="{bx+bw-6:.1f}" y="{by+bh-6:.1f}" width="10" height="10" fill="{frame_col}"/>
+      </g>"""
+
+
+def _render_cell_box_svg(
+    decor: str, cx: float, cy: float, cell_w: float, cell_h: float,
+    banner_bg: str, stroke_color: str, accent: str, idx: int
+) -> str:
+    s = min(cell_w * 0.84, cell_h * 0.84)
+    x = cx - s / 2
+    y = cy - s / 2
+    col = accent if accent else banner_bg
+
+    if decor == "cell_square_boxes":
+        return f'<rect x="{x:.1f}" y="{y:.1f}" width="{s:.1f}" height="{s:.1f}" rx="4" fill="#ffffff" fill-opacity="0.65" stroke="{stroke_color}" stroke-opacity="0.24" stroke-width="2"/>'
+    elif decor == "cell_rounded_cards":
+        rx = min(22, int(s * 0.14))
+        return (
+            f'<rect x="{x+3:.1f}" y="{y+5:.1f}" width="{s:.1f}" height="{s:.1f}" rx="{rx}" fill="#000000" fill-opacity="0.06"/>'
+            f'<rect x="{x:.1f}" y="{y:.1f}" width="{s:.1f}" height="{s:.1f}" rx="{rx}" fill="#ffffff" fill-opacity="0.85" stroke="{stroke_color}" stroke-opacity="0.18" stroke-width="1.8"/>'
+        )
+    elif decor == "cell_dashed_boxes":
+        return f'<rect x="{x:.1f}" y="{y:.1f}" width="{s:.1f}" height="{s:.1f}" rx="6" fill="none" stroke="{stroke_color}" stroke-opacity="0.32" stroke-width="2" stroke-dasharray="8,6"/>'
+    elif decor == "cell_full_table_grid":
+        gx = cx - cell_w / 2
+        gy = cy - cell_h / 2
+        return f'<rect x="{gx:.1f}" y="{gy:.1f}" width="{cell_w:.1f}" height="{cell_h:.1f}" fill="none" stroke="{stroke_color}" stroke-opacity="0.18" stroke-width="1.5"/>'
+    elif decor == "cell_corner_brackets":
+        L = max(10, int(s * 0.16))
+        return (
+            f'<path d="M{x:.1f},{y+L:.1f} V{y:.1f} H{x+L:.1f} M{x+s-L:.1f},{y:.1f} H{x+s:.1f} V{y+L:.1f} '
+            f'M{x:.1f},{y+s-L:.1f} V{y+s:.1f} H{x+L:.1f} M{x+s-L:.1f},{y+s:.1f} H{x+s:.1f} V{y+s-L:.1f}" '
+            f'fill="none" stroke="{stroke_color}" stroke-opacity="0.38" stroke-width="2.2"/>'
+        )
+    elif decor == "cell_soft_tint_squares":
+        return f'<rect x="{x:.1f}" y="{y:.1f}" width="{s:.1f}" height="{s:.1f}" rx="12" fill="{col}" fill-opacity="0.12" stroke="{col}" stroke-opacity="0.32" stroke-width="1.5"/>'
+    elif decor == "cell_circle_badges":
+        r = s * 0.48
+        return f'<circle cx="{cx:.1f}" cy="{cy:.1f}" r="{r:.1f}" fill="#ffffff" fill-opacity="0.6" stroke="{stroke_color}" stroke-opacity="0.22" stroke-width="2"/>'
+    elif decor == "cell_hex_frames":
+        r = s * 0.50
+        pts = " ".join(f"{cx + r * math.cos(math.radians(60 * k - 30)):.1f},{cy + r * math.sin(math.radians(60 * k - 30)):.1f}" for k in range(6))
+        return f'<polygon points="{pts}" fill="#ffffff" fill-opacity="0.6" stroke="{stroke_color}" stroke-opacity="0.24" stroke-width="2"/>'
+    elif decor == "cell_brutal_squares":
+        return (
+            f'<rect x="{x+6:.1f}" y="{y+6:.1f}" width="{s:.1f}" height="{s:.1f}" fill="{stroke_color}" fill-opacity="0.85"/>'
+            f'<rect x="{x:.1f}" y="{y:.1f}" width="{s:.1f}" height="{s:.1f}" fill="#ffffff" stroke="{stroke_color}" stroke-width="2.5"/>'
+        )
+    return ""
+
+
 def _render_adaptive_sheet_icons(
     model: Model, icons_meta: list[dict] | None, c: dict,
     sheet_x: float, sheet_y: float, sheet_w: float, sheet_h: float
@@ -400,35 +515,55 @@ def _render_adaptive_sheet_icons(
     stroke_color = c["icon_stroke"]
     stroke_scale = float(c["stroke_scale"])
     layout_mode = str(c.get("icon_layout") or "auto_grid").lower()
+    decor = str(c.get("decor_element") or "artboard_square_box").lower()
+    banner_bg = c.get("banner_bg", "#F5B800")
+    accent = c.get("shape_accent") or c.get("accent") or banner_bg
+    count_val = str(c.get("count") or (len(icons_meta) if icons_meta else "24"))
+
     try:
         margin_pct = float(c.get("artboard_margin") or 0.06)
     except Exception:
         margin_pct = 0.06
     margin_pct = max(0.02, min(0.20, margin_pct))
 
+    pad_x = sheet_w * margin_pct
+    pad_y = sheet_h * margin_pct
+
+    outer_frame_svg = _render_artboard_outer_frame(
+        decor, sheet_x, sheet_y, sheet_w, sheet_h,
+        pad_x, pad_y, banner_bg, stroke_color, accent, c.get("title", "ICONS"), count_val
+    )
+
     avail_icons = icons_meta or []
     N = len(avail_icons)
 
+    has_cell_box = decor.startswith("cell_")
+    # Extra inner padding so icons sit comfortably inside outer frame
+    inner_pad_x = pad_x * 1.15
+    inner_pad_y = pad_y * 1.15
+
     # Mode 1: Auto-Grid by Icon Count (Adobe Stock standard)
-    if layout_mode == "auto_grid" and N > 1:
+    if layout_mode == "auto_grid" and N >= 1:
         target_aspect = sheet_w / max(1.0, sheet_h)
         cols, rows = _compute_optimal_grid(N, target_aspect)
 
-        pad_x = sheet_w * margin_pct
-        pad_y = sheet_h * margin_pct
-        grid_w = sheet_w - 2 * pad_x
-        grid_h = sheet_h - 2 * pad_y
+        grid_w = sheet_w - 2 * inner_pad_x
+        grid_h = sheet_h - 2 * inner_pad_y
 
         cell_w = grid_w / cols
         cell_h = grid_h / rows
-        target_size = min(cell_w * 0.72, cell_h * 0.72)
+        fill_ratio = 0.50 if has_cell_box else 0.68
+        target_size = min(cell_w * fill_ratio, cell_h * fill_ratio)
 
-        rendered = []
+        rendered = [outer_frame_svg] if outer_frame_svg else []
         for i, ic in enumerate(avail_icons):
             col_i = i % cols
             row_i = i // cols
-            cell_cx = sheet_x + pad_x + col_i * cell_w + cell_w / 2
-            cell_cy = sheet_y + pad_y + row_i * cell_h + cell_h / 2
+            cell_cx = sheet_x + inner_pad_x + col_i * cell_w + cell_w / 2
+            cell_cy = sheet_y + inner_pad_y + row_i * cell_h + cell_h / 2
+
+            if has_cell_box:
+                rendered.append(_render_cell_box_svg(decor, cell_cx, cell_cy, cell_w, cell_h, banner_bg, stroke_color, accent, i))
 
             paths = _extract_icon_paths(model, ic["box"], icon_obj=ic)
             if not paths:
@@ -461,25 +596,21 @@ def _render_adaptive_sheet_icons(
         min_x, min_y = 0.0, 0.0
         t_w, t_h = max(10.0, model.width), max(10.0, model.height)
 
-    pad_x = sheet_w * margin_pct
-    pad_y = sheet_h * margin_pct
-    avail_w = sheet_w - 2 * pad_x
-    avail_h = sheet_h - 2 * pad_y
+    avail_w = sheet_w - 2 * inner_pad_x
+    avail_h = sheet_h - 2 * inner_pad_y
     scale = min(avail_w / t_w, avail_h / t_h)
     target_w = t_w * scale
     target_h = t_h * scale
-    off_x = sheet_x + pad_x + (avail_w - target_w) / 2 - min_x * scale
-    off_y = sheet_y + pad_y + (avail_h - target_h) / 2 - min_y * scale
+    off_x = sheet_x + inner_pad_x + (avail_w - target_w) / 2 - min_x * scale
+    off_y = sheet_y + inner_pad_y + (avail_h - target_h) / 2 - min_y * scale
 
-    return _render_paths_svg(model.paths, stroke_color, stroke_scale, scale, off_x, off_y)
-
-
+    return (outer_frame_svg + "\n    " if outer_frame_svg else "") + _render_paths_svg(model.paths, stroke_color, stroke_scale, scale, off_x, off_y)
 
 
 def _get_font_css(font_family: str = "bebas") -> tuple[str, str, str, str]:
     font_family = str(font_family or "bebas").lower()
     fonts_import = """
-      @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&amp;family=Montserrat:wght@700;800;900&amp;family=Plus+Jakarta+Sans:wght@700;800;900&amp;family=Space+Grotesk:wght@700&amp;family=Playfair+Display:wght@700;900&amp;family=JetBrains+Mono:wght@700;800&amp;display=swap');
+      @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&amp;family=Montserrat:wght@700;800;900&amp;family=Plus+Jakarta+Sans:wght@700;800;900&amp;family=Space+Grotesk:wght@700&amp;family=Playfair+Display:wght@700;900&amp;family=JetBrains+Mono:wght@700;800&amp;family=Oswald:wght@700&amp;family=Outfit:wght@700;900&amp;display=swap');
     """
     if font_family == "montserrat":
         title_font = "'Montserrat', 'Arial Black', sans-serif"
@@ -497,6 +628,14 @@ def _get_font_css(font_family: str = "bebas") -> tuple[str, str, str, str]:
         title_font = "'Playfair Display', 'Georgia', serif"
         count_font = "'Playfair Display', 'Georgia', serif"
         sub_font = "'Plus Jakarta Sans', 'Segoe UI', sans-serif"
+    elif font_family == "oswald":
+        title_font = "'Oswald', 'Impact', sans-serif"
+        count_font = "'Oswald', 'Impact', sans-serif"
+        sub_font = "'Plus Jakarta Sans', sans-serif"
+    elif font_family == "outfit":
+        title_font = "'Outfit', 'Segoe UI', sans-serif"
+        count_font = "'Outfit', 'Segoe UI', sans-serif"
+        sub_font = "'Outfit', sans-serif"
     elif font_family == "mono":
         title_font = "'JetBrains Mono', 'Consolas', monospace"
         count_font = "'JetBrains Mono', 'Consolas', monospace"
@@ -508,243 +647,352 @@ def _get_font_css(font_family: str = "bebas") -> tuple[str, str, str, str]:
     return fonts_import, title_font, count_font, sub_font
 
 
+# =========================================================================
+# 25 Title & Text Highlighters (Category 2)
+# =========================================================================
 def _render_title_highlight(
     title: str, subtitle: str,
     cx: float, cy: float,
     title_fs: int, sub_fs: int,
     banner_text: str, banner_sub: str,
     title_font: str, sub_font: str,
-    style: str = "pill",
+    style: str = "solid_square",
     is_centered: bool = True,
-    max_w: float = 600
+    max_w: float = 600,
+    accent: str = ""
 ) -> str:
     title_clean = sanitize_text(title)
     sub_clean = sanitize_text(subtitle)
     anchor = "middle" if is_centered else "start"
-    
-    est_w = min(max_w, max(280, int(len(title) * title_fs * 0.65) + 60))
+    style = str(style or "solid_square").lower()
+
+    est_w = min(max_w, max(260, int(len(title) * title_fs * 0.64) + 64))
     rect_x = cx - est_w / 2 if is_centered else cx
+    box_h = int(title_fs * 1.48)
+    box_y = cy - int(title_fs * 0.92)
+    hl_fill = accent if accent else "rgba(0,0,0,0.22)"
+    hl_text = "#FFFFFF" if accent else banner_text
 
-    if style == "pill":
-        pill_h = int(title_fs * 1.55)
-        pill_y = cy - int(title_fs * 0.95)
-        rx = pill_h // 2
-        return f"""
-    <!-- Title Highlight: Frosted Pill Plate -->
-    <g id="titleHighlightPill">
-      <rect x="{rect_x}" y="{pill_y}" width="{est_w}" height="{pill_h}" rx="{rx}"
-            fill="rgba(0,0,0,0.22)" stroke="rgba(255,255,255,0.25)" stroke-width="2"/>
-      <text x="{cx}" y="{pill_y - 12}" font-size="{max(11, int(title_fs * 0.28))}" font-weight="800" 
-            letter-spacing="3" fill="{banner_sub}" text-anchor="{anchor}" class="mono">
-        &#9679; 100% VECTOR ICON SET &#9679;
-      </text>
-      <text x="{cx}" y="{cy}" font-size="{title_fs}" font-weight="900" letter-spacing="3" 
-            fill="{banner_text}" text-anchor="{anchor}" style="font-family:{title_font};">
+    # 25 Distinct Highlighter Geometries
+    bg_shape = ""
+    if style in ("solid_square", "square"):
+        bg_shape = f'<rect x="{rect_x:.1f}" y="{box_y:.1f}" width="{est_w:.1f}" height="{box_h:.1f}" fill="{hl_fill}" stroke="{banner_text}" stroke-opacity="0.35" stroke-width="2.5"/>'
+    elif style in ("frosted_pill", "pill"):
+        rx = box_h // 2
+        bg_shape = f'<rect x="{rect_x:.1f}" y="{box_y:.1f}" width="{est_w:.1f}" height="{box_h:.1f}" rx="{rx}" fill="{hl_fill}" stroke="rgba(255,255,255,0.35)" stroke-width="2"/>'
+    elif style == "rounded_badge":
+        bg_shape = f'<rect x="{rect_x:.1f}" y="{box_y:.1f}" width="{est_w:.1f}" height="{box_h:.1f}" rx="14" fill="{hl_fill}" stroke="{banner_text}" stroke-opacity="0.25" stroke-width="2"/>'
+    elif style in ("ribbon_tails", "ribbon"):
+        notch = 18
+        pts = f"{rect_x-12:.1f},{box_y:.1f} {rect_x+est_w+12:.1f},{box_y:.1f} {rect_x+est_w-notch+12:.1f},{box_y+box_h/2:.1f} {rect_x+est_w+12:.1f},{box_y+box_h:.1f} {rect_x-12:.1f},{box_y+box_h:.1f} {rect_x+notch-12:.1f},{box_y+box_h/2:.1f}"
+        bg_shape = f'<polygon points="{pts}" fill="{hl_fill}" stroke="{banner_text}" stroke-opacity="0.3" stroke-width="2"/>'
+    elif style == "skew_parallelogram":
+        sk = 18
+        pts = f"{rect_x+sk:.1f},{box_y:.1f} {rect_x+est_w+sk:.1f},{box_y:.1f} {rect_x+est_w-sk:.1f},{box_y+box_h:.1f} {rect_x-sk:.1f},{box_y+box_h:.1f}"
+        bg_shape = f'<polygon points="{pts}" fill="{hl_fill}" stroke="{banner_text}" stroke-opacity="0.35" stroke-width="2"/>'
+    elif style == "hex_tag":
+        p = 22
+        pts = f"{rect_x+p:.1f},{box_y:.1f} {rect_x+est_w-p:.1f},{box_y:.1f} {rect_x+est_w:.1f},{box_y+box_h/2:.1f} {rect_x+est_w-p:.1f},{box_y+box_h:.1f} {rect_x+p:.1f},{box_y+box_h:.1f} {rect_x:.1f},{box_y+box_h/2:.1f}"
+        bg_shape = f'<polygon points="{pts}" fill="{hl_fill}" stroke="{banner_text}" stroke-opacity="0.4" stroke-width="2.2"/>'
+    elif style == "chamfer_plate":
+        c_cut = 14
+        x1, y1, x2, y2 = rect_x, box_y, rect_x + est_w, box_y + box_h
+        pts = f"{x1+c_cut:.1f},{y1:.1f} {x2-c_cut:.1f},{y1:.1f} {x2:.1f},{y1+c_cut:.1f} {x2:.1f},{y2-c_cut:.1f} {x2-c_cut:.1f},{y2:.1f} {x1+c_cut:.1f},{y2:.1f} {x1:.1f},{y2-c_cut:.1f} {x1:.1f},{y1+c_cut:.1f}"
+        bg_shape = f'<polygon points="{pts}" fill="{hl_fill}" stroke="{banner_text}" stroke-opacity="0.45" stroke-width="2.5"/>'
+    elif style in ("neon_underline", "glow_bar"):
+        hl_text = banner_text
+        bar_h = 8
+        bg_shape = (
+            f'<rect x="{rect_x:.1f}" y="{cy+10:.1f}" width="{est_w:.1f}" height="{bar_h}" rx="4" fill="{accent or banner_text}"/>'
+            f'<circle cx="{cx:.1f}" cy="{cy+14:.1f}" r="6" fill="#ffffff"/>'
+        )
+    elif style == "double_rule":
+        hl_text = banner_text
+        bg_shape = (
+            f'<line x1="{rect_x:.1f}" y1="{box_y:.1f}" x2="{rect_x+est_w:.1f}" y2="{box_y:.1f}" stroke="{banner_text}" stroke-width="3.5"/>'
+            f'<line x1="{rect_x+20:.1f}" y1="{box_y+6:.1f}" x2="{rect_x+est_w-20:.1f}" y2="{box_y+6:.1f}" stroke="{banner_text}" stroke-width="1.5" opacity="0.6"/>'
+            f'<line x1="{rect_x:.1f}" y1="{box_y+box_h:.1f}" x2="{rect_x+est_w:.1f}" y2="{box_y+box_h:.1f}" stroke="{banner_text}" stroke-width="3.5"/>'
+        )
+    elif style in ("corner_brackets", "brackets"):
+        hl_text = banner_text
+        t = 20
+        x1, y1, x2, y2 = rect_x, box_y, rect_x + est_w, box_y + box_h
+        bg_shape = (
+            f'<path d="M{x1+t:.1f},{y1:.1f} H{x1:.1f} V{y1+t:.1f} M{x2-t:.1f},{y1:.1f} H{x2:.1f} V{y1+t:.1f} '
+            f'M{x1+t:.1f},{y2:.1f} H{x1:.1f} V{y2-t:.1f} M{x2-t:.1f},{y2:.1f} H{x2:.1f} V{y2-t:.1f}" '
+            f'fill="none" stroke="{accent or banner_text}" stroke-width="4"/>'
+        )
+    elif style == "left_accent_bar":
+        bg_shape = (
+            f'<rect x="{rect_x:.1f}" y="{box_y:.1f}" width="{est_w:.1f}" height="{box_h:.1f}" fill="{hl_fill}" fill-opacity="0.7"/>'
+            f'<rect x="{rect_x:.1f}" y="{box_y:.1f}" width="12" height="{box_h:.1f}" fill="{accent or banner_text}"/>'
+        )
+    elif style == "brush_stroke":
+        d = f"M{rect_x-8:.1f},{box_y+8:.1f} Q{cx:.1f},{box_y-6:.1f} {rect_x+est_w+10:.1f},{box_y+4:.1f} L{rect_x+est_w-4:.1f},{box_y+box_h-4:.1f} Q{cx:.1f},{box_y+box_h+8:.1f} {rect_x+4:.1f},{box_y+box_h-2:.1f} Z"
+        bg_shape = f'<path d="{d}" fill="{hl_fill}"/>'
+    elif style == "offset_shadow_box":
+        bg_shape = (
+            f'<rect x="{rect_x+8:.1f}" y="{box_y+8:.1f}" width="{est_w:.1f}" height="{box_h:.1f}" fill="#09090B"/>'
+            f'<rect x="{rect_x:.1f}" y="{box_y:.1f}" width="{est_w:.1f}" height="{box_h:.1f}" fill="{hl_fill}" stroke="#09090B" stroke-width="3"/>'
+        )
+    elif style == "dotted_coupon":
+        bg_shape = f'<rect x="{rect_x:.1f}" y="{box_y:.1f}" width="{est_w:.1f}" height="{box_h:.1f}" rx="8" fill="{hl_fill}" stroke="{banner_text}" stroke-width="2.5" stroke-dasharray="8,6"/>'
+    elif style == "gradient_glow_pill":
+        rx = box_h // 2
+        bg_shape = (
+            f'<rect x="{rect_x-5:.1f}" y="{box_y-5:.1f}" width="{est_w+10:.1f}" height="{box_h+10:.1f}" rx="{rx+5}" fill="none" stroke="{accent or banner_text}" stroke-opacity="0.45" stroke-width="2"/>'
+            f'<rect x="{rect_x:.1f}" y="{box_y:.1f}" width="{est_w:.1f}" height="{box_h:.1f}" rx="{rx}" fill="{hl_fill}" stroke="#ffffff" stroke-opacity="0.5" stroke-width="2"/>'
+        )
+    elif style == "ticket_stub":
+        x1, y1, x2, y2 = rect_x, box_y, rect_x + est_w, box_y + box_h
+        my = (y1 + y2) / 2
+        d = f"M{x1:.1f},{y1:.1f} H{x2:.1f} V{my-10:.1f} A10,10 0 0,0 {x2:.1f},{my+10:.1f} V{y2:.1f} H{x1:.1f} V{my+10:.1f} A10,10 0 0,0 {x1:.1f},{my-10:.1f} Z"
+        bg_shape = f'<path d="{d}" fill="{hl_fill}" stroke="{banner_text}" stroke-opacity="0.35" stroke-width="2"/>'
+    elif style == "arrow_pointer":
+        x1, y1, x2, y2 = rect_x, box_y, rect_x + est_w, box_y + box_h
+        my = (y1 + y2) / 2
+        pts = f"{x1:.1f},{y1:.1f} {x2-18:.1f},{y1:.1f} {x2+8:.1f},{my:.1f} {x2-18:.1f},{y2:.1f} {x1:.1f},{y2:.1f}"
+        bg_shape = (
+            f'<polygon points="{pts}" fill="{hl_fill}" stroke="{banner_text}" stroke-opacity="0.3" stroke-width="2"/>'
+            f'<circle cx="{x2-10:.1f}" cy="{my:.1f}" r="5" fill="{banner_text}"/>'
+        )
+    elif style == "speech_callout":
+        x1, y1, x2, y2 = rect_x, box_y, rect_x + est_w, box_y + box_h
+        bg_shape = (
+            f'<rect x="{x1:.1f}" y="{y1:.1f}" width="{est_w:.1f}" height="{box_h:.1f}" rx="12" fill="{hl_fill}"/>'
+            f'<polygon points="{cx-12:.1f},{y2:.1f} {cx+12:.1f},{y2:.1f} {cx:.1f},{y2+14:.1f}" fill="{hl_fill}"/>'
+        )
+    elif style == "circle_seal_bg":
+        r = int(box_h * 0.72)
+        bg_shape = (
+            f'<circle cx="{cx:.1f}" cy="{box_y+box_h/2:.1f}" r="{r}" fill="{hl_fill}" stroke="{banner_text}" stroke-opacity="0.3" stroke-width="2" stroke-dasharray="6,4"/>'
+            f'<rect x="{rect_x:.1f}" y="{box_y:.1f}" width="{est_w:.1f}" height="{box_h:.1f}" rx="8" fill="{hl_fill}"/>'
+        )
+    elif style == "diamond_crest":
+        my = box_y + box_h / 2
+        bg_shape = (
+            f'<polygon points="{cx:.1f},{box_y-16:.1f} {cx+42:.1f},{my:.1f} {cx:.1f},{box_y+box_h+16:.1f} {cx-42:.1f},{my:.1f}" fill="{accent or banner_text}" opacity="0.35"/>'
+            f'<rect x="{rect_x:.1f}" y="{box_y:.1f}" width="{est_w:.1f}" height="{box_h:.1f}" rx="4" fill="{hl_fill}" stroke="{banner_text}" stroke-opacity="0.35" stroke-width="2"/>'
+        )
+    elif style == "crown_header":
+        hl_text = banner_text
+        bg_shape = (
+            f'<polygon points="{cx-36:.1f},{box_y-6:.1f} {cx-24:.1f},{box_y-22:.1f} {cx-8:.1f},{box_y-10:.1f} {cx:.1f},{box_y-28:.1f} {cx+8:.1f},{box_y-10:.1f} {cx+24:.1f},{box_y-22:.1f} {cx+36:.1f},{box_y-6:.1f}" fill="{accent or banner_text}"/>'
+            f'<rect x="{rect_x:.1f}" y="{cy+8:.1f}" width="{est_w:.1f}" height="4" fill="{banner_text}"/>'
+        )
+    elif style == "crosshair_target":
+        x1, y1, x2, y2 = rect_x, box_y, rect_x + est_w, box_y + box_h
+        bg_shape = (
+            f'<rect x="{x1:.1f}" y="{y1:.1f}" width="{est_w:.1f}" height="{box_h:.1f}" fill="{hl_fill}" stroke="{banner_text}" stroke-opacity="0.4" stroke-width="1.5"/>'
+            f'<path d="M{x1-8:.1f},{y1:.1f} h16 M{x1:.1f},{y1-8:.1f} v16 M{x2-8:.1f},{y1:.1f} h16 M{x2:.1f},{y1-8:.1f} v16 '
+            f'M{x1-8:.1f},{y2:.1f} h16 M{x1:.1f},{y2-8:.1f} v16 M{x2-8:.1f},{y2:.1f} h16 M{x2:.1f},{y2-8:.1f} v16" stroke="{banner_text}" stroke-width="2"/>'
+        )
+    elif style == "extrude_3d_box":
+        x1, y1, x2, y2 = rect_x, box_y, rect_x + est_w, box_y + box_h
+        d = 10
+        bg_shape = (
+            f'<polygon points="{x1+d:.1f},{y2+d:.1f} {x2+d:.1f},{y2+d:.1f} {x2+d:.1f},{y1+d:.1f} {x2:.1f},{y1:.1f} {x2:.1f},{y2:.1f} {x1:.1f},{y2:.1f}" fill="#09090B" opacity="0.65"/>'
+            f'<rect x="{x1:.1f}" y="{y1:.1f}" width="{est_w:.1f}" height="{box_h:.1f}" fill="{hl_fill}" stroke="{banner_text}" stroke-width="2.5"/>'
+        )
+    elif style == "minimal_pill_outline":
+        hl_text = banner_text
+        rx = box_h // 2
+        bg_shape = f'<rect x="{rect_x:.1f}" y="{box_y:.1f}" width="{est_w:.1f}" height="{box_h:.1f}" rx="{rx}" fill="none" stroke="{accent or banner_text}" stroke-width="3"/>'
+    else:
+        hl_text = banner_text
+
+    sub_y = box_y + box_h + int(sub_fs * 1.45) + 8
+    return f"""
+    <g id="titleHighlighterGroup">
+      {bg_shape}
+      <text x="{cx}" y="{cy}" font-size="{title_fs}" font-weight="900" letter-spacing="3"
+            fill="{hl_text}" text-anchor="{anchor}" style="font-family:{title_font};">
         {title_clean}
       </text>
-      <text x="{cx}" y="{cy + int(sub_fs * 1.6)}" font-size="{sub_fs}" font-weight="700" letter-spacing="1" 
-            fill="{banner_sub}" text-anchor="{anchor}" style="font-family:{sub_font};">
-        {sub_clean}
-      </text>
-    </g>"""
-    elif style == "glow_bar":
-        bar_w = min(est_w, 420)
-        bar_x = cx - bar_w / 2 if is_centered else cx
-        return f"""
-    <!-- Title Highlight: Glow Accent Bar -->
-    <g id="titleHighlightGlowBar">
-      <text x="{cx}" y="{cy - 14}" font-size="{max(11, int(title_fs * 0.26))}" font-weight="800" 
-            letter-spacing="2.5" fill="{banner_sub}" text-anchor="{anchor}" class="mono">
-        PREMIUM COLLECTION
-      </text>
-      <text x="{cx}" y="{cy}" font-size="{title_fs}" font-weight="900" letter-spacing="3" 
-            fill="{banner_text}" text-anchor="{anchor}" style="font-family:{title_font};">
-        {title_clean}
-      </text>
-      <rect x="{bar_x}" y="{cy + 10}" width="{bar_w}" height="4.5" rx="2.25" fill="{banner_text}" opacity="0.9"/>
-      <circle cx="{cx if is_centered else cx + 20}" cy="{cy + 12}" r="4" fill="{banner_sub}"/>
-      <text x="{cx}" y="{cy + int(sub_fs * 1.8) + 14}" font-size="{sub_fs}" font-weight="700" letter-spacing="1" 
-            fill="{banner_sub}" text-anchor="{anchor}" style="font-family:{sub_font};">
-        {sub_clean}
-      </text>
-    </g>"""
-    elif style == "brackets":
-        b_pad = 20
-        b_x1 = (cx - est_w / 2) if is_centered else cx
-        b_x2 = b_x1 + est_w
-        b_y1 = cy - int(title_fs * 0.9) - b_pad
-        b_y2 = cy + int(sub_fs * 1.6) + b_pad
-        tick = 22
-        return f"""
-    <!-- Title Highlight: Architectural Brackets -->
-    <g id="titleHighlightBrackets">
-      <path d="M {b_x1 + tick} {b_y1} L {b_x1} {b_y1} L {b_x1} {b_y1 + tick}" fill="none" stroke="rgba(255,255,255,0.45)" stroke-width="2.5"/>
-      <path d="M {b_x2 - tick} {b_y1} L {b_x2} {b_y1} L {b_x2} {b_y1 + tick}" fill="none" stroke="rgba(255,255,255,0.45)" stroke-width="2.5"/>
-      <path d="M {b_x1 + tick} {b_y2} L {b_x1} {b_y2} L {b_x1} {b_y2 - tick}" fill="none" stroke="rgba(255,255,255,0.45)" stroke-width="2.5"/>
-      <path d="M {b_x2 - tick} {b_y2} L {b_x2} {b_y2} L {b_x2} {b_y2 - tick}" fill="none" stroke="rgba(255,255,255,0.45)" stroke-width="2.5"/>
-      <text x="{cx}" y="{cy}" font-size="{title_fs}" font-weight="900" letter-spacing="3" 
-            fill="{banner_text}" text-anchor="{anchor}" style="font-family:{title_font};">
-        {title_clean}
-      </text>
-      <text x="{cx}" y="{cy + int(sub_fs * 1.6)}" font-size="{sub_fs}" font-weight="700" letter-spacing="1" 
-            fill="{banner_sub}" text-anchor="{anchor}" style="font-family:{sub_font};">
-        {sub_clean}
-      </text>
-    </g>"""
-    elif style == "ribbon":
-        rib_w = min(est_w, 360)
-        rib_x = cx - rib_w / 2 if is_centered else cx
-        return f"""
-    <!-- Title Highlight: Ribbon Tag -->
-    <g id="titleHighlightRibbon">
-      <rect x="{rib_x}" y="{cy - title_fs - 24}" width="{rib_w}" height="28" rx="14"
-            fill="rgba(255,255,255,0.18)" stroke="rgba(255,255,255,0.3)" stroke-width="1.5"/>
-      <text x="{cx}" y="{cy - title_fs - 5}" font-size="12" font-weight="800" letter-spacing="2.5" 
-            fill="{banner_text}" text-anchor="{anchor}" class="mono">
-        &#9733; PREMIUM MICROSTOCK &#9733;
-      </text>
-      <text x="{cx}" y="{cy}" font-size="{title_fs}" font-weight="900" letter-spacing="3" 
-            fill="{banner_text}" text-anchor="{anchor}" style="font-family:{title_font};">
-        {title_clean}
-      </text>
-      <text x="{cx}" y="{cy + int(sub_fs * 1.6)}" font-size="{sub_fs}" font-weight="700" letter-spacing="1" 
-            fill="{banner_sub}" text-anchor="{anchor}" style="font-family:{sub_font};">
-        {sub_clean}
-      </text>
-    </g>"""
-    else:  # "clean"
-        return f"""
-    <!-- Title Highlight: Clean Minimal -->
-    <g id="titleHighlightClean">
-      <text x="{cx}" y="{cy}" font-size="{title_fs}" font-weight="900" letter-spacing="3" 
-            fill="{banner_text}" text-anchor="{anchor}" style="font-family:{title_font};">
-        {title_clean}
-      </text>
-      <text x="{cx}" y="{cy + int(sub_fs * 1.6)}" font-size="{sub_fs}" font-weight="700" letter-spacing="1" 
+      <text x="{cx}" y="{sub_y}" font-size="{sub_fs}" font-weight="700" letter-spacing="1.2"
             fill="{banner_sub}" text-anchor="{anchor}" style="font-family:{sub_font};">
         {sub_clean}
       </text>
     </g>"""
 
 
+# =========================================================================
+# 25 Showcase Box & Icon Frame Shapes (Category 3 — Default: Square Box!)
+# =========================================================================
 def _render_showcase_box(
     model: Model, icons_meta: list[dict], c: dict,
     cx: float, cy: float, w: float, h: float,
     stroke_scale: float
 ) -> str:
-    shape = str(c.get("showcase_shape") or "card").lower()
+    shape = str(c.get("showcase_shape") or "square_box").lower()
     if shape in ("none", "off", "hidden", "0", "false") or not c.get("show_highlight", True):
         return ""
     hl_bg = c["highlight_bg"]
     hl_stroke = c["highlight_stroke"]
+    accent = c.get("shape_accent") or c.get("accent") or "#38bdf8"
     hl_mode = c.get("highlight_mode", "hero_1")
     highlight_index = int(c.get("highlight_index") or 0)
     num_hl = 1 if hl_mode == "hero_1" else (6 if hl_mode == "mini_6" else 4)
     cols = 1 if hl_mode == "hero_1" else 2
 
-    if shape == "circle":
-        r = int(min(w, h) * 0.44)
-        hero_paths = _extract_highlight_svg(
-            model, icons_meta, hl_mode, num_hl, hl_stroke, stroke_scale,
-            r * 1.35, r * 1.35,
-            cx - r * 0.675, cy - r * 0.675, cols=cols, highlight_index=highlight_index
+    # Base square box dimensions
+    side = min(w * 0.90, h * 0.88)
+    bx = cx - side / 2
+    by = cy - side / 2
+
+    # Inner icon bounds
+    pad_ratio = 0.16
+    ix = bx + side * pad_ratio
+    iy = by + side * pad_ratio
+    iw = side * (1.0 - 2 * pad_ratio)
+    ih = side * (1.0 - 2 * pad_ratio)
+
+    hero_paths = _extract_highlight_svg(
+        model, icons_meta, hl_mode, num_hl, hl_stroke, stroke_scale,
+        iw, ih, ix, iy, cols=cols, highlight_index=highlight_index
+    )
+
+    frame_svg = ""
+    if shape in ("square_box", "square"):
+        frame_svg = (
+            f'<rect x="{bx:.1f}" y="{by:.1f}" width="{side:.1f}" height="{side:.1f}" rx="4" fill="{hl_bg}" stroke="rgba(255,255,255,0.28)" stroke-width="2.5"/>'
+            f'<rect x="{bx-4:.1f}" y="{by-4:.1f}" width="8" height="8" fill="{accent}"/>'
+            f'<rect x="{bx+side-4:.1f}" y="{by-4:.1f}" width="8" height="8" fill="{accent}"/>'
+            f'<rect x="{bx-4:.1f}" y="{by+side-4:.1f}" width="8" height="8" fill="{accent}"/>'
+            f'<rect x="{bx+side-4:.1f}" y="{by+side-4:.1f}" width="8" height="8" fill="{accent}"/>'
         )
-        return f"""
-    <!-- Redesigned Showcase: Luxury Orbital Ring -->
-    <g id="showcaseOrbitalRing">
-      <!-- Outer Dashed Ring -->
-      <circle cx="{cx}" cy="{cy}" r="{r + 28}" fill="none" 
-              stroke="rgba(255,255,255,0.22)" stroke-width="1.5" stroke-dasharray="6,6"/>
-      <!-- Cardinal Crosshairs -->
-      <line x1="{cx}" y1="{cy - r - 36}" x2="{cx}" y2="{cy - r - 20}" stroke="rgba(255,255,255,0.4)" stroke-width="2"/>
-      <line x1="{cx}" y1="{cy + r + 20}" x2="{cx}" y2="{cy + r + 36}" stroke="rgba(255,255,255,0.4)" stroke-width="2"/>
-      <line x1="{cx - r - 36}" y1="{cy}" x2="{cx - r - 20}" y2="{cy}" stroke="rgba(255,255,255,0.4)" stroke-width="2"/>
-      <line x1="{cx + r + 20}" y1="{cy}" x2="{cx + r + 36}" y2="{cy}" stroke="rgba(255,255,255,0.4)" stroke-width="2"/>
-      <!-- Mid Glow Ring -->
-      <circle cx="{cx}" cy="{cy}" r="{r + 8}" fill="none" 
-              stroke="rgba(255,255,255,0.35)" stroke-width="2"/>
-      <!-- Dark Glass Base Circle -->
-      <circle cx="{cx}" cy="{cy}" r="{r}" fill="{hl_bg}" 
-              stroke="rgba(255,255,255,0.18)" stroke-width="2"/>
-      {hero_paths}
-      <!-- Bottom Capsule Tag -->
-      <rect x="{cx - 100}" y="{cy + r + 14}" width="200" height="30" rx="15"
-            fill="rgba(0,0,0,0.35)" stroke="rgba(255,255,255,0.22)" stroke-width="1.5"/>
-      <text x="{cx}" y="{cy + r + 34}" font-size="12" font-weight="800" 
-            letter-spacing="2" fill="#38bdf8" text-anchor="middle" class="mono">
-        &#9733; FEATURED HERO ICON
-      </text>
-    </g>"""
-    elif shape == "hexagon":
-        hex_r = int(min(w, h) * 0.44)
-        hero_paths = _extract_highlight_svg(
-            model, icons_meta, hl_mode, num_hl, hl_stroke, stroke_scale,
-            hex_r * 1.35, hex_r * 1.35,
-            cx - hex_r * 0.675, cy - hex_r * 0.675, cols=cols, highlight_index=highlight_index
+    elif shape in ("rounded_square", "card"):
+        frame_svg = f'<rect x="{bx:.1f}" y="{by:.1f}" width="{side:.1f}" height="{side:.1f}" rx="28" fill="{hl_bg}" stroke="rgba(255,255,255,0.25)" stroke-width="2.5"/>'
+    elif shape == "double_border_square":
+        frame_svg = (
+            f'<rect x="{bx-8:.1f}" y="{by-8:.1f}" width="{side+16:.1f}" height="{side+16:.1f}" rx="8" fill="none" stroke="{hl_bg}" stroke-width="3"/>'
+            f'<rect x="{bx:.1f}" y="{by:.1f}" width="{side:.1f}" height="{side:.1f}" rx="4" fill="{hl_bg}" stroke="{accent}" stroke-opacity="0.55" stroke-width="2"/>'
         )
-        return f"""
-    <!-- Redesigned Showcase: Cyber Hexagon Shield -->
-    <g id="showcaseCyberHexagon">
-      <polygon points="{cx},{cy - hex_r - 18} {cx + hex_r + 16},{cy - (hex_r+18)//2} {cx + hex_r + 16},{cy + (hex_r+18)//2} {cx},{cy + hex_r + 18} {cx - hex_r - 16},{cy + (hex_r+18)//2} {cx - hex_r - 16},{cy - (hex_r+18)//2}"
-               fill="none" stroke="rgba(255,255,255,0.25)" stroke-width="2" stroke-dasharray="8,6"/>
-      <polygon points="{cx},{cy - hex_r} {cx + hex_r},{cy - hex_r//2} {cx + hex_r},{cy + hex_r//2} {cx},{cy + hex_r} {cx - hex_r},{cy + hex_r//2} {cx - hex_r},{cy - hex_r//2}"
-               fill="{hl_bg}" stroke="rgba(255,255,255,0.25)" stroke-width="2.5"/>
-      {hero_paths}
-      <rect x="{cx - 90}" y="{cy + hex_r + 14}" width="180" height="28" rx="14"
-            fill="rgba(0,0,0,0.35)" stroke="rgba(255,255,255,0.22)" stroke-width="1.5"/>
-      <text x="{cx}" y="{cy + hex_r + 32}" font-size="11" font-weight="800" 
-            letter-spacing="2" fill="#38bdf8" text-anchor="middle" class="mono">
-        &#9679; CYBER SHIELD HERO
-      </text>
-    </g>"""
-    else:  # "card" (Modern Squircle Card - Default)
-        card_w = int(w * 0.94)
-        card_h = int(h * 0.94)
-        card_x = int(cx - card_w / 2)
-        card_y = int(cy - card_h / 2)
-        rx = min(32, int(card_w * 0.08))
-
-        hero_paths = _extract_highlight_svg(
-            model, icons_meta, hl_mode, num_hl, hl_stroke, stroke_scale,
-            card_w * 0.78, card_h * 0.65,
-            card_x + card_w * 0.11, card_y + card_h * 0.18, cols=cols, highlight_index=highlight_index
+    elif shape == "dashed_square":
+        frame_svg = (
+            f'<rect x="{bx:.1f}" y="{by:.1f}" width="{side:.1f}" height="{side:.1f}" rx="10" fill="{hl_bg}"/>'
+            f'<rect x="{bx+10:.1f}" y="{by+10:.1f}" width="{side-20:.1f}" height="{side-20:.1f}" rx="6" fill="none" stroke="rgba(255,255,255,0.45)" stroke-width="2.5" stroke-dasharray="12,8"/>'
         )
-        return f"""
-    <!-- Redesigned Showcase: Modern Squircle Luxury Card -->
-    <g id="showcaseSquircleCard">
-      <!-- Outer Ambient Border Glow -->
-      <rect x="{card_x - 6}" y="{card_y - 6}" width="{card_w + 12}" height="{card_h + 12}" rx="{rx + 4}"
-            fill="rgba(0,0,0,0.2)" stroke="rgba(255,255,255,0.22)" stroke-width="2" stroke-dasharray="12,8"/>
+    elif shape == "offset_brutal_square":
+        frame_svg = (
+            f'<rect x="{bx+12:.1f}" y="{by+12:.1f}" width="{side:.1f}" height="{side:.1f}" fill="{accent}"/>'
+            f'<rect x="{bx:.1f}" y="{by:.1f}" width="{side:.1f}" height="{side:.1f}" fill="{hl_bg}" stroke="#ffffff" stroke-width="3"/>'
+        )
+    elif shape == "chamfer_square":
+        c_cut = side * 0.14
+        x1, y1, x2, y2 = bx, by, bx + side, by + side
+        pts = f"{x1+c_cut:.1f},{y1:.1f} {x2-c_cut:.1f},{y1:.1f} {x2:.1f},{y1+c_cut:.1f} {x2:.1f},{y2-c_cut:.1f} {x2-c_cut:.1f},{y2:.1f} {x1+c_cut:.1f},{y2:.1f} {x1:.1f},{y2-c_cut:.1f} {x1:.1f},{y1+c_cut:.1f}"
+        frame_svg = f'<polygon points="{pts}" fill="{hl_bg}" stroke="{accent}" stroke-width="2.5"/>'
+    elif shape == "hud_tech_box":
+        L = side * 0.18
+        x1, y1, x2, y2 = bx, by, bx + side, by + side
+        frame_svg = (
+            f'<rect x="{bx:.1f}" y="{by:.1f}" width="{side:.1f}" height="{side:.1f}" fill="{hl_bg}" stroke="rgba(255,255,255,0.15)" stroke-width="1.5"/>'
+            f'<path d="M{x1:.1f},{y1+L:.1f} V{y1:.1f} H{x1+L:.1f} M{x2-L:.1f},{y1:.1f} H{x2:.1f} V{y1+L:.1f} '
+            f'M{x1:.1f},{y2-L:.1f} V{y2:.1f} H{x1+L:.1f} M{x2-L:.1f},{y2:.1f} H{x2:.1f} V{y2-L:.1f}" fill="none" stroke="{accent}" stroke-width="5"/>'
+        )
+    elif shape == "glass_card":
+        frame_svg = (
+            f'<rect x="{bx:.1f}" y="{by:.1f}" width="{side:.1f}" height="{side:.1f}" rx="24" fill="{hl_bg}" fill-opacity="0.88" stroke="#ffffff" stroke-opacity="0.4" stroke-width="2"/>'
+            f'<path d="M{bx+24:.1f},{by:.1f} H{bx+side*0.55:.1f} L{bx:.1f},{by+side*0.55:.1f} V{by+24:.1f} Z" fill="#ffffff" fill-opacity="0.07"/>'
+        )
+    elif shape == "polaroid_frame":
+        frame_svg = (
+            f'<rect x="{bx:.1f}" y="{by:.1f}" width="{side:.1f}" height="{side+36:.1f}" rx="6" fill="#ffffff" stroke="rgba(0,0,0,0.2)" stroke-width="2"/>'
+            f'<rect x="{bx+14:.1f}" y="{by+14:.1f}" width="{side-28:.1f}" height="{side-28:.1f}" fill="{hl_bg}"/>'
+            f'<text x="{cx:.1f}" y="{by+side+22:.1f}" font-size="13" font-weight="800" letter-spacing="2" fill="#1e293b" text-anchor="middle" class="mono">ICON SHOWCASE</text>'
+        )
+    elif shape == "stamp_perforated":
+        frame_svg = (
+            f'<rect x="{bx-6:.1f}" y="{by-6:.1f}" width="{side+12:.1f}" height="{side+12:.1f}" fill="none" stroke="{hl_bg}" stroke-width="8" stroke-dasharray="4,10" stroke-linecap="round"/>'
+            f'<rect x="{bx:.1f}" y="{by:.1f}" width="{side:.1f}" height="{side:.1f}" fill="{hl_bg}" stroke="rgba(255,255,255,0.25)" stroke-width="1.5"/>'
+        )
+    elif shape == "ticket_box":
+        r_n = 18
+        x1, y1, x2, y2 = bx, by, bx + side, by + side
+        d = (
+            f"M{x1+r_n:.1f},{y1:.1f} H{x2-r_n:.1f} A{r_n},{r_n} 0 0,0 {x2:.1f},{y1+r_n:.1f} "
+            f"V{y2-r_n:.1f} A{r_n},{r_n} 0 0,0 {x2-r_n:.1f},{y2:.1f} "
+            f"H{x1+r_n:.1f} A{r_n},{r_n} 0 0,0 {x1:.1f},{y2-r_n:.1f} "
+            f"V{y1+r_n:.1f} A{r_n},{r_n} 0 0,0 {x1+r_n:.1f},{y1:.1f} Z"
+        )
+        frame_svg = f'<path d="{d}" fill="{hl_bg}" stroke="{accent}" stroke-opacity="0.45" stroke-width="2.5"/>'
+    elif shape == "shield_crest":
+        x1, y1, x2, y2 = bx, by, bx + side, by + side
+        d = f"M{cx:.1f},{y1:.1f} L{x2:.1f},{y1+side*0.18:.1f} V{y1+side*0.55:.1f} C{x2:.1f},{y1+side*0.82:.1f} {cx:.1f},{y2+10:.1f} {cx:.1f},{y2+10:.1f} C{cx:.1f},{y2+10:.1f} {x1:.1f},{y1+side*0.82:.1f} {x1:.1f},{y1+side*0.55:.1f} V{y1+side*0.18:.1f} Z"
+        frame_svg = f'<path d="{d}" fill="{hl_bg}" stroke="{accent}" stroke-width="2.5"/>'
+    elif shape in ("hexagon_pod", "hexagon"):
+        r = side * 0.54
+        pts = " ".join(f"{cx + r * math.cos(math.radians(60 * k - 30)):.1f},{cy + r * math.sin(math.radians(60 * k - 30)):.1f}" for k in range(6))
+        frame_svg = f'<polygon points="{pts}" fill="{hl_bg}" stroke="{accent}" stroke-width="2.5"/>'
+    elif shape == "octagon_badge":
+        r = side * 0.54
+        pts = " ".join(f"{cx + r * math.cos(math.radians(45 * k + 22.5)):.1f},{cy + r * math.sin(math.radians(45 * k + 22.5)):.1f}" for k in range(8))
+        frame_svg = f'<polygon points="{pts}" fill="{hl_bg}" stroke="rgba(255,255,255,0.3)" stroke-width="2.5"/>'
+    elif shape == "diamond_rhombus":
+        r = side * 0.56
+        pts = f"{cx:.1f},{cy-r:.1f} {cx+r:.1f},{cy:.1f} {cx:.1f},{cy+r:.1f} {cx-r:.1f},{cy:.1f}"
+        frame_svg = f'<polygon points="{pts}" fill="{hl_bg}" stroke="{accent}" stroke-width="2.5"/>'
+    elif shape == "circle_clean":
+        r = side * 0.50
+        frame_svg = f'<circle cx="{cx:.1f}" cy="{cy:.1f}" r="{r:.1f}" fill="{hl_bg}" stroke="rgba(255,255,255,0.28)" stroke-width="2.5"/>'
+    elif shape in ("orbital_rings", "circle"):
+        r = side * 0.46
+        frame_svg = (
+            f'<circle cx="{cx:.1f}" cy="{cy:.1f}" r="{r+18:.1f}" fill="none" stroke="rgba(255,255,255,0.3)" stroke-width="1.8" stroke-dasharray="8,6"/>'
+            f'<circle cx="{cx:.1f}" cy="{cy:.1f}" r="{r:.1f}" fill="{hl_bg}" stroke="{accent}" stroke-width="2.5"/>'
+        )
+    elif shape == "starburst_seal":
+        pts_list = []
+        n_pts = 24
+        for k in range(n_pts * 2):
+            rad = side * (0.54 if k % 2 == 0 else 0.46)
+            ang = math.pi * k / n_pts
+            pts_list.append(f"{cx + rad * math.cos(ang):.1f},{cy + rad * math.sin(ang):.1f}")
+        frame_svg = f'<polygon points="{" ".join(pts_list)}" fill="{hl_bg}" stroke="{accent}" stroke-width="2"/>'
+    elif shape == "squircle_super":
+        frame_svg = f'<rect x="{bx:.1f}" y="{by:.1f}" width="{side:.1f}" height="{side:.1f}" rx="{int(side*0.32)}" fill="{hl_bg}" stroke="rgba(255,255,255,0.3)" stroke-width="2.5"/>'
+    elif shape == "arch_window":
+        r = side / 2
+        x1, y1, x2, y2 = bx, by, bx + side, by + side
+        d = f"M{x1:.1f},{y1+r:.1f} A{r:.1f},{r:.1f} 0 0,1 {x2:.1f},{y1+r:.1f} V{y2:.1f} H{x1:.1f} Z"
+        frame_svg = f'<path d="{d}" fill="{hl_bg}" stroke="rgba(255,255,255,0.3)" stroke-width="2.5"/>'
+    elif shape == "folder_tab_box":
+        x1, y1, x2, y2 = bx, by, bx + side, by + side
+        d = f"M{x1:.1f},{y1-14:.1f} H{x1+side*0.42:.1f} L{x1+side*0.50:.1f},{y1:.1f} H{x2:.1f} V{y2:.1f} H{x1:.1f} Z"
+        frame_svg = f'<path d="{d}" fill="{hl_bg}" stroke="rgba(255,255,255,0.28)" stroke-width="2.2"/>'
+    elif shape == "browser_window":
+        frame_svg = (
+            f'<rect x="{bx:.1f}" y="{by:.1f}" width="{side:.1f}" height="{side:.1f}" rx="12" fill="{hl_bg}" stroke="rgba(255,255,255,0.3)" stroke-width="2"/>'
+            f'<line x1="{bx:.1f}" y1="{by+28:.1f}" x2="{bx+side:.1f}" y2="{by+28:.1f}" stroke="rgba(255,255,255,0.2)" stroke-width="1.5"/>'
+            f'<circle cx="{bx+18:.1f}" cy="{by+14:.1f}" r="4.5" fill="#ef4444"/>'
+            f'<circle cx="{bx+32:.1f}" cy="{by+14:.1f}" r="4.5" fill="#f59e0b"/>'
+            f'<circle cx="{bx+46:.1f}" cy="{by+14:.1f}" r="4.5" fill="#10b981"/>'
+        )
+    elif shape == "crosshair_grid_box":
+        frame_svg = (
+            f'<rect x="{bx:.1f}" y="{by:.1f}" width="{side:.1f}" height="{side:.1f}" fill="{hl_bg}" stroke="rgba(255,255,255,0.35)" stroke-width="2"/>'
+            f'<line x1="{cx:.1f}" y1="{by:.1f}" x2="{cx:.1f}" y2="{by+side:.1f}" stroke="rgba(255,255,255,0.08)" stroke-width="1.5" stroke-dasharray="6,6"/>'
+            f'<line x1="{bx:.1f}" y1="{cy:.1f}" x2="{bx+side:.1f}" y2="{cy:.1f}" stroke="rgba(255,255,255,0.08)" stroke-width="1.5" stroke-dasharray="6,6"/>'
+        )
+    elif shape == "glow_neon_box":
+        frame_svg = (
+            f'<rect x="{bx-6:.1f}" y="{by-6:.1f}" width="{side+12:.1f}" height="{side+12:.1f}" rx="18" fill="none" stroke="{accent}" stroke-opacity="0.4" stroke-width="4"/>'
+            f'<rect x="{bx:.1f}" y="{by:.1f}" width="{side:.1f}" height="{side:.1f}" rx="14" fill="{hl_bg}" stroke="{accent}" stroke-width="2.5"/>'
+        )
+    elif shape == "isometric_stack":
+        frame_svg = (
+            f'<rect x="{bx+16:.1f}" y="{by+16:.1f}" width="{side:.1f}" height="{side:.1f}" rx="8" fill="{hl_bg}" fill-opacity="0.35" stroke="rgba(255,255,255,0.2)" stroke-width="1.5"/>'
+            f'<rect x="{bx+8:.1f}" y="{by+8:.1f}" width="{side:.1f}" height="{side:.1f}" rx="8" fill="{hl_bg}" fill-opacity="0.65" stroke="rgba(255,255,255,0.25)" stroke-width="1.5"/>'
+            f'<rect x="{bx:.1f}" y="{by:.1f}" width="{side:.1f}" height="{side:.1f}" rx="8" fill="{hl_bg}" stroke="{accent}" stroke-width="2.5"/>'
+        )
+    else:
+        frame_svg = f'<rect x="{bx:.1f}" y="{by:.1f}" width="{side:.1f}" height="{side:.1f}" rx="6" fill="{hl_bg}" stroke="rgba(255,255,255,0.28)" stroke-width="2.5"/>'
 
-      <!-- Main Dark Glass Card -->
-      <rect x="{card_x}" y="{card_y}" width="{card_w}" height="{card_h}" rx="{rx}"
-            fill="{hl_bg}" stroke="rgba(255,255,255,0.2)" stroke-width="2"/>
-
-      <!-- Corner Crosshairs / Precision Ticks -->
-      <path d="M {card_x + 18} {card_y + 32} L {card_x + 18} {card_y + 18} L {card_x + 32} {card_y + 18}" 
-            fill="none" stroke="rgba(255,255,255,0.4)" stroke-width="2"/>
-      <path d="M {card_x + card_w - 32} {card_y + 18} L {card_x + card_w - 18} {card_y + 18} L {card_x + card_w - 18} {card_y + 32}" 
-            fill="none" stroke="rgba(255,255,255,0.4)" stroke-width="2"/>
-      <path d="M {card_x + 18} {card_y + card_h - 32} L {card_x + 18} {card_y + card_h - 18} L {card_x + 32} {card_y + card_h - 18}" 
-            fill="none" stroke="rgba(255,255,255,0.4)" stroke-width="2"/>
-      <path d="M {card_x + card_w - 32} {card_y + card_h - 18} L {card_x + card_w - 18} {card_y + card_h - 18} L {card_x + card_w - 18} {card_y + card_h - 32}" 
-            fill="none" stroke="rgba(255,255,255,0.4)" stroke-width="2"/>
-
-      <!-- Top Badge Pill -->
-      <rect x="{cx - 105}" y="{card_y + 18}" width="210" height="30" rx="15"
-            fill="rgba(255,255,255,0.08)" stroke="rgba(255,255,255,0.18)" stroke-width="1.5"/>
-      <text x="{cx}" y="{card_y + 38}" font-size="12" font-weight="800" 
-            letter-spacing="2" fill="#38bdf8" text-anchor="middle" class="mono">
-        &#9733; FEATURED HERO ICON
-      </text>
-
+    return f"""
+    <g id="showcaseBoxComponent">
+      {frame_svg}
       {hero_paths}
-
-      <!-- Bottom Specs Line -->
-      <text x="{cx}" y="{card_y + card_h - 18}" font-size="13" font-weight="700" 
-            letter-spacing="2" fill="#94a3b8" text-anchor="middle" class="mono">
-        &#9679; 100% VECTOR &#8226; EDITABLE STROKE
-      </text>
     </g>"""
 
 
@@ -767,7 +1015,7 @@ def _extract_highlight_svg(model: Model, icons_meta: list[dict], hl_mode: str, c
         else:
             bx1, by1, bx2, by2 = ic["box"]
         bw, bh = max(1.0, bx2 - bx1), max(1.0, by2 - by1)
-        hero_size = min(inner_w * 0.68, inner_h * 0.68)
+        hero_size = min(inner_w * 0.72, inner_h * 0.72)
         h_scale = hero_size / max(bw, bh)
         h_ox = ox + (inner_w - bw * h_scale) / 2 - bx1 * h_scale
         h_oy = oy + (inner_h - bh * h_scale) / 2 - by1 * h_scale
@@ -803,21 +1051,220 @@ def _extract_highlight_svg(model: Model, icons_meta: list[dict], hl_mode: str, c
 
 
 # =========================================================================
-# Layout 1 & 2: Vectuz Sidebar (Left & Right)
+# 25 Cover / Banner Shapes (Category 1 — Default: Square Solid Box)
 # =========================================================================
-def _build_vectuz_sidebar(model: Model, icons_meta: list[dict], c: dict, W: int, H: int, banner_w: int, is_right: bool = False) -> str:
+def _render_cover_shape_svg(
+    banner_shape: str, x: float, y: float, w: float, h: float,
+    banner_bg: str, hl_bg: str, accent: str, is_right: bool = False
+) -> str:
+    shape = str(banner_shape or "square_solid").lower()
+    pad = int(min(w, h) * 0.04)
+
+    # For right-side panels, we mirror horizontal custom paths around panel center if needed
+    transform_open = f'<g transform="translate({2*x+w:.1f}, 0) scale(-1, 1)">' if (is_right and shape not in ("square_solid", "rounded_card", "double_split_box", "floating_island", "arch_dome")) else "<g>"
+    transform_close = "</g>"
+
+    if shape == "square_solid":
+        body = f'<rect x="{x:.1f}" y="{y:.1f}" width="{w:.1f}" height="{h:.1f}" fill="{banner_bg}"/>'
+    elif shape == "rounded_card":
+        body = f'<rect x="{x+pad:.1f}" y="{y+pad:.1f}" width="{w-pad*2:.1f}" height="{h-pad*2:.1f}" rx="32" fill="{banner_bg}"/>'
+    elif shape == "double_split_box":
+        top_h = int(h * 0.54)
+        body = (
+            f'<rect x="{x+pad:.1f}" y="{y+pad:.1f}" width="{w-pad*2:.1f}" height="{top_h-pad:.1f}" rx="20" fill="{banner_bg}"/>'
+            f'<rect x="{x+pad:.1f}" y="{y+top_h+pad//2:.1f}" width="{w-pad*2:.1f}" height="{h-top_h-pad*1.5:.1f}" rx="20" fill="{hl_bg}" fill-opacity="0.25"/>'
+        )
+    elif shape == "chamfer_box":
+        c = 44
+        x1, y1, x2, y2 = x + pad, y + pad, x + w - pad, y + h - pad
+        pts = f"{x1+c:.1f},{y1:.1f} {x2-c:.1f},{y1:.1f} {x2:.1f},{y1+c:.1f} {x2:.1f},{y2-c:.1f} {x2-c:.1f},{y2:.1f} {x1+c:.1f},{y2:.1f} {x1:.1f},{y2-c:.1f} {x1:.1f},{y1+c:.1f}"
+        body = f'<polygon points="{pts}" fill="{banner_bg}"/>'
+    elif shape == "notched_ticket":
+        r = 36
+        x1, y1, x2, y2 = x + pad, y + pad, x + w - pad, y + h - pad
+        d = f"M{x1+r:.1f},{y1:.1f} H{x2-r:.1f} A{r},{r} 0 0,0 {x2:.1f},{y1+r:.1f} V{y2-r:.1f} A{r},{r} 0 0,0 {x2-r:.1f},{y2:.1f} H{x1+r:.1f} A{r},{r} 0 0,0 {x1:.1f},{y2-r:.1f} V{y1+r:.1f} A{r},{r} 0 0,0 {x1+r:.1f},{y1:.1f} Z"
+        body = f'<path d="{d}" fill="{banner_bg}"/>'
+    elif shape == "curved_right":
+        d = f"M{x:.1f},{y:.1f} L{x+w*0.86:.1f},{y:.1f} Q{x+w*1.12:.1f},{y+h*0.5:.1f} {x+w*0.86:.1f},{y+h:.1f} L{x:.1f},{y+h:.1f} Z"
+        body = f'<path d="{d}" fill="{banner_bg}"/>'
+    elif shape == "concave_arch":
+        d = f"M{x:.1f},{y:.1f} L{x+w:.1f},{y:.1f} Q{x+w*0.78:.1f},{y+h*0.5:.1f} {x+w:.1f},{y+h:.1f} L{x:.1f},{y+h:.1f} Z"
+        body = f'<path d="{d}" fill="{banner_bg}"/>'
+    elif shape in ("s_wave_smooth", "wave_flow"):
+        d = f"M{x:.1f},{y:.1f} L{x+w*0.92:.1f},{y:.1f} C{x+w*1.15:.1f},{y+h*0.30:.1f} {x+w*0.72:.1f},{y+h*0.70:.1f} {x+w*0.98:.1f},{y+h:.1f} L{x:.1f},{y+h:.1f} Z"
+        body = f'<path d="{d}" fill="{banner_bg}"/>'
+    elif shape == "double_wave":
+        d1 = f"M{x:.1f},{y:.1f} L{x+w*0.96:.1f},{y:.1f} C{x+w*1.18:.1f},{y+h*0.32:.1f} {x+w*0.74:.1f},{y+h*0.68:.1f} {x+w*1.02:.1f},{y+h:.1f} L{x:.1f},{y+h:.1f} Z"
+        d2 = f"M{x:.1f},{y:.1f} L{x+w*0.86:.1f},{y:.1f} C{x+w*1.08:.1f},{y+h*0.35:.1f} {x+w*0.64:.1f},{y+h*0.65:.1f} {x+w*0.90:.1f},{y+h:.1f} L{x:.1f},{y+h:.1f} Z"
+        body = f'<path d="{d1}" fill="{banner_bg}" fill-opacity="0.45"/><path d="{d2}" fill="{banner_bg}"/>'
+    elif shape == "triple_liquid":
+        d1 = f"M{x:.1f},{y:.1f} L{x+w*1.02:.1f},{y:.1f} C{x+w*1.20:.1f},{y+h*0.25:.1f} {x+w*0.78:.1f},{y+h*0.75:.1f} {x+w*1.04:.1f},{y+h:.1f} L{x:.1f},{y+h:.1f} Z"
+        d2 = f"M{x:.1f},{y:.1f} L{x+w*0.94:.1f},{y:.1f} C{x+w*1.12:.1f},{y+h*0.30:.1f} {x+w*0.70:.1f},{y+h*0.70:.1f} {x+w*0.96:.1f},{y+h:.1f} L{x:.1f},{y+h:.1f} Z"
+        d3 = f"M{x:.1f},{y:.1f} L{x+w*0.85:.1f},{y:.1f} C{x+w*1.02:.1f},{y+h*0.35:.1f} {x+w*0.62:.1f},{y+h*0.65:.1f} {x+w*0.88:.1f},{y+h:.1f} L{x:.1f},{y+h:.1f} Z"
+        body = f'<path d="{d1}" fill="{accent}" fill-opacity="0.35"/><path d="{d2}" fill="{banner_bg}" fill-opacity="0.65"/><path d="{d3}" fill="{banner_bg}"/>'
+    elif shape == "diagonal_slash":
+        pts1 = f"{x:.1f},{y:.1f} {x+w*1.04:.1f},{y:.1f} {x+w*0.84:.1f},{y+h:.1f} {x:.1f},{y+h:.1f}"
+        pts2 = f"{x+w*1.06:.1f},{y:.1f} {x+w*1.10:.1f},{y:.1f} {x+w*0.90:.1f},{y+h:.1f} {x+w*0.86:.1f},{y+h:.1f}"
+        body = f'<polygon points="{pts1}" fill="{banner_bg}"/><polygon points="{pts2}" fill="{accent}"/>'
+    elif shape == "dual_chevron":
+        pts1 = f"{x:.1f},{y:.1f} {x+w*0.88:.1f},{y:.1f} {x+w*1.04:.1f},{y+h*0.5:.1f} {x+w*0.88:.1f},{y+h:.1f} {x:.1f},{y+h:.1f}"
+        pts2 = f"{x+w*0.92:.1f},{y:.1f} {x+w*0.97:.1f},{y:.1f} {x+w*1.13:.1f},{y+h*0.5:.1f} {x+w*0.97:.1f},{y+h:.1f} {x+w*0.92:.1f},{y+h:.1f} {x+w*1.08:.1f},{y+h*0.5:.1f}"
+        body = f'<polygon points="{pts1}" fill="{banner_bg}"/><polygon points="{pts2}" fill="{accent}" fill-opacity="0.65"/>'
+    elif shape == "origami_fold":
+        p1 = f"{x:.1f},{y:.1f} {x+w*0.96:.1f},{y:.1f} {x+w*0.80:.1f},{y+h:.1f} {x:.1f},{y+h:.1f}"
+        p2 = f"{x+w*0.96:.1f},{y:.1f} {x+w*1.08:.1f},{y+h*0.42:.1f} {x+w*0.80:.1f},{y+h:.1f}"
+        body = f'<polygon points="{p1}" fill="{banner_bg}"/><polygon points="{p2}" fill="{banner_bg}" fill-opacity="0.6"/>'
+    elif shape == "stepped_blocks":
+        h3 = h / 3.0
+        body = (
+            f'<rect x="{x:.1f}" y="{y:.1f}" width="{w*0.98:.1f}" height="{h3+2:.1f}" fill="{banner_bg}"/>'
+            f'<rect x="{x:.1f}" y="{y+h3:.1f}" width="{w*0.92:.1f}" height="{h3+2:.1f}" fill="{banner_bg}"/>'
+            f'<rect x="{x:.1f}" y="{y+h3*2:.1f}" width="{w*0.86:.1f}" height="{h3:.1f}" fill="{banner_bg}"/>'
+        )
+    elif shape in ("hexagon_panel", "hexagon_shield"):
+        pts = f"{x:.1f},{y:.1f} {x+w*0.88:.1f},{y:.1f} {x+w*1.02:.1f},{y+h*0.25:.1f} {x+w*1.02:.1f},{y+h*0.75:.1f} {x+w*0.88:.1f},{y+h:.1f} {x:.1f},{y+h:.1f}"
+        body = f'<polygon points="{pts}" fill="{banner_bg}"/>'
+    elif shape in ("leaf_organic", "eco_leaf"):
+        d = f"M{x:.1f},{y:.1f} L{x+w*0.86:.1f},{y:.1f} C{x+w*1.12:.1f},{y+h*0.22:.1f} {x+w*1.12:.1f},{y+h*0.78:.1f} {x+w*0.72:.1f},{y+h:.1f} L{x:.1f},{y+h:.1f} Z"
+        body = f'<path d="{d}" fill="{banner_bg}"/>'
+    elif shape in ("droplet_curve", "droplet_flow"):
+        d = f"M{x:.1f},{y:.1f} L{x+w*0.78:.1f},{y:.1f} C{x+w*0.78:.1f},{y+h*0.35:.1f} {x+w*1.14:.1f},{y+h*0.62:.1f} {x+w*0.86:.1f},{y+h:.1f} L{x:.1f},{y+h:.1f} Z"
+        body = f'<path d="{d}" fill="{banner_bg}"/>'
+    elif shape == "scallop_edge":
+        circles = []
+        n_sc = 9
+        r_sc = (h / n_sc) * 0.62
+        for k in range(n_sc):
+            cy_k = y + (k + 0.5) * (h / n_sc)
+            circles.append(f'<circle cx="{x+w*0.88:.1f}" cy="{cy_k:.1f}" r="{r_sc:.1f}" fill="{banner_bg}"/>')
+        body = f'<rect x="{x:.1f}" y="{y:.1f}" width="{w*0.88:.1f}" height="{h:.1f}" fill="{banner_bg}"/>' + "".join(circles)
+    elif shape == "zigzag_saw":
+        pts = [f"{x:.1f},{y:.1f}", f"{x+w*0.90:.1f},{y:.1f}"]
+        n_z = 12
+        step_y = h / n_z
+        for k in range(n_z):
+            pts.append(f"{x+w*0.98:.1f},{y+(k+0.5)*step_y:.1f}")
+            pts.append(f"{x+w*0.90:.1f},{y+(k+1.0)*step_y:.1f}")
+        pts.append(f"{x:.1f},{y+h:.1f}")
+        body = f'<polygon points="{" ".join(pts)}" fill="{banner_bg}"/>'
+    elif shape == "ribbon_banner":
+        x1, y1, x2, y2 = x + pad, y, x + w - pad, y + h - pad
+        pts = f"{x1:.1f},{y1:.1f} {x2:.1f},{y1:.1f} {x2:.1f},{y2:.1f} {x+w/2:.1f},{y2-56:.1f} {x1:.1f},{y2:.1f}"
+        body = f'<polygon points="{pts}" fill="{banner_bg}"/>'
+    elif shape == "floating_island":
+        body = (
+            f'<rect x="{x+pad+14:.1f}" y="{y+pad+18:.1f}" width="{w-pad*2:.1f}" height="{h-pad*2:.1f}" rx="28" fill="#000000" fill-opacity="0.22"/>'
+            f'<rect x="{x+pad:.1f}" y="{y+pad:.1f}" width="{w-pad*2:.1f}" height="{h-pad*2:.1f}" rx="28" fill="{banner_bg}" stroke="#ffffff" stroke-opacity="0.35" stroke-width="3"/>'
+        )
+    elif shape == "layered_cards":
+        body = (
+            f'<rect x="{x+pad+24:.1f}" y="{y+pad+24:.1f}" width="{w-pad*2:.1f}" height="{h-pad*2:.1f}" rx="20" fill="{banner_bg}" fill-opacity="0.35"/>'
+            f'<rect x="{x+pad+12:.1f}" y="{y+pad+12:.1f}" width="{w-pad*2:.1f}" height="{h-pad*2:.1f}" rx="20" fill="{banner_bg}" fill-opacity="0.65"/>'
+            f'<rect x="{x+pad:.1f}" y="{y+pad:.1f}" width="{w-pad*2:.1f}" height="{h-pad*2:.1f}" rx="20" fill="{banner_bg}"/>'
+        )
+    elif shape == "cyber_hud_frame":
+        x1, y1, x2, y2 = x + pad, y + pad, x + w - pad, y + h - pad
+        pts = f"{x1:.1f},{y1:.1f} {x2-48:.1f},{y1:.1f} {x2:.1f},{y1+48:.1f} {x2:.1f},{y2-80:.1f} {x2-28:.1f},{y2-52:.1f} {x2-28:.1f},{y2:.1f} {x1+36:.1f},{y2:.1f} {x1:.1f},{y2-36:.1f}"
+        body = f'<polygon points="{pts}" fill="{banner_bg}" stroke="{accent}" stroke-width="4"/>'
+    elif shape == "arch_dome":
+        x1, y1, x2, y2 = x + pad, y + pad, x + w - pad, y + h - pad
+        r = (x2 - x1) / 2
+        d = f"M{x1:.1f},{y1+r:.1f} A{r:.1f},{r:.1f} 0 0,1 {x2:.1f},{y1+r:.1f} V{y2:.1f} H{x1:.1f} Z"
+        body = f'<path d="{d}" fill="{banner_bg}"/>'
+    elif shape in ("pixel_dissolve", "pixel_matrix"):
+        solid_w = w * 0.84
+        sq = 44
+        rects = [f'<rect x="{x:.1f}" y="{y:.1f}" width="{solid_w:.1f}" height="{h:.1f}" fill="{banner_bg}"/>']
+        for r_i in range(int(h // sq)):
+            for c_i in range(3):
+                if (r_i * 7 + c_i * 3) % 5 < (3 - c_i):
+                    px = x + solid_w + c_i * sq
+                    py = y + r_i * sq
+                    rects.append(f'<rect x="{px:.1f}" y="{py:.1f}" width="{sq-4}" height="{sq-4}" rx="4" fill="{banner_bg}" fill-opacity="{0.85 - c_i*0.25:.2f}"/>')
+        body = "".join(rects)
+    else:
+        body = f'<rect x="{x:.1f}" y="{y:.1f}" width="{w:.1f}" height="{h:.1f}" fill="{banner_bg}"/>'
+
+    return f"{transform_open}{body}{transform_close}"
+
+
+# =========================================================================
+# Cover Decorative Patterns (Category 4 Subset)
+# =========================================================================
+def _render_cover_decor_svg(decor: str, x: float, y: float, w: float, h: float, banner_text: str, accent: str) -> str:
+    decor = str(decor or "").lower()
+    col = banner_text
+    if decor == "cover_halftone_dots":
+        dots = []
+        cx, cy = x + w / 2, y + h * 0.5
+        for ring_r, dot_r, n in [(140, 4, 16), (220, 6, 24), (300, 8, 32), (380, 5, 36)]:
+            for i in range(n):
+                ang = 2 * math.pi * i / n
+                dots.append(f'<circle cx="{cx+ring_r*math.cos(ang):.1f}" cy="{cy+ring_r*math.sin(ang):.1f}" r="{dot_r}" fill="{col}" opacity="0.12"/>')
+        return "<g>" + "".join(dots) + "</g>"
+    elif decor == "cover_diagonal_stripes":
+        lines = []
+        for k in range(-10, 30):
+            y_k = y + k * 90
+            lines.append(f'<line x1="{x:.1f}" y1="{y_k:.1f}" x2="{x+w:.1f}" y2="{y_k-w*0.6:.1f}" stroke="{col}" stroke-width="14" opacity="0.06"/>')
+        return "<g>" + "".join(lines) + "</g>"
+    elif decor == "cover_circuit_traces":
+        return f"""
+        <g stroke="{col}" stroke-width="2.5" opacity="0.16" fill="none">
+          <path d="M{x+30:.1f},{y+40:.1f} H{x+140:.1f} L{x+180:.1f},{y+80:.1f} V{y+220:.1f}"/>
+          <circle cx="{x+180:.1f}" cy="{y+220:.1f}" r="6" fill="{col}"/>
+          <path d="M{x+w-40:.1f},{y+h-60:.1f} H{x+w-160:.1f} L{x+w-210:.1f},{y+h-110:.1f} V{y+h-280:.1f}"/>
+          <circle cx="{x+w-210:.1f}" cy="{y+h-280:.1f}" r="6" fill="{col}"/>
+        </g>"""
+    elif decor == "cover_blueprint_grid":
+        step = 80
+        v_lines = "".join(f'<line x1="{x+i*step:.1f}" y1="{y:.1f}" x2="{x+i*step:.1f}" y2="{y+h:.1f}"/>' for i in range(1, int(w // step) + 1))
+        h_lines = "".join(f'<line x1="{x:.1f}" y1="{y+j*step:.1f}" x2="{x+w:.1f}" y2="{y+j*step:.1f}"/>' for j in range(1, int(h // step) + 1))
+        return f'<g stroke="{col}" stroke-width="1.2" opacity="0.10">{v_lines}{h_lines}</g>'
+    elif decor == "cover_concentric_rings":
+        cx, cy = x + w / 2, y + h * 0.48
+        rings = "".join(f'<circle cx="{cx:.1f}" cy="{cy:.1f}" r="{r}" fill="none" stroke="{col}" stroke-width="2" opacity="0.10"/>' for r in (120, 200, 280, 360, 440))
+        return f"<g>{rings}</g>"
+    elif decor == "cover_geometric_poly":
+        return f"""
+        <g fill="{col}" opacity="0.08">
+          <polygon points="{x:.1f},{y:.1f} {x+w*0.6:.1f},{y:.1f} {x:.1f},{y+h*0.35:.1f}"/>
+          <polygon points="{x+w:.1f},{y+h:.1f} {x+w*0.3:.1f},{y+h:.1f} {x+w:.1f},{y+h*0.6:.1f}"/>
+        </g>"""
+    elif decor == "cover_dot_matrix":
+        dots = []
+        for r_i in range(5):
+            for c_i in range(5):
+                dots.append(f'<circle cx="{x+40+c_i*22:.1f}" cy="{y+40+r_i*22:.1f}" r="3.5" fill="{col}" opacity="0.22"/>')
+                dots.append(f'<circle cx="{x+w-130+c_i*22:.1f}" cy="{y+h-130+r_i*22:.1f}" r="3.5" fill="{col}" opacity="0.22"/>')
+        return "<g>" + "".join(dots) + "</g>"
+    elif decor == "cover_floating_shapes":
+        return f"""
+        <g stroke="{col}" stroke-width="3" opacity="0.18" fill="none">
+          <circle cx="{x+64:.1f}" cy="{y+84:.1f}" r="18"/>
+          <rect x="{x+w-96:.1f}" y="{y+70:.1f}" width="32" height="32" rx="4"/>
+          <path d="M{x+56:.1f},{y+h-80:.1f} h28 M{x+70:.1f},{y+h-94:.1f} v28"/>
+          <polygon points="{x+w-70:.1f},{y+h-96:.1f} {x+w-50:.1f},{y+h-60:.1f} {x+w-90:.1f},{y+h-60:.1f}"/>
+        </g>"""
+    elif decor == "cover_chevron_stripes":
+        stripes = []
+        for k in range(6):
+            yk = y + 60 + k * 36
+            stripes.append(f'<polyline points="{x+32:.1f},{yk:.1f} {x+52:.1f},{yk-14:.1f} {x+72:.1f},{yk:.1f}" fill="none" stroke="{col}" stroke-width="4" opacity="0.20"/>')
+        return "<g>" + "".join(stripes) + "</g>"
+    return ""
+
+
+# =========================================================================
+# Master Modular Template Maker Compositor
+# =========================================================================
+def _build_modular_template(model: Model, icons_meta: list[dict], c: dict, W: int, H: int, banner_w: int) -> str:
     stroke_scale = float(c.get("stroke_scale", 1.0))
     count_val = str(c.get("count") or (len(icons_meta) if icons_meta else "24"))
-    mW, mH = max(10, model.width), max(10, model.height)
-    sheet_w = W - banner_w
-    sheet_h = H
-    sheet_x = 0 if is_right else banner_w
-    banner_x_offset = (W - banner_w) if is_right else 0
-
-    paths_svg_group = _render_adaptive_sheet_icons(
-        model, icons_meta, c,
-        sheet_x=sheet_x, sheet_y=0, sheet_w=sheet_w, sheet_h=sheet_h
-    )
+    panel_pos = str(c.get("panel_pos") or "left").lower()
+    banner_shape = str(c.get("banner_shape") or "square_solid").lower()
+    title_hl_style = str(c.get("title_highlight") or "solid_square").lower()
+    decor = str(c.get("decor_element") or "artboard_square_box").lower()
 
     artboard_bg = c.get("artboard_bg", "checkered")
     defs_svg = ""
@@ -827,46 +1274,128 @@ def _build_vectuz_sidebar(model: Model, icons_meta: list[dict], c: dict, W: int,
     else:
         sheet_bg_fill = artboard_bg
 
-    show_highlight = c.get("show_highlight", True)
     banner_bg = c["banner_bg"]
     banner_text = c["banner_text"]
     banner_sub = c["banner_sub"]
-
-    banner_pad = banner_x_offset + int(banner_w * 0.10)
-    inner_w = banner_w - int(banner_w * 0.20)
-
-    if show_highlight:
-        top_h = int(round(H * 0.54))
-        box_y = top_h + int(round(H * 0.025))
-        box_h = H - box_y - int(round(H * 0.035))
-    else:
-        top_h = H - int(round(H * 0.06))
-        box_y = 0
-        box_h = 0
+    hl_bg = c["highlight_bg"]
+    accent = c.get("shape_accent") or c.get("accent") or ""
+    show_highlight = c.get("show_highlight", True)
 
     fonts_import, title_font, count_font, sub_font = _get_font_css(c.get("font_family", "bebas"))
-    title_hl_style = str(c.get("title_highlight", "pill"))
 
-    title_fs = int(c.get("title_fs") or 0) or max(32, int(round(banner_w * 0.082)))
-    count_fs = int(c.get("count_fs") or 0) or max(88, int(round(banner_w * 0.32)))
-    sub_fs = int(c.get("sub_fs") or 0) or max(16, int(round(banner_w * 0.046)))
+    # Horizontal Top or Bottom Bar Mode
+    if panel_pos in ("top", "bottom"):
+        bar_h = int(round(H * 0.24))
+        is_bottom = (panel_pos == "bottom")
+        bar_y = (H - bar_h) if is_bottom else 0
+        sheet_y = 0 if is_bottom else bar_h
+        sheet_h = H - bar_h
+
+        paths_svg_group = _render_adaptive_sheet_icons(
+            model, icons_meta, c,
+            sheet_x=0, sheet_y=sheet_y, sheet_w=W, sheet_h=sheet_h
+        )
+
+        title_fs = int(c.get("title_fs") or 0) or max(36, int(round(bar_h * 0.24)))
+        count_fs = int(c.get("count_fs") or 0) or max(84, int(round(bar_h * 0.46)))
+        sub_fs = int(c.get("sub_fs") or 0) or max(16, int(round(bar_h * 0.09)))
+
+        title_svg = _render_title_highlight(
+            title=c["title"], subtitle=c["subtitle"],
+            cx=int(W * 0.34), cy=bar_y + int(bar_h * 0.44),
+            title_fs=title_fs, sub_fs=sub_fs,
+            banner_text=banner_text, banner_sub=banner_sub,
+            title_font=title_font, sub_font=sub_font,
+            style=title_hl_style, is_centered=True,
+            max_w=W * 0.38, accent=accent
+        )
+
+        hl_svg = ""
+        if show_highlight:
+            sc_size = int(bar_h * 0.82)
+            hl_svg = _render_showcase_box(
+                model, icons_meta, c,
+                cx=W - int(W * 0.12), cy=bar_y + bar_h / 2,
+                w=sc_size, h=sc_size, stroke_scale=stroke_scale
+            )
+
+        return f"""<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {W} {H}" width="{W}" height="{H}">
+  <defs>
+    <style>
+      {fonts_import}
+      text {{ font-family: {sub_font}; }}
+      .title {{ font-family: {title_font}; }}
+      .count {{ font-family: {count_font}; }}
+      .sub {{ font-family: {sub_font}; }}
+      .mono {{ font-family: 'JetBrains Mono', 'Consolas', monospace; }}
+    </style>{defs_svg}
+  </defs>
+  <rect x="0" y="{sheet_y}" width="{W}" height="{sheet_h}" fill="{sheet_bg_fill}"/>
+  <g id="stockIconSheet">
+    {paths_svg_group}
+  </g>
+  <g id="stockCoverBar">
+    <rect x="0" y="{bar_y}" width="{W}" height="{bar_h}" fill="{banner_bg}"/>
+    <text x="{int(W * 0.09)}" y="{bar_y + int(bar_h * 0.66)}" font-size="{count_fs}" font-weight="900" fill="{banner_text}" text-anchor="middle" class="count">{sanitize_text(count_val)}</text>
+    {title_svg}
+    {hl_svg}
+  </g>
+</svg>"""
+
+    # Left or Right Vertical Cover Panel + Square Icon Set Box
+    is_right = (panel_pos == "right")
+    sheet_w = W - banner_w
+    sheet_h = H
+    sheet_x = 0 if is_right else banner_w
+    panel_x = (W - banner_w) if is_right else 0
+
+    paths_svg_group = _render_adaptive_sheet_icons(
+        model, icons_meta, c,
+        sheet_x=sheet_x, sheet_y=0, sheet_w=sheet_w, sheet_h=sheet_h
+    )
+
+    cover_shape_svg = _render_cover_shape_svg(
+        banner_shape, panel_x, 0, banner_w, H,
+        banner_bg, hl_bg, accent or hl_bg, is_right=is_right
+    )
+    cover_decor_svg = _render_cover_decor_svg(
+        decor, panel_x, 0, banner_w, H, banner_text, accent or hl_bg
+    )
+
+    inner_cx = panel_x + banner_w * 0.48 if not is_right else panel_x + banner_w * 0.52
+    inner_w = banner_w * 0.80
+
+    title_fs = int(c.get("title_fs") or 0) or max(36, int(round(banner_w * 0.082)))
+    count_fs = int(c.get("count_fs") or 0) or max(96, int(round(banner_w * 0.30)))
+    sub_fs = int(c.get("sub_fs") or 0) or max(16, int(round(banner_w * 0.044)))
+
+    if show_highlight:
+        title_cy = int(H * 0.12)
+        count_cy = int(H * 0.42)
+        box_cy = int(H * 0.72)
+        box_size = min(inner_w * 0.86, H * 0.40)
+    else:
+        title_cy = int(H * 0.28)
+        count_cy = int(H * 0.64)
+        box_cy = 0
+        box_size = 0
 
     title_svg = _render_title_highlight(
-        title=c['title'], subtitle=c['subtitle'],
-        cx=banner_pad + inner_w / 2, cy=int(round(H * 0.035)) + int(top_h * 0.18),
+        title=c["title"], subtitle=c["subtitle"],
+        cx=inner_cx, cy=title_cy,
         title_fs=title_fs, sub_fs=sub_fs,
         banner_text=banner_text, banner_sub=banner_sub,
         title_font=title_font, sub_font=sub_font,
         style=title_hl_style, is_centered=True,
-        max_w=inner_w * 0.94
+        max_w=inner_w, accent=accent
     )
 
     hl_svg = ""
-    if show_highlight and box_h > 100:
+    if show_highlight and box_size > 80:
         hl_svg = _render_showcase_box(
             model, icons_meta, c,
-            cx=banner_pad + inner_w / 2, cy=box_y + box_h / 2,
-            w=inner_w, h=box_h,
+            cx=inner_cx, cy=box_cy,
+            w=box_size, h=box_size,
             stroke_scale=stroke_scale
         )
 
@@ -882,20 +1411,19 @@ def _build_vectuz_sidebar(model: Model, icons_meta: list[dict], c: dict, W: int,
     </style>{defs_svg}
   </defs>
 
-  <rect x="{sheet_x}" y="0" width="{sheet_w}" height="{sheet_h}" fill="{sheet_bg_fill}"/>
+  <rect x="0" y="0" width="{W}" height="{H}" fill="{sheet_bg_fill}"/>
 
   <g id="stockIconSheet">
     {paths_svg_group}
   </g>
 
   <g id="stockSideBanner">
-    <rect x="{banner_pad}" y="{int(round(H * 0.035))}" width="{inner_w}" height="{top_h - int(round(H * 0.035))}" 
-          rx="{max(18, int(round(banner_w * 0.045)))}" fill="{banner_bg}"/>
-
+    {cover_shape_svg}
+    {cover_decor_svg}
     {title_svg}
 
-    <text x="{banner_pad + inner_w / 2}" y="{int(round(H * 0.035)) + int(top_h * 0.62)}" 
-          font-size="{count_fs}" font-weight="900" fill="{banner_text}" letter-spacing="-3" 
+    <text x="{inner_cx:.1f}" y="{count_cy}"
+          font-size="{count_fs}" font-weight="900" fill="{banner_text}" letter-spacing="-3"
           text-anchor="middle" class="count">
       {sanitize_text(count_val)}
     </text>
@@ -906,1249 +1434,30 @@ def _build_vectuz_sidebar(model: Model, icons_meta: list[dict], c: dict, W: int,
 
 
 # =========================================================================
-# Layout 3: Wave Flow Ribbon (Image 1 Style)
-# =========================================================================
-def _build_wave_flow(model: Model, icons_meta: list[dict], c: dict, W: int, H: int) -> str:
-    count_val = str(c.get("count") or (len(icons_meta) if icons_meta else "24"))
-    mW, mH = max(10, model.width), max(10, model.height)
-
-    bw = int(round(W * 0.27))
-    sheet_x = int(bw * 0.85)
-    sheet_w = W - sheet_x
-
-    paths_svg_group = _render_adaptive_sheet_icons(
-        model, icons_meta, c,
-        sheet_x=sheet_x, sheet_y=0, sheet_w=sheet_w, sheet_h=H
-    )
-
-    artboard_bg = c.get("artboard_bg", "checkered")
-    defs_svg = ""
-    if artboard_bg == "checkered":
-        d_svg, sheet_bg_fill = _get_checkered_defs(W)
-        defs_svg = d_svg
-    else:
-        sheet_bg_fill = artboard_bg
-
-    banner_bg = c["banner_bg"]
-    banner_text = c["banner_text"]
-    banner_sub = c["banner_sub"]
-
-    # Wave curves (smooth S-curve double layer)
-    wave_d1 = f"M0,0 L{bw*0.88:.1f},0 C{bw*1.15:.1f},{H*0.28:.1f} {bw*0.60:.1f},{H*0.68:.1f} {bw*0.94:.1f},{H:.1f} L0,{H:.1f} Z"
-    wave_d2 = f"M0,0 L{bw*0.76:.1f},0 C{bw*1.04:.1f},{H*0.32:.1f} {bw*0.50:.1f},{H*0.62:.1f} {bw*0.82:.1f},{H:.1f} L0,{H:.1f} Z"
-
-    return f"""<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {W} {H}" width="{W}" height="{H}">
-  <defs>
-    <style>
-      @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@700;800;900&amp;family=JetBrains+Mono:wght@600;700&amp;display=swap');
-      text {{ font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif; }}
-      .mono {{ font-family: 'JetBrains Mono', monospace; }}
-    </style>{defs_svg}
-  </defs>
-
-  <rect x="0" y="0" width="{W}" height="{H}" fill="{sheet_bg_fill}"/>
-
-  <g id="stockIconSheet">
-    {paths_svg_group}
-  </g>
-
-  <!-- Left Wave Flow Ribbon Banner -->
-  <g id="waveFlowBanner">
-    <path d="{wave_d1}" fill="{banner_bg}"/>
-    <path d="{wave_d2}" fill="#ffffff" fill-opacity="0.22"/>
-
-    <text x="{int(bw * 0.40)}" y="{int(H * 0.32)}" font-size="28" font-weight="900" letter-spacing="3" fill="{banner_text}" text-anchor="middle">
-      {sanitize_text(c['title'])}
-    </text>
-
-    <text x="{int(bw * 0.40)}" y="{int(H * 0.52)}" font-size="120" font-weight="900" letter-spacing="-3" fill="{banner_text}" text-anchor="middle">
-      {sanitize_text(count_val)}
-    </text>
-
-    <text x="{int(bw * 0.40)}" y="{int(H * 0.62)}" font-size="18" font-weight="800" letter-spacing="1" fill="{banner_sub}" text-anchor="middle">
-      {sanitize_text(c['subtitle'])}
-    </text>
-
-    <!-- Mini Spec Pill -->
-    <rect x="{int(bw * 0.15)}" y="{int(H * 0.76)}" width="{int(bw * 0.50)}" height="42" rx="21" fill="{c['highlight_bg']}"/>
-    <text x="{int(bw * 0.40)}" y="{int(H * 0.76) + 26}" font-size="13" font-weight="800" letter-spacing="1.5" fill="#ffffff" text-anchor="middle" class="mono">
-      EDITABLE LINE ICONS
-    </text>
-  </g>
-</svg>"""
-
-
-# =========================================================================
-# Layout 4: Hexagon Cyber Shield (Image 2 Style)
-# =========================================================================
-def _build_hexagon_shield(model: Model, icons_meta: list[dict], c: dict, W: int, H: int) -> str:
-    count_val = str(c.get("count") or (len(icons_meta) if icons_meta else "24"))
-    mW, mH = max(10, model.width), max(10, model.height)
-
-    panel_w = int(round(W * 0.30))
-    sheet_x = panel_w
-    sheet_w = W - panel_w
-
-    paths_svg_group = _render_adaptive_sheet_icons(
-        model, icons_meta, c,
-        sheet_x=sheet_x,
-        sheet_y=0,
-        sheet_w=sheet_w,
-        sheet_h=H
-    )
-
-    artboard_bg = c.get("artboard_bg", "checkered")
-    defs_svg = ""
-    if artboard_bg == "checkered":
-        d_svg, sheet_bg_fill = _get_checkered_defs(W)
-        defs_svg = d_svg
-    else:
-        sheet_bg_fill = artboard_bg
-
-    banner_bg = c["banner_bg"]
-    banner_text = c["banner_text"]
-    banner_sub = c["banner_sub"]
-    hl_bg = c["highlight_bg"]
-
-    cx = panel_w // 2
-    cy = int(H * 0.48)
-    r_outer = int(panel_w * 0.40)
-    r_inner = int(panel_w * 0.34)
-
-    def hex_pts(radius):
-        pts = []
-        for i in range(6):
-            ang = math.radians(60 * i - 30)
-            pts.append(f"{cx + radius * math.cos(ang):.1f},{cy + radius * math.sin(ang):.1f}")
-        return " ".join(pts)
-
-    return f"""<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {W} {H}" width="{W}" height="{H}">
-  <defs>
-    <style>
-      @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@700;800;900&amp;family=JetBrains+Mono:wght@600;700&amp;display=swap');
-      text {{ font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif; }}
-      .mono {{ font-family: 'JetBrains Mono', monospace; }}
-    </style>{defs_svg}
-  </defs>
-
-  <rect x="{sheet_x}" y="0" width="{sheet_w}" height="{H}" fill="{sheet_bg_fill}"/>
-
-  <g id="stockIconSheet">
-    {paths_svg_group}
-  </g>
-
-  <!-- Left Hexagon Shield Panel -->
-  <g id="hexagonShieldPanel">
-    <rect x="0" y="0" width="{panel_w}" height="{H}" fill="{banner_bg}"/>
-
-    <text x="{cx}" y="{int(H * 0.16)}" font-size="28" font-weight="900" letter-spacing="3" fill="{banner_text}" text-anchor="middle">
-      {sanitize_text(c['title'])}
-    </text>
-    <text x="{cx}" y="{int(H * 0.20)}" font-size="14" font-weight="700" letter-spacing="1" fill="{banner_sub}" text-anchor="middle">
-      {sanitize_text(c['subtitle'])}
-    </text>
-
-    <!-- 3D Layered Hexagon Badge -->
-    <polygon points="{hex_pts(r_outer)}" fill="{hl_bg}" stroke="#ffffff" stroke-width="6"/>
-    <polygon points="{hex_pts(r_inner)}" fill="{banner_bg}" opacity="0.35"/>
-
-    <text x="{cx}" y="{cy + 36}" font-size="100" font-weight="900" letter-spacing="-2" fill="#ffffff" text-anchor="middle">
-      {sanitize_text(count_val)}
-    </text>
-
-    <text x="{cx}" y="{cy + r_outer + 48}" font-size="15" font-weight="800" letter-spacing="2" fill="{banner_text}" text-anchor="middle" class="mono">
-      CYBER SHIELD &#8226; VECTOR ICONS
-    </text>
-  </g>
-</svg>"""
-
-
-# =========================================================================
-# Layout 5: Origami Fold (Image 2 Style)
-# =========================================================================
-def _build_origami_fold(model: Model, icons_meta: list[dict], c: dict, W: int, H: int) -> str:
-    count_val = str(c.get("count") or (len(icons_meta) if icons_meta else "24"))
-    mW, mH = max(10, model.width), max(10, model.height)
-
-    bw = int(round(W * 0.28))
-    sheet_x = int(bw * 0.85)
-    sheet_w = W - sheet_x
-
-    paths_svg_group = _render_adaptive_sheet_icons(
-        model, icons_meta, c,
-        sheet_x=sheet_x,
-        sheet_y=0,
-        sheet_w=sheet_w,
-        sheet_h=H
-    )
-
-    artboard_bg = c.get("artboard_bg", "checkered")
-    defs_svg = ""
-    if artboard_bg == "checkered":
-        d_svg, sheet_bg_fill = _get_checkered_defs(W)
-        defs_svg = d_svg
-    else:
-        sheet_bg_fill = artboard_bg
-
-    banner_bg = c["banner_bg"]
-    banner_text = c["banner_text"]
-    banner_sub = c["banner_sub"]
-
-    return f"""<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {W} {H}" width="{W}" height="{H}">
-  <defs>
-    <style>
-      @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@700;800;900&amp;family=JetBrains+Mono:wght@600;700&amp;display=swap');
-      text {{ font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif; }}
-      .mono {{ font-family: 'JetBrains Mono', monospace; }}
-    </style>{defs_svg}
-  </defs>
-
-  <rect x="0" y="0" width="{W}" height="{H}" fill="{sheet_bg_fill}"/>
-
-  <g id="stockIconSheet">
-    {paths_svg_group}
-  </g>
-
-  <!-- Left Origami Fold Banner -->
-  <g id="origamiFoldBanner">
-    <polygon points="0,0 {bw*0.95:.1f},0 {bw*0.62:.1f},{H:.1f} 0,{H:.1f}" fill="{banner_bg}"/>
-    <polygon points="{bw*0.95:.1f},0 {bw*1.18:.1f},{H*0.42:.1f} {bw*0.62:.1f},{H:.1f}" fill="{banner_bg}" fill-opacity="0.55"/>
-    <polygon points="{bw*1.18:.1f},{H*0.42:.1f} {bw*0.92:.1f},{H*0.82:.1f} {bw*0.62:.1f},{H:.1f}" fill="{c['highlight_bg']}" fill-opacity="0.75"/>
-
-    <text x="{int(bw * 0.40)}" y="{int(H * 0.30)}" font-size="28" font-weight="900" letter-spacing="3" fill="{banner_text}" text-anchor="middle">
-      {sanitize_text(c['title'])}
-    </text>
-
-    <text x="{int(bw * 0.40)}" y="{int(H * 0.50)}" font-size="110" font-weight="900" letter-spacing="-3" fill="{banner_text}" text-anchor="middle">
-      {sanitize_text(count_val)}
-    </text>
-
-    <text x="{int(bw * 0.40)}" y="{int(H * 0.60)}" font-size="17" font-weight="800" letter-spacing="1" fill="{banner_sub}" text-anchor="middle">
-      {sanitize_text(c['subtitle'])}
-    </text>
-  </g>
-</svg>"""
-
-
-# =========================================================================
-# Layout 6: Diagonal Speed Slashes (Image 2 Style)
-# =========================================================================
-def _build_diagonal_slash(model: Model, icons_meta: list[dict], c: dict, W: int, H: int) -> str:
-    count_val = str(c.get("count") or (len(icons_meta) if icons_meta else "24"))
-    mW, mH = max(10, model.width), max(10, model.height)
-
-    bw = int(round(W * 0.28))
-    sheet_x = int(bw * 0.85)
-    sheet_w = W - sheet_x
-
-    paths_svg_group = _render_adaptive_sheet_icons(
-        model, icons_meta, c,
-        sheet_x=sheet_x,
-        sheet_y=0,
-        sheet_w=sheet_w,
-        sheet_h=H
-    )
-
-    artboard_bg = c.get("artboard_bg", "checkered")
-    defs_svg = ""
-    if artboard_bg == "checkered":
-        d_svg, sheet_bg_fill = _get_checkered_defs(W)
-        defs_svg = d_svg
-    else:
-        sheet_bg_fill = artboard_bg
-
-    banner_bg = c["banner_bg"]
-    banner_text = c["banner_text"]
-    banner_sub = c["banner_sub"]
-
-    return f"""<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {W} {H}" width="{W}" height="{H}">
-  <defs>
-    <style>
-      @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@700;800;900&amp;family=JetBrains+Mono:wght@600;700&amp;display=swap');
-      text {{ font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif; }}
-      .mono {{ font-family: 'JetBrains Mono', monospace; }}
-    </style>{defs_svg}
-  </defs>
-
-  <rect x="0" y="0" width="{W}" height="{H}" fill="{sheet_bg_fill}"/>
-
-  <g id="stockIconSheet">
-    {paths_svg_group}
-  </g>
-
-  <!-- Left Dynamic Diagonal Speed Slashes -->
-  <g id="diagonalSlashBanner">
-    <polygon points="0,0 {bw*0.75:.1f},0 {bw*0.25:.1f},{H:.1f} 0,{H:.1f}" fill="{banner_bg}"/>
-    <polygon points="{bw*0.80:.1f},0 {bw*0.96:.1f},0 {bw*0.46:.1f},{H:.1f} {bw*0.30:.1f},{H:.1f}" fill="{banner_bg}" fill-opacity="0.65"/>
-    <polygon points="{bw*1.01:.1f},0 {bw*1.12:.1f},0 {bw*0.62:.1f},{H:.1f} {bw*0.51:.1f},{H:.1f}" fill="{banner_bg}" fill-opacity="0.35"/>
-
-    <text x="{int(bw * 0.36)}" y="{int(H * 0.32)}" font-size="28" font-weight="900" letter-spacing="3" fill="{banner_text}" text-anchor="middle">
-      {sanitize_text(c['title'])}
-    </text>
-
-    <text x="{int(bw * 0.36)}" y="{int(H * 0.52)}" font-size="110" font-weight="900" letter-spacing="-3" fill="{banner_text}" text-anchor="middle">
-      {sanitize_text(count_val)}
-    </text>
-
-    <text x="{int(bw * 0.36)}" y="{int(H * 0.62)}" font-size="18" font-weight="800" letter-spacing="1" fill="{banner_sub}" text-anchor="middle">
-      {sanitize_text(c['subtitle'])}
-    </text>
-  </g>
-</svg>"""
-
-
-# =========================================================================
-# Layout 7: Concentric Orbital Rings (Image 2 Style)
-# =========================================================================
-def _build_bubble_orbital(model: Model, icons_meta: list[dict], c: dict, W: int, H: int) -> str:
-    count_val = str(c.get("count") or (len(icons_meta) if icons_meta else "24"))
-    mW, mH = max(10, model.width), max(10, model.height)
-
-    panel_w = int(round(W * 0.28))
-    sheet_x = panel_w
-    sheet_w = W - panel_w
-
-    paths_svg_group = _render_adaptive_sheet_icons(
-        model, icons_meta, c,
-        sheet_x=sheet_x,
-        sheet_y=0,
-        sheet_w=sheet_w,
-        sheet_h=H
-    )
-
-    artboard_bg = c.get("artboard_bg", "checkered")
-    defs_svg = ""
-    if artboard_bg == "checkered":
-        d_svg, sheet_bg_fill = _get_checkered_defs(W)
-        defs_svg = d_svg
-    else:
-        sheet_bg_fill = artboard_bg
-
-    banner_bg = c["banner_bg"]
-    banner_text = c["banner_text"]
-    banner_sub = c["banner_sub"]
-
-    cx = int(panel_w * 0.50)
-    cy = int(H * 0.48)
-    r = int(panel_w * 0.36)
-
-    return f"""<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {W} {H}" width="{W}" height="{H}">
-  <defs>
-    <style>
-      @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@700;800;900&amp;family=JetBrains+Mono:wght@600;700&amp;display=swap');
-      text {{ font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif; }}
-      .mono {{ font-family: 'JetBrains Mono', monospace; }}
-    </style>{defs_svg}
-  </defs>
-
-  <rect x="{sheet_x}" y="0" width="{sheet_w}" height="{H}" fill="{sheet_bg_fill}"/>
-
-  <g id="stockIconSheet">
-    {paths_svg_group}
-  </g>
-
-  <!-- Left Orbital Rings Banner -->
-  <g id="bubbleOrbitalBanner">
-    <circle cx="{cx}" cy="{cy}" r="{r}" fill="{banner_bg}"/>
-    <circle cx="{cx}" cy="{cy}" r="{int(r * 1.25)}" fill="none" stroke="{banner_bg}" stroke-width="4" stroke-dasharray="14,10" opacity="0.6"/>
-    <circle cx="{cx - 80}" cy="{cy - 160}" r="{int(r * 0.35)}" fill="{banner_bg}" opacity="0.45"/>
-    <circle cx="{cx + 100}" cy="{cy + 170}" r="{int(r * 0.28)}" fill="{banner_bg}" opacity="0.5"/>
-
-    <text x="{cx}" y="{int(H * 0.18)}" font-size="28" font-weight="900" letter-spacing="3" fill="{c['icon_stroke']}" text-anchor="middle">
-      {sanitize_text(c['title'])}
-    </text>
-
-    <text x="{cx}" y="{cy + 38}" font-size="110" font-weight="900" letter-spacing="-3" fill="{banner_text}" text-anchor="middle">
-      {sanitize_text(count_val)}
-    </text>
-
-    <text x="{cx}" y="{cy + r + 54}" font-size="18" font-weight="800" letter-spacing="1" fill="{c['icon_stroke']}" text-anchor="middle">
-      {sanitize_text(c['subtitle'])}
-    </text>
-  </g>
-</svg>"""
-
-
-# =========================================================================
-# Layout 8: Botanical Eco Leaf (Image 2 Style)
-# =========================================================================
-def _build_eco_leaf(model: Model, icons_meta: list[dict], c: dict, W: int, H: int) -> str:
-    count_val = str(c.get("count") or (len(icons_meta) if icons_meta else "24"))
-    mW, mH = max(10, model.width), max(10, model.height)
-
-    bw = int(round(W * 0.28))
-    sheet_x = int(bw * 0.85)
-    sheet_w = W - sheet_x
-
-    paths_svg_group = _render_adaptive_sheet_icons(
-        model, icons_meta, c,
-        sheet_x=sheet_x,
-        sheet_y=0,
-        sheet_w=sheet_w,
-        sheet_h=H
-    )
-
-    artboard_bg = c.get("artboard_bg", "checkered")
-    defs_svg = ""
-    if artboard_bg == "checkered":
-        d_svg, sheet_bg_fill = _get_checkered_defs(W)
-        defs_svg = d_svg
-    else:
-        sheet_bg_fill = artboard_bg
-
-    banner_bg = c["banner_bg"]
-    banner_text = c["banner_text"]
-    banner_sub = c["banner_sub"]
-
-    leaf_d1 = f"M0,0 L{bw*0.85:.1f},0 C{bw*1.12:.1f},{H*0.22:.1f} {bw*1.18:.1f},{H*0.48:.1f} {bw*0.90:.1f},{H*0.75:.1f} C{bw*0.72:.1f},{H*0.92:.1f} {bw*0.35:.1f},{H:.1f} 0,{H:.1f} Z"
-    leaf_d2 = f"M0,0 C{bw*0.80:.1f},{H*0.25:.1f} {bw*0.88:.1f},{H*0.55:.1f} 0,{H*0.82:.1f} Z"
-
-    return f"""<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {W} {H}" width="{W}" height="{H}">
-  <defs>
-    <style>
-      @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@700;800;900&amp;family=JetBrains+Mono:wght@600;700&amp;display=swap');
-      text {{ font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif; }}
-      .mono {{ font-family: 'JetBrains Mono', monospace; }}
-    </style>{defs_svg}
-  </defs>
-
-  <rect x="0" y="0" width="{W}" height="{H}" fill="{sheet_bg_fill}"/>
-
-  <g id="stockIconSheet">
-    {paths_svg_group}
-  </g>
-
-  <!-- Left Eco Leaf Petal Banner -->
-  <g id="ecoLeafBanner">
-    <path d="{leaf_d1}" fill="{banner_bg}"/>
-    <path d="{leaf_d2}" fill="#ffffff" fill-opacity="0.35"/>
-
-    <text x="{int(bw * 0.40)}" y="{int(H * 0.32)}" font-size="28" font-weight="900" letter-spacing="3" fill="{banner_text}" text-anchor="middle">
-      {sanitize_text(c['title'])}
-    </text>
-
-    <text x="{int(bw * 0.40)}" y="{int(H * 0.52)}" font-size="110" font-weight="900" letter-spacing="-3" fill="{banner_text}" text-anchor="middle">
-      {sanitize_text(count_val)}
-    </text>
-
-    <text x="{int(bw * 0.40)}" y="{int(H * 0.62)}" font-size="18" font-weight="800" letter-spacing="1" fill="{banner_sub}" text-anchor="middle">
-      {sanitize_text(c['subtitle'])}
-    </text>
-  </g>
-</svg>"""
-
-
-# =========================================================================
-# Layout 9: Liquid Teardrop (Image 2 Style)
-# =========================================================================
-def _build_droplet_flow(model: Model, icons_meta: list[dict], c: dict, W: int, H: int) -> str:
-    count_val = str(c.get("count") or (len(icons_meta) if icons_meta else "24"))
-    mW, mH = max(10, model.width), max(10, model.height)
-
-    bw = int(round(W * 0.28))
-    sheet_x = int(bw * 0.85)
-    sheet_w = W - sheet_x
-
-    paths_svg_group = _render_adaptive_sheet_icons(
-        model, icons_meta, c,
-        sheet_x=sheet_x,
-        sheet_y=0,
-        sheet_w=sheet_w,
-        sheet_h=H
-    )
-
-    artboard_bg = c.get("artboard_bg", "checkered")
-    defs_svg = ""
-    if artboard_bg == "checkered":
-        d_svg, sheet_bg_fill = _get_checkered_defs(W)
-        defs_svg = d_svg
-    else:
-        sheet_bg_fill = artboard_bg
-
-    banner_bg = c["banner_bg"]
-    banner_text = c["banner_text"]
-    banner_sub = c["banner_sub"]
-
-    drop_d = f"M0,0 L{bw*0.82:.1f},0 C{bw*1.22:.1f},{H*0.32:.1f} {bw*1.22:.1f},{H*0.68:.1f} {bw*0.82:.1f},{H:.1f} L0,{H:.1f} Z"
-
-    return f"""<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {W} {H}" width="{W}" height="{H}">
-  <defs>
-    <style>
-      @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@700;800;900&amp;family=JetBrains+Mono:wght@600;700&amp;display=swap');
-      text {{ font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif; }}
-      .mono {{ font-family: 'JetBrains Mono', monospace; }}
-    </style>{defs_svg}
-  </defs>
-
-  <rect x="0" y="0" width="{W}" height="{H}" fill="{sheet_bg_fill}"/>
-
-  <g id="stockIconSheet">
-    {paths_svg_group}
-  </g>
-
-  <!-- Left Teardrop Splash Banner -->
-  <g id="dropletBanner">
-    <path d="{drop_d}" fill="{banner_bg}"/>
-    <circle cx="{bw * 0.95}" cy="{H * 0.22}" r="{bw * 0.12}" fill="{banner_bg}" opacity="0.4"/>
-    <circle cx="{bw * 0.98}" cy="{H * 0.78}" r="{bw * 0.16}" fill="{banner_bg}" opacity="0.45"/>
-
-    <text x="{int(bw * 0.42)}" y="{int(H * 0.32)}" font-size="28" font-weight="900" letter-spacing="3" fill="{banner_text}" text-anchor="middle">
-      {sanitize_text(c['title'])}
-    </text>
-
-    <text x="{int(bw * 0.42)}" y="{int(H * 0.52)}" font-size="110" font-weight="900" letter-spacing="-3" fill="{banner_text}" text-anchor="middle">
-      {sanitize_text(count_val)}
-    </text>
-
-    <text x="{int(bw * 0.42)}" y="{int(H * 0.62)}" font-size="18" font-weight="800" letter-spacing="1" fill="{banner_sub}" text-anchor="middle">
-      {sanitize_text(c['subtitle'])}
-    </text>
-  </g>
-</svg>"""
-
-
-# =========================================================================
-# Layout 10: Halftone Dot Matrix Burst (Image 2 Style)
-# =========================================================================
-def _build_halftone_burst(model: Model, icons_meta: list[dict], c: dict, W: int, H: int) -> str:
-    count_val = str(c.get("count") or (len(icons_meta) if icons_meta else "24"))
-    mW, mH = max(10, model.width), max(10, model.height)
-
-    panel_w = int(round(W * 0.28))
-    sheet_x = panel_w
-    sheet_w = W - panel_w
-
-    paths_svg_group = _render_adaptive_sheet_icons(
-        model, icons_meta, c,
-        sheet_x=sheet_x,
-        sheet_y=0,
-        sheet_w=sheet_w,
-        sheet_h=H
-    )
-
-    artboard_bg = c.get("artboard_bg", "checkered")
-    defs_svg = ""
-    if artboard_bg == "checkered":
-        d_svg, sheet_bg_fill = _get_checkered_defs(W)
-        defs_svg = d_svg
-    else:
-        sheet_bg_fill = artboard_bg
-
-    banner_bg = c["banner_bg"]
-    banner_text = c["banner_text"]
-    banner_sub = c["banner_sub"]
-
-    cx = panel_w // 2
-    cy = int(H * 0.48)
-
-    dots = []
-    for ring_r, dot_r, num_dots in [(160, 5, 16), (220, 8, 24), (280, 11, 32)]:
-        for i in range(num_dots):
-            ang = 2 * math.pi * i / num_dots
-            dx = cx + ring_r * math.cos(ang)
-            dy = cy + ring_r * math.sin(ang)
-            dots.append(f'<circle cx="{dx:.1f}" cy="{dy:.1f}" r="{dot_r}" fill="{banner_bg}" opacity="0.35"/>')
-
-    dots_svg = "\n      ".join(dots)
-
-    return f"""<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {W} {H}" width="{W}" height="{H}">
-  <defs>
-    <style>
-      @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@700;800;900&amp;family=JetBrains+Mono:wght@600;700&amp;display=swap');
-      text {{ font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif; }}
-      .mono {{ font-family: 'JetBrains Mono', monospace; }}
-    </style>{defs_svg}
-  </defs>
-
-  <rect x="{sheet_x}" y="0" width="{sheet_w}" height="{H}" fill="{sheet_bg_fill}"/>
-
-  <g id="stockIconSheet">
-    {paths_svg_group}
-  </g>
-
-  <!-- Left Halftone Dot Matrix Banner -->
-  <g id="halftoneBurstBanner">
-    {dots_svg}
-
-    <circle cx="{cx}" cy="{cy}" r="120" fill="{banner_bg}"/>
-
-    <text x="{cx}" y="{int(H * 0.20)}" font-size="28" font-weight="900" letter-spacing="3" fill="{c['icon_stroke']}" text-anchor="middle">
-      {sanitize_text(c['title'])}
-    </text>
-
-    <text x="{cx}" y="{cy + 36}" font-size="100" font-weight="900" letter-spacing="-2" fill="{banner_text}" text-anchor="middle">
-      {sanitize_text(count_val)}
-    </text>
-
-    <text x="{cx}" y="{cy + 170}" font-size="17" font-weight="800" letter-spacing="1.5" fill="{c['icon_stroke']}" text-anchor="middle">
-      {sanitize_text(c['subtitle'])}
-    </text>
-  </g>
-</svg>"""
-
-
-# =========================================================================
-# Layout 11: Pixel Matrix (Image 2 Style)
-# =========================================================================
-def _build_pixel_matrix(model: Model, icons_meta: list[dict], c: dict, W: int, H: int) -> str:
-    count_val = str(c.get("count") or (len(icons_meta) if icons_meta else "24"))
-    mW, mH = max(10, model.width), max(10, model.height)
-
-    panel_w = int(round(W * 0.28))
-    sheet_x = panel_w
-    sheet_w = W - panel_w
-
-    paths_svg_group = _render_adaptive_sheet_icons(
-        model, icons_meta, c,
-        sheet_x=sheet_x,
-        sheet_y=0,
-        sheet_w=sheet_w,
-        sheet_h=H
-    )
-
-    artboard_bg = c.get("artboard_bg", "checkered")
-    defs_svg = ""
-    if artboard_bg == "checkered":
-        d_svg, sheet_bg_fill = _get_checkered_defs(W)
-        defs_svg = d_svg
-    else:
-        sheet_bg_fill = artboard_bg
-
-    banner_bg = c["banner_bg"]
-    banner_text = c["banner_text"]
-    banner_sub = c["banner_sub"]
-
-    solid_w = int(panel_w * 0.72)
-    sq_size = 48
-    pixels = []
-    np.random.seed(42)
-    for row in range(int(H // sq_size)):
-        py = row * sq_size
-        for col in range(5):
-            px = solid_w + col * sq_size
-            if np.random.rand() > (col * 0.22):
-                alpha = round(1.0 - col * 0.20, 2)
-                pixels.append(f'<rect x="{px}" y="{py}" width="{sq_size-4}" height="{sq_size-4}" rx="4" fill="{banner_bg}" fill-opacity="{alpha}"/>')
-
-    pixels_svg = "\n      ".join(pixels)
-    cx = solid_w // 2
-
-    return f"""<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {W} {H}" width="{W}" height="{H}">
-  <defs>
-    <style>
-      @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@700;800;900&amp;family=JetBrains+Mono:wght@600;700&amp;display=swap');
-      text {{ font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif; }}
-      .mono {{ font-family: 'JetBrains Mono', monospace; }}
-    </style>{defs_svg}
-  </defs>
-
-  <rect x="{sheet_x}" y="0" width="{sheet_w}" height="{H}" fill="{sheet_bg_fill}"/>
-
-  <g id="stockIconSheet">
-    {paths_svg_group}
-  </g>
-
-  <!-- Left Pixel Matrix Dissolve Banner -->
-  <g id="pixelMatrixBanner">
-    <rect x="0" y="0" width="{solid_w}" height="{H}" fill="{banner_bg}"/>
-    {pixels_svg}
-
-    <text x="{cx}" y="{int(H * 0.32)}" font-size="26" font-weight="900" letter-spacing="3" fill="{banner_text}" text-anchor="middle">
-      {sanitize_text(c['title'])}
-    </text>
-
-    <text x="{cx}" y="{int(H * 0.52)}" font-size="110" font-weight="900" letter-spacing="-3" fill="{banner_text}" text-anchor="middle">
-      {sanitize_text(count_val)}
-    </text>
-
-    <text x="{cx}" y="{int(H * 0.62)}" font-size="17" font-weight="800" letter-spacing="1" fill="{banner_sub}" text-anchor="middle">
-      {sanitize_text(c['subtitle'])}
-    </text>
-  </g>
-</svg>"""
-
-
-# =========================================================================
-# Layout 12: Top Header Magazine Bar (Shutterstock Style)
-# =========================================================================
-def _build_top_banner(model: Model, icons_meta: list[dict], c: dict, W: int, H: int) -> str:
-    stroke_scale = float(c.get("stroke_scale", 1.0))
-    count_val = str(c.get("count") or (len(icons_meta) if icons_meta else "24"))
-    mW, mH = max(10, model.width), max(10, model.height)
-
-    top_h = int(round(H * 0.22))
-    sheet_y = top_h
-    sheet_h = H - top_h
-
-    paths_svg_group = _render_adaptive_sheet_icons(
-        model, icons_meta, c,
-        sheet_x=0,
-        sheet_y=sheet_y,
-        sheet_w=W,
-        sheet_h=sheet_h
-    )
-
-    artboard_bg = c.get("artboard_bg", "checkered")
-    defs_svg = ""
-    if artboard_bg == "checkered":
-        d_svg, sheet_bg_fill = _get_checkered_defs(W)
-        defs_svg = d_svg
-    else:
-        sheet_bg_fill = artboard_bg
-
-    banner_bg = c["banner_bg"]
-    banner_text = c["banner_text"]
-    banner_sub = c["banner_sub"]
-    hl_bg = c["highlight_bg"]
-    hl_stroke = c["highlight_stroke"]
-
-    card_margin = int(W * 0.02)
-    card_h = top_h - card_margin * 2
-    badge_w = int(card_h * 1.5)
-    badge_x = card_margin
-    badge_y = card_margin
-
-    title_x = badge_x + badge_w + int(W * 0.03)
-    title_fs = int(c.get("title_fs") or 0) or max(32, int(round(top_h * 0.28)))
-    sub_fs = int(c.get("sub_fs") or 0) or max(16, int(round(top_h * 0.12)))
-
-    show_highlight = c.get("show_highlight", True)
-    right_box_svg = ""
-    if show_highlight:
-        rb_w = int(W * 0.24)
-        rb_x = W - card_margin - rb_w
-        rb_y = card_margin
-        hl_mode = c.get("highlight_mode", "mini_4")
-        num_hl = 1 if hl_mode == "hero_1" else 4
-        hl_paths = _extract_highlight_svg(
-            model, icons_meta, hl_mode, num_hl, hl_stroke, stroke_scale,
-            rb_w * 0.86, card_h * 0.70, rb_x + rb_w * 0.07, rb_y + card_h * 0.10, cols=num_hl
-        )
-        right_box_svg = f"""
-    <g id="topHighlightBox">
-      <rect x="{rb_x}" y="{rb_y}" width="{rb_w}" height="{card_h}" rx="16" fill="{hl_bg}" stroke="#334155" stroke-width="1.5"/>
-      {hl_paths}
-      <text x="{rb_x + rb_w / 2}" y="{rb_y + card_h - 10}" font-size="11" font-weight="700" letter-spacing="1" fill="#94a3b8" text-anchor="middle" class="mono">
-        INVERTED CONTRAST
-      </text>
-    </g>"""
-
-    return f"""<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {W} {H}" width="{W}" height="{H}">
-  <defs>
-    <style>
-      @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@600;700;800;900&amp;family=JetBrains+Mono:wght@600;700&amp;display=swap');
-      text {{ font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif; }}
-      .mono {{ font-family: 'JetBrains Mono', monospace; }}
-    </style>{defs_svg}
-  </defs>
-
-  <rect x="0" y="{sheet_y}" width="{W}" height="{sheet_h}" fill="{sheet_bg_fill}"/>
-
-  <g id="stockIconSheet">
-    {paths_svg_group}
-  </g>
-
-  <g id="stockTopHeader">
-    <rect x="0" y="0" width="{W}" height="{top_h}" fill="{banner_bg}"/>
-    <line x1="0" y1="{top_h}" x2="{W}" y2="{top_h}" stroke="#1e293b" stroke-width="3"/>
-
-    <rect x="{badge_x}" y="{badge_y}" width="{badge_w}" height="{card_h}" rx="18" fill="{hl_bg}"/>
-    <text x="{badge_x + badge_w / 2}" y="{badge_y + int(card_h * 0.58)}" font-size="{int(card_h * 0.44)}" font-weight="900" fill="#ffffff" text-anchor="middle" letter-spacing="-1">
-      {sanitize_text(count_val)}
-    </text>
-    <text x="{badge_x + badge_w / 2}" y="{badge_y + int(card_h * 0.82)}" font-size="{int(card_h * 0.16)}" font-weight="800" fill="#00f5a0" text-anchor="middle" letter-spacing="2">
-      ICONS
-    </text>
-
-    <text x="{title_x}" y="{badge_y + int(card_h * 0.46)}" font-size="{title_fs}" font-weight="900" letter-spacing="2" fill="{banner_text}">
-      {sanitize_text(c['title'])}
-    </text>
-    <text x="{title_x}" y="{badge_y + int(card_h * 0.78)}" font-size="{sub_fs}" font-weight="700" letter-spacing="0.5" fill="{banner_sub}">
-      {sanitize_text(c['subtitle'])} &#8226; 100% Scalable Vector Artboard
-    </text>
-
-    {right_box_svg}
-  </g>
-</svg>"""
-
-
-# =========================================================================
-# Layout 13: Bottom Dock Bar (Creative Market Style)
-# =========================================================================
-def _build_bottom_dock(model: Model, icons_meta: list[dict], c: dict, W: int, H: int) -> str:
-    count_val = str(c.get("count") or (len(icons_meta) if icons_meta else "24"))
-    mW, mH = max(10, model.width), max(10, model.height)
-
-    dock_h = int(round(H * 0.18))
-    sheet_h = H - dock_h
-
-    paths_svg_group = _render_adaptive_sheet_icons(
-        model, icons_meta, c,
-        sheet_x=0,
-        sheet_y=0,
-        sheet_w=W,
-        sheet_h=sheet_h
-    )
-
-    artboard_bg = c.get("artboard_bg", "checkered")
-    defs_svg = ""
-    if artboard_bg == "checkered":
-        d_svg, sheet_bg_fill = _get_checkered_defs(W)
-        defs_svg = d_svg
-    else:
-        sheet_bg_fill = artboard_bg
-
-    banner_bg = c["banner_bg"]
-    banner_text = c["banner_text"]
-    banner_sub = c["banner_sub"]
-    hl_bg = c["highlight_bg"]
-
-    dock_y = sheet_h
-    dock_pad = int(W * 0.03)
-
-    return f"""<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {W} {H}" width="{W}" height="{H}">
-  <defs>
-    <style>
-      @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@600;700;800;900&amp;family=JetBrains+Mono:wght@600;700&amp;display=swap');
-      text {{ font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif; }}
-      .mono {{ font-family: 'JetBrains Mono', monospace; }}
-    </style>{defs_svg}
-  </defs>
-
-  <rect x="0" y="0" width="{W}" height="{sheet_h}" fill="{sheet_bg_fill}"/>
-
-  <g id="stockIconSheet">
-    {paths_svg_group}
-  </g>
-
-  <g id="stockBottomDock">
-    <rect x="0" y="{dock_y}" width="{W}" height="{dock_h}" fill="{banner_bg}"/>
-    <line x1="0" y1="{dock_y}" x2="{W}" y2="{dock_y}" stroke="{hl_bg}" stroke-width="4"/>
-
-    <text x="{dock_pad}" y="{dock_y + int(dock_h * 0.46)}" font-size="{max(28, int(dock_h * 0.28))}" font-weight="900" letter-spacing="2" fill="{banner_text}">
-      {sanitize_text(c['title'])}
-    </text>
-    <text x="{dock_pad}" y="{dock_y + int(dock_h * 0.76)}" font-size="{max(15, int(dock_h * 0.13))}" font-weight="700" letter-spacing="0.5" fill="{banner_sub}">
-      {sanitize_text(c['subtitle'])} &#8226; Clean Stroke Geometry
-    </text>
-
-    <rect x="{int(W * 0.52)}" y="{dock_y + int(dock_h * 0.16)}" width="{int(W * 0.18)}" height="{int(dock_h * 0.68)}" rx="20" fill="{hl_bg}"/>
-    <text x="{int(W * 0.61)}" y="{dock_y + int(dock_h * 0.62)}" font-size="{int(dock_h * 0.44)}" font-weight="900" fill="#ffffff" text-anchor="middle">
-      {sanitize_text(count_val)} <tspan font-size="{int(dock_h * 0.18)}" fill="#00f5a0" font-weight="800">ICONS</tspan>
-    </text>
-
-    <text x="{W - dock_pad}" y="{dock_y + int(dock_h * 0.45)}" font-size="14" font-weight="800" letter-spacing="1" fill="{banner_text}" text-anchor="end" class="mono">
-      EDITABLE LINE ICONS
-    </text>
-    <text x="{W - dock_pad}" y="{dock_y + int(dock_h * 0.72)}" font-size="13" font-weight="700" letter-spacing="1" fill="{banner_sub}" text-anchor="end" class="mono">
-      SVG &#8226; EPS 3.0 &#8226; 4K PNG
-    </text>
-  </g>
-</svg>"""
-
-
-# =========================================================================
-# Layout 14: Dual Theme 50/50 Split (Light & Dark Contrast)
-# =========================================================================
-def _build_split_duo(model: Model, icons_meta: list[dict], c: dict, W: int, H: int) -> str:
-    count_val = str(c.get("count") or (len(icons_meta) if icons_meta else "24"))
-    mW, mH = max(10, model.width), max(10, model.height)
-
-    half_w = W // 2
-    pill_w = int(W * 0.58)
-    pill_h = 120
-    pill_x = (W - pill_w) // 2
-    pill_y = 40
-
-    top_clearance = pill_y + pill_h + 30
-    bottom_clearance = 80
-    avail_sheet_h = H - top_clearance - bottom_clearance
-
-    # Left side (light theme):
-    c_left = dict(c, icon_stroke=c.get("icon_stroke", "#1E1E1E"))
-    left_paths = _render_adaptive_sheet_icons(
-        model, icons_meta, c_left,
-        sheet_x=0, sheet_y=top_clearance, sheet_w=half_w, sheet_h=avail_sheet_h
-    )
-    # Right side (dark theme):
-    c_right = dict(c, icon_stroke=c.get("highlight_stroke", "#38BDF8") or "#FFFFFF")
-    right_paths = _render_adaptive_sheet_icons(
-        model, icons_meta, c_right,
-        sheet_x=half_w, sheet_y=top_clearance, sheet_w=half_w, sheet_h=avail_sheet_h
-    )
-
-    artboard_bg = c.get("artboard_bg", "checkered")
-    defs_svg = ""
-    if artboard_bg == "checkered":
-        d_svg, left_bg_fill = _get_checkered_defs(W)
-        defs_svg = d_svg
-    else:
-        left_bg_fill = artboard_bg
-
-    banner_bg = c["banner_bg"]
-    banner_text = c["banner_text"]
-
-    pill_w = int(W * 0.58)
-    pill_h = 120
-    pill_x = (W - pill_w) // 2
-    pill_y = 40
-
-    return f"""<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {W} {H}" width="{W}" height="{H}">
-  <defs>
-    <style>
-      @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@700;800;900&amp;family=JetBrains+Mono:wght@600;700&amp;display=swap');
-      text {{ font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif; }}
-      .mono {{ font-family: 'JetBrains Mono', monospace; }}
-    </style>{defs_svg}
-  </defs>
-
-  <rect x="0" y="0" width="{half_w}" height="{H}" fill="{left_bg_fill}"/>
-  <g id="lightSideIcons">
-    {left_paths}
-  </g>
-  <text x="{half_w / 2}" y="{H - 36}" font-size="14" font-weight="800" letter-spacing="2" fill="#64748b" text-anchor="middle" class="mono">
-    LIGHT THEME
-  </text>
-
-  <rect x="{half_w}" y="0" width="{half_w}" height="{H}" fill="#0F172A"/>
-  <g id="darkSideIcons">
-    {right_paths}
-  </g>
-  <text x="{half_w + half_w / 2}" y="{H - 36}" font-size="14" font-weight="800" letter-spacing="2" fill="#94a3b8" text-anchor="middle" class="mono">
-    DARK THEME
-  </text>
-
-  <line x1="{half_w}" y1="0" x2="{half_w}" y2="{H}" stroke="#334155" stroke-width="3" stroke-dasharray="14,10"/>
-
-  <g id="splitCenterPill">
-    <rect x="{pill_x}" y="{pill_y}" width="{pill_w}" height="{pill_h}" rx="60" fill="{banner_bg}" stroke="#0f172a" stroke-width="4"/>
-    <text x="{W / 2}" y="{pill_y + 74}" font-size="34" font-weight="900" letter-spacing="2" fill="{banner_text}" text-anchor="middle">
-      {sanitize_text(c['title'])} <tspan font-weight="900" fill="{banner_text}">&#8226;</tspan> {sanitize_text(count_val)} ICONS <tspan font-size="20" font-weight="700">&#8226; DUAL THEME</tspan>
-    </text>
-  </g>
-</svg>"""
-
-
-# =========================================================================
-# Layout 15: Floating Modern Card (Dribbble / Minimal)
-# =========================================================================
-def _build_floating_card(model: Model, icons_meta: list[dict], c: dict, W: int, H: int) -> str:
-    stroke_scale = float(c.get("stroke_scale", 1.0))
-    count_val = str(c.get("count") or (len(icons_meta) if icons_meta else "24"))
-    mW, mH = max(10, model.width), max(10, model.height)
-
-    card_w = int(W * 0.24)
-    card_h = int(H * 0.36)
-    card_x = 64
-    card_y = 64
-    sheet_x = card_x + card_w + 32
-    sheet_w = W - sheet_x - 48
-    sheet_y = 48
-    sheet_h = H - 96
-
-    paths_svg_group = _render_adaptive_sheet_icons(
-        model, icons_meta, c,
-        sheet_x=sheet_x,
-        sheet_y=sheet_y,
-        sheet_w=sheet_w,
-        sheet_h=sheet_h
-    )
-
-    artboard_bg = c.get("artboard_bg", "checkered")
-    defs_svg = ""
-    if artboard_bg == "checkered":
-        d_svg, sheet_bg_fill = _get_checkered_defs(W)
-        defs_svg = d_svg
-    else:
-        sheet_bg_fill = artboard_bg
-
-    banner_bg = c["banner_bg"]
-    banner_text = c["banner_text"]
-    banner_sub = c["banner_sub"]
-    hl_bg = c["highlight_bg"]
-    hl_stroke = c["highlight_stroke"]
-
-    card_w = int(W * 0.24)
-    card_h = int(H * 0.36)
-    card_x = 64
-    card_y = 64
-
-    show_highlight = c.get("show_highlight", True)
-    mini_box_svg = ""
-    if show_highlight and card_h > 180:
-        mb_h = int(card_h * 0.38)
-        mb_y = card_y + card_h - mb_h - 20
-        mb_w = card_w - 48
-        mb_x = card_x + 24
-        hl_paths = _extract_highlight_svg(
-            model, icons_meta, "mini_4", 4, hl_stroke, stroke_scale,
-            mb_w * 0.88, mb_h * 0.75, mb_x + mb_w * 0.06, mb_y + mb_h * 0.12, cols=4
-        )
-        mini_box_svg = f"""
-      <rect x="{mb_x}" y="{mb_y}" width="{mb_w}" height="{mb_h}" rx="14" fill="{hl_bg}"/>
-      {hl_paths}"""
-
-    return f"""<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {W} {H}" width="{W}" height="{H}">
-  <defs>
-    <style>
-      @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@700;800;900&amp;family=JetBrains+Mono:wght@600;700&amp;display=swap');
-      text {{ font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif; }}
-      .mono {{ font-family: 'JetBrains Mono', monospace; }}
-    </style>{defs_svg}
-    <filter id="cardShadow" x="-10%" y="-10%" width="125%" height="125%">
-      <feDropShadow dx="0" dy="16" stdDeviation="24" flood-color="#000000" flood-opacity="0.35"/>
-    </filter>
-  </defs>
-
-  <rect x="0" y="0" width="{W}" height="{H}" fill="{sheet_bg_fill}"/>
-
-  <g id="stockIconSheet">
-    {paths_svg_group}
-  </g>
-
-  <g id="floatingGlassCard" filter="url(#cardShadow)">
-    <rect x="{card_x}" y="{card_y}" width="{card_w}" height="{card_h}" rx="28" fill="{banner_bg}" stroke="#ffffff" stroke-width="2" stroke-opacity="0.4"/>
-
-    <text x="{card_x + 28}" y="{card_y + 60}" font-size="24" font-weight="900" letter-spacing="2" fill="{banner_text}">
-      {sanitize_text(c['title'])}
-    </text>
-
-    <text x="{card_x + 28}" y="{card_y + 148}" font-size="76" font-weight="900" letter-spacing="-2" fill="{banner_text}">
-      {sanitize_text(count_val)}
-    </text>
-
-    <text x="{card_x + 28}" y="{card_y + 188}" font-size="15" font-weight="700" letter-spacing="0.5" fill="{banner_sub}">
-      {sanitize_text(c['subtitle'])}
-    </text>
-
-    {mini_box_svg}
-  </g>
-</svg>"""
-
-
-# =========================================================================
-# Layout 16: Framed Passe-Partout (Luxury Editorial)
-# =========================================================================
-def _build_framed_editorial(model: Model, icons_meta: list[dict], c: dict, W: int, H: int) -> str:
-    count_val = str(c.get("count") or (len(icons_meta) if icons_meta else "24"))
-    mW, mH = max(10, model.width), max(10, model.height)
-
-    pad = int(W * 0.04)
-    sheet_x = pad + 40
-    sheet_y = pad + 150
-    sheet_w = W - pad * 2 - 80
-    sheet_h = H - pad * 2 - 230
-
-    paths_svg_group = _render_adaptive_sheet_icons(
-        model, icons_meta, c,
-        sheet_x=sheet_x,
-        sheet_y=sheet_y,
-        sheet_w=sheet_w,
-        sheet_h=sheet_h
-    )
-
-    artboard_bg = c.get("artboard_bg", "checkered")
-    defs_svg = ""
-    if artboard_bg == "checkered":
-        d_svg, sheet_bg_fill = _get_checkered_defs(W)
-        defs_svg = d_svg
-    else:
-        sheet_bg_fill = artboard_bg
-
-    banner_bg = c["banner_bg"]
-    banner_text = c["banner_text"]
-
-    return f"""<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {W} {H}" width="{W}" height="{H}">
-  <defs>
-    <style>
-      @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@600;700;800;900&amp;family=JetBrains+Mono:wght@600;700&amp;display=swap');
-      text {{ font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif; }}
-      .mono {{ font-family: 'JetBrains Mono', monospace; }}
-    </style>{defs_svg}
-  </defs>
-
-  <rect x="0" y="0" width="{W}" height="{H}" fill="{sheet_bg_fill}"/>
-
-  <rect x="{pad}" y="{pad}" width="{W - pad * 2}" height="{H - pad * 2}" rx="12" fill="none" stroke="{banner_bg}" stroke-width="4"/>
-  <rect x="{pad + 18}" y="{pad + 18}" width="{W - pad * 2 - 36}" height="{H - pad * 2 - 36}" rx="8" fill="none" stroke="{banner_bg}" stroke-width="1.5" stroke-dasharray="16,8"/>
-
-  <path d="M{pad-12},{pad} h24 M{pad},{pad-12} v24" stroke="{banner_bg}" stroke-width="2"/>
-  <path d="M{W-pad-12},{pad} h24 M{W-pad},{pad-12} v24" stroke="{banner_bg}" stroke-width="2"/>
-  <path d="M{pad-12},{H-pad} h24 M{pad},{H-pad-12} v24" stroke="{banner_bg}" stroke-width="2"/>
-  <path d="M{W-pad-12},{H-pad} h24 M{W-pad},{H-pad-12} v24" stroke="{banner_bg}" stroke-width="2"/>
-
-  <g id="stockIconSheet">
-    {paths_svg_group}
-  </g>
-
-  <text x="{W / 2}" y="{pad + 68}" font-size="14" font-weight="800" letter-spacing="4" fill="#64748b" text-anchor="middle" class="mono">
-    &#8212; VECTOR ICON COLLECTION &#8212;
-  </text>
-  <text x="{W / 2}" y="{pad + 116}" font-size="38" font-weight="900" letter-spacing="4" fill="{c['icon_stroke']}" text-anchor="middle">
-    {sanitize_text(c['title'])}
-  </text>
-
-  <rect x="{(W - 680) / 2}" y="{H - pad - 68}" width="680" height="52" rx="26" fill="{banner_bg}"/>
-  <text x="{W / 2}" y="{H - pad - 35}" font-size="16" font-weight="900" letter-spacing="2" fill="{banner_text}" text-anchor="middle" class="mono">
-    [ {sanitize_text(count_val)} EDITABLE LINE ICONS &#8226; 100% VECTOR ]
-  </text>
-</svg>"""
-
-
-# =========================================================================
-# Layout 17: Hero Spotlight (Large Highlight Icon Circle)
-# =========================================================================
-def _build_hero_spotlight(model: Model, icons_meta: list[dict], c: dict, W: int, H: int) -> str:
-    stroke_scale = float(c.get("stroke_scale", 1.0))
-    count_val = str(c.get("count") or (len(icons_meta) if icons_meta else "24"))
-    mW, mH = max(10, model.width), max(10, model.height)
-
-    panel_w = int(round(W * 0.32))
-    sheet_x = panel_w
-    sheet_w = W - panel_w
-    sheet_h = H
-
-    paths_svg_group = _render_adaptive_sheet_icons(
-        model, icons_meta, c,
-        sheet_x=sheet_x, sheet_y=0, sheet_w=sheet_w, sheet_h=sheet_h
-    )
-
-    artboard_bg = c.get("artboard_bg", "checkered")
-    defs_svg = ""
-    if artboard_bg == "checkered":
-        d_svg, sheet_bg_fill = _get_checkered_defs(W)
-        defs_svg = d_svg
-    else:
-        sheet_bg_fill = artboard_bg
-
-    banner_bg = c["banner_bg"]
-    banner_text = c["banner_text"]
-    banner_sub = c["banner_sub"]
-
-    fonts_import, title_font, count_font, sub_font = _get_font_css(c.get("font_family", "bebas"))
-    title_hl_style = str(c.get("title_highlight", "pill"))
-
-    # Title with highlight element (matching template)
-    title_svg = _render_title_highlight(
-        title=c['title'], subtitle=c['subtitle'],
-        cx=panel_w / 2, cy=int(H * 0.13),
-        title_fs=int(c.get("title_fs") or 0) or max(36, int(panel_w * 0.082)),
-        sub_fs=int(c.get("sub_fs") or 0) or max(16, int(panel_w * 0.038)),
-        banner_text=banner_text, banner_sub=banner_sub,
-        title_font=title_font, sub_font=sub_font,
-        style=title_hl_style, is_centered=True,
-        max_w=panel_w * 0.88
-    )
-
-    # Redesigned Showcase Box (replacing the raw black circle)
-    sc_cx = panel_w / 2
-    sc_cy = int(H * 0.47)
-    sc_w = int(panel_w * 0.84)
-    sc_h = int(panel_w * 0.84)
-    showcase_svg = _render_showcase_box(
-        model, icons_meta, c,
-        cx=sc_cx, cy=sc_cy, w=sc_w, h=sc_h,
-        stroke_scale=stroke_scale
-    )
-
-    # Big punchy count number with bottom pill badge
-    count_fs = int(c.get("count_fs") or 0) or max(96, int(panel_w * 0.28))
-
-    return f"""<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {W} {H}" width="{W}" height="{H}">
-  <defs>
-    <style>
-      {fonts_import}
-      text {{ font-family: {sub_font}; }}
-      .title {{ font-family: {title_font}; }}
-      .count {{ font-family: {count_font}; }}
-      .sub {{ font-family: {sub_font}; }}
-      .mono {{ font-family: 'JetBrains Mono', 'Consolas', monospace; }}
-    </style>{defs_svg}
-  </defs>
-
-  <rect x="{sheet_x}" y="0" width="{sheet_w}" height="{sheet_h}" fill="{sheet_bg_fill}"/>
-
-  <g id="stockIconSheet">
-    {paths_svg_group}
-  </g>
-
-  <g id="spotlightPanel">
-    <rect x="0" y="0" width="{panel_w}" height="{H}" fill="{banner_bg}"/>
-
-    {title_svg}
-
-    {showcase_svg}
-
-    <!-- Bottom Big Count Badge -->
-    <g id="spotlightCountBadge">
-      <text x="{panel_w / 2}" y="{int(H * 0.835)}" font-size="{count_fs}" font-weight="900" 
-            letter-spacing="-3" fill="{banner_text}" text-anchor="middle" class="count">
-        {sanitize_text(count_val)}
-      </text>
-      <rect x="{panel_w/2 - 130}" y="{int(H * 0.865)}" width="260" height="38" rx="19" 
-            fill="rgba(0,0,0,0.22)" stroke="rgba(255,255,255,0.22)" stroke-width="1.5"/>
-      <text x="{panel_w / 2}" y="{int(H * 0.865) + 25}" font-size="16" font-weight="800" 
-            letter-spacing="3" fill="{banner_sub}" text-anchor="middle" class="mono">
-        EDITABLE ICONS
-      </text>
-    </g>
-  </g>
-</svg>"""
-
-
-# =========================================================================
-# Master SVG Dispatcher (Supports all 17 designs)
+# Master SVG Dispatcher
 # =========================================================================
 def build_template_svg(model: Model, icons_meta: list[dict] | None = None, config: dict | None = None) -> str:
-    """Generate high-resolution SVG presentation sheet supporting 17 distinct microstock designs."""
+    """Generate high-resolution SVG presentation sheet using the Modular Template Maker Engine."""
     c = resolve_config(config)
     icons_meta = icons_meta or []
-    design = str(c.get("design") or "vectuz_sidebar").lower()
+
+    # Map legacy design names to modular settings if passed
+    design = str(c.get("design") or "modular_maker").lower()
+    if design == "vectuz_right" or design == "side_cover_right":
+        c["panel_pos"] = "right"
+    elif design == "top_banner":
+        c["panel_pos"] = "top"
+    elif design == "bottom_dock":
+        c["panel_pos"] = "bottom"
+    elif design in ("wave_flow", "eco_leaf", "droplet_flow", "origami_fold", "diagonal_slash", "pixel_matrix"):
+        if c.get("banner_shape") == "square_solid":
+            c["banner_shape"] = design
 
     mW, mH = max(10, model.width), max(10, model.height)
     layout = c.get("layout", "landscape_16_9")
     W, H, banner_w = _calc_dims(layout, mW, mH)
 
-    # Family 1: Stock Bestsellers
-    if design == "vectuz_right":
-        return _build_vectuz_sidebar(model, icons_meta, c, W, H, banner_w, is_right=True)
-    elif design == "top_banner":
-        return _build_top_banner(model, icons_meta, c, W, H)
-    elif design == "bottom_dock":
-        return _build_bottom_dock(model, icons_meta, c, W, H)
-    elif design == "split_duo":
-        return _build_split_duo(model, icons_meta, c, W, H)
-    elif design == "floating_card":
-        return _build_floating_card(model, icons_meta, c, W, H)
-    elif design == "framed_editorial":
-        return _build_framed_editorial(model, icons_meta, c, W, H)
-    elif design == "hero_spotlight":
-        return _build_hero_spotlight(model, icons_meta, c, W, H)
-
-    # Family 2: Waves & Organic Flow (Images 1 & 2)
-    elif design == "wave_flow":
-        return _build_wave_flow(model, icons_meta, c, W, H)
-    elif design == "eco_leaf":
-        return _build_eco_leaf(model, icons_meta, c, W, H)
-    elif design == "droplet_flow":
-        return _build_droplet_flow(model, icons_meta, c, W, H)
-
-    # Family 3: Tech & Geometric Badges (Image 2)
-    elif design == "hexagon_shield":
-        return _build_hexagon_shield(model, icons_meta, c, W, H)
-    elif design == "origami_fold":
-        return _build_origami_fold(model, icons_meta, c, W, H)
-    elif design == "diagonal_slash":
-        return _build_diagonal_slash(model, icons_meta, c, W, H)
-    elif design == "bubble_orbital":
-        return _build_bubble_orbital(model, icons_meta, c, W, H)
-    elif design == "halftone_burst":
-        return _build_halftone_burst(model, icons_meta, c, W, H)
-    elif design == "pixel_matrix":
-        return _build_pixel_matrix(model, icons_meta, c, W, H)
-
-    else:  # "vectuz_sidebar" (default Adobe Stock standard)
-        return _build_vectuz_sidebar(model, icons_meta, c, W, H, banner_w, is_right=False)
+    return _build_modular_template(model, icons_meta, c, W, H, banner_w)
 
 
 # =========================================================================
