@@ -768,7 +768,17 @@ def _start(gray, name, quality, clean, target, fresh: bool = True, user_id: int 
     d.mkdir(parents=True, exist_ok=True)
     cv2.imwrite(str(d / "original.png"), gray)
     clean = float(np.clip(clean, 0, 1))
-    opts = dict(quality=quality, target_iou=float(np.clip(target, 90, 99.9)) / 100, dedupe_tol=0.0005 + 0.006 * clean, fresh=bool(fresh))
+    p_cfg = PRESETS.get(quality, PRESETS["standard"])
+    opts = dict(
+        quality=quality,
+        target_iou=float(np.clip(target, 90, 99.9)) / 100,
+        dedupe_tol=0.0005 + 0.006 * clean,
+        fresh=bool(fresh),
+        max_rounds=p_cfg["max_rounds"],
+        time_budget=p_cfg["time_budget"],
+        region_edits=p_cfg["region_edits"],
+        decision_budget=3.5,
+    )
     job = dict(
         id=job_id, user_id=user_id, name=name, status="queued", options=opts, created=time.time(), icons=[], events=[],
         width=int(gray.shape[1]), height=int(gray.shape[0]), version=0, done=0, iou=None,
