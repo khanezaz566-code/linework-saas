@@ -687,16 +687,24 @@
             </button>
             <div class="template-title-group">
               <h2>Presentation Template Studio</h2>
-              <span class="template-sub" id="tplMetaSub">Merged Vector Artboard · Left Info + Right Vector Icons</span>
+              <span class="template-sub" id="tplMetaSub">Adobe Stock / Vectuz Style Merged Presentation</span>
             </div>
           </div>
 
           <div class="topbar-right">
-            <a class="btn primary-action-btn" id="btnDlTemplateSvg" href="#" download="presentation.svg">
+            <button class="btn secondary-action-btn" id="btnSaveCustomTemplate" title="Save current colors & layout as a reusable preset">
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+              <span>Save Template</span>
+            </button>
+            <a class="btn primary-action-btn" id="btnDlTemplateSvg" href="#" download="stock-presentation.svg">
               <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
               <span>Download SVG</span>
             </a>
-            <a class="btn primary-action-btn eps-btn" id="btnDlTemplateEps" href="#" download="presentation.eps">
+            <a class="btn primary-action-btn png-btn" id="btnDlTemplatePng" href="#" download="stock-presentation.png">
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2"><rect width="18" height="18" x="3" y="3" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg>
+              <span>4K Stock PNG</span>
+            </a>
+            <a class="btn primary-action-btn eps-btn" id="btnDlTemplateEps" href="#" download="stock-presentation.eps">
               <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><path d="M8 13h4M8 17h6"/></svg>
               <span>Download EPS</span>
             </a>
@@ -716,7 +724,7 @@
             <!-- Presets Section -->
             <div class="card panel tpl-panel">
               <div class="panel-header">
-                <h3>Style Presets</h3>
+                <h3>Stock Style Presets</h3>
                 <span class="badge-live">1-Click</span>
               </div>
               <div class="panel-body">
@@ -726,57 +734,83 @@
               </div>
             </div>
 
-            <!-- Set Info & Metadata Section -->
+            <!-- Saved Templates Section -->
+            <div class="card panel tpl-panel" id="savedTemplatesPanel">
+              <div class="panel-header">
+                <h3>My Saved Templates</h3>
+                <span class="opt-val" id="savedCountBadge">0 saved</span>
+              </div>
+              <div class="panel-body">
+                <div class="saved-templates-list" id="savedTemplatesList">
+                  <div class="saved-empty-msg">No custom templates saved yet. Click "Save Template" above to save your custom styles.</div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Set Content & Typography Section -->
             <div class="card panel tpl-panel">
               <div class="panel-header">
-                <h3>Icon Set Details</h3>
+                <h3>Content &amp; Typography</h3>
               </div>
               <div class="panel-body">
                 <label class="param-row text-input-row">
-                  <span>Title</span>
-                  <input type="text" id="tplTitle" value="Minimal Vector Line Icons" placeholder="e.g. Essential UI Icons">
+                  <span>Category / Title</span>
+                  <input type="text" id="tplTitle" value="TECHNOLOGY" placeholder="e.g. TECHNOLOGY, BUSINESS, HEALTHCARE">
                 </label>
+                <div class="param-row text-input-row">
+                  <div style="display:flex; justify-content:space-between; align-items:center;">
+                    <span>Icon Count Number</span>
+                    <button type="button" class="btn btn-tiny" id="btnAutoCount" title="Auto-detect from sheet" style="font-size:11px; padding:2px 8px; border-radius:6px; background:rgba(0,245,160,0.15); color:var(--accent); border:1px solid rgba(0,245,160,0.3); cursor:pointer;">
+                      ⚡ Auto Detect
+                    </button>
+                  </div>
+                  <input type="text" id="tplCount" value="24" placeholder="e.g. 24, 30, 40">
+                </div>
                 <label class="param-row text-input-row">
-                  <span>Category / Subtitle</span>
-                  <input type="text" id="tplSubtitle" value="Clean Centerline Vector Icon Collection" placeholder="e.g. UI & Mobile App Collection">
-                </label>
-                <label class="param-row text-input-row">
-                  <span>Grid Spec</span>
-                  <input type="text" id="tplGrid" value="64 × 64 px Grid" placeholder="e.g. 64x64 px">
-                </label>
-                <label class="param-row text-input-row">
-                  <span>Author / Brand</span>
-                  <input type="text" id="tplAuthor" value="Linework AI Precision Engine" placeholder="Your Brand or Name">
+                  <span>Subtitle / Features</span>
+                  <input type="text" id="tplSubtitle" value="Editable Line Icons" placeholder="e.g. Editable Line Icons">
                 </label>
               </div>
             </div>
 
-            <!-- Custom Colors / Custom Preset Section -->
+            <!-- Custom Colors Section -->
             <div class="card panel tpl-panel">
               <div class="panel-header">
-                <h3>Custom Colors</h3>
+                <h3>Colors &amp; Theme</h3>
                 <span class="opt-val" id="customColorHint">Live Edit</span>
               </div>
               <div class="panel-body">
                 <label class="param-row">
+                  <span>Cover Banner Color</span>
+                  <input type="color" id="tplBannerBg" value="#F5B800">
+                </label>
+                <div class="param-row" style="display:flex; justify-content:space-between; align-items:center;">
+                  <span>Banner Text Color</span>
+                  <div class="seg seg-compact" id="tplBannerTextSeg">
+                    <button type="button" data-v="#1E1E1E" class="on">Dark</button>
+                    <button type="button" data-v="#FFFFFF">Light</button>
+                  </div>
+                </div>
+                <label class="param-row">
+                  <span>Dark Showcase Box</span>
+                  <input type="color" id="tplHighlightBg" value="#181B24">
+                </label>
+                <label class="param-row">
+                  <span>Showcase Icons Color</span>
+                  <input type="color" id="tplHighlightStroke" value="#FFFFFF">
+                </label>
+                <div class="param-row" style="flex-direction:column; gap:6px; align-items:flex-start;">
                   <span>Artboard Background</span>
-                  <input type="color" id="tplBgColor" value="#090d14">
-                </label>
+                  <div class="seg tpl-bg-seg" id="tplArtboardBgSeg" style="width:100%; display:grid; grid-template-columns: repeat(4, 1fr); gap:4px;">
+                    <button type="button" data-v="checkered" class="on" style="font-size:11px; padding:6px 2px;">🏁 Checkered</button>
+                    <button type="button" data-v="#FFFFFF" style="font-size:11px; padding:6px 2px;">⬜ White</button>
+                    <button type="button" data-v="#0F172A" style="font-size:11px; padding:6px 2px;">⬛ Dark</button>
+                    <button type="button" data-v="#F8FAFC" style="font-size:11px; padding:6px 2px;">◽ Slate</button>
+                  </div>
+                </div>
                 <label class="param-row">
-                  <span>Left Info Card</span>
-                  <input type="color" id="tplPanelBgColor" value="#121824">
-                </label>
-                <label class="param-row">
-                  <span>Brand &amp; Accent</span>
-                  <input type="color" id="tplAccentColor" value="#00f5a0">
-                </label>
-                <label class="param-row">
-                  <span>Heading &amp; Text</span>
-                  <input type="color" id="tplTextColor" value="#ffffff">
-                </label>
-                <label class="param-row">
-                  <span>Icon Stroke Color</span>
-                  <input type="color" id="tplStrokeColor" value="#00f5a0">
+                  <span>Icon Sheet Stroke</span>
+                  <input type="color" id="tplStrokeColor" value="#181B24">
                 </label>
                 <label class="param-row">
                   <span>Stroke Weight <b id="tplScaleVal">100%</b></span>
@@ -785,20 +819,40 @@
               </div>
             </div>
 
-            <!-- Layout & Display Options -->
+            <!-- Aspect Ratio & Auto-Merge Section -->
             <div class="card panel tpl-panel">
               <div class="panel-header">
-                <h3>Artboard Layout</h3>
+                <h3>Artboard Ratio &amp; Merge</h3>
               </div>
               <div class="panel-body">
-                <div class="seg tpl-layout-seg" id="tplLayoutSeg">
-                  <button type="button" data-v="landscape" class="on">Landscape (16:10)</button>
-                  <button type="button" data-v="square">Square (1:1)</button>
+                <div class="seg tpl-layout-seg" id="tplLayoutSeg" style="display:grid; grid-template-columns: repeat(3, 1fr); gap:4px;">
+                  <button type="button" data-v="landscape_16_9" class="on" style="font-size:11.5px; padding:6px 2px;">16:9 (4K)</button>
+                  <button type="button" data-v="landscape_16_10" style="font-size:11.5px; padding:6px 2px;">16:10</button>
+                  <button type="button" data-v="landscape_4_3" style="font-size:11.5px; padding:6px 2px;">4:3 Stock</button>
+                  <button type="button" data-v="square" style="font-size:11.5px; padding:6px 2px;">1:1 Square</button>
+                  <button type="button" data-v="auto_dock" style="font-size:11.5px; padding:6px 2px; grid-column: span 2;">⚡ Auto-Dock to Sheet</button>
                 </div>
-                <label class="checkbox-row" style="margin-top:12px; display:flex; align-items:center; gap:8px; font-size:12.5px; cursor:pointer;">
-                  <input type="checkbox" id="tplShowGrid" checked style="accent-color:var(--accent);">
-                  <span>Show background dot grid</span>
+              </div>
+            </div>
+
+            <!-- Showcase / Highlight Box Section -->
+            <div class="card panel tpl-panel">
+              <div class="panel-header">
+                <h3>Showcase Feature Box</h3>
+              </div>
+              <div class="panel-body">
+                <label class="checkbox-row" style="display:flex; align-items:center; gap:8px; font-size:12.5px; cursor:pointer;">
+                  <input type="checkbox" id="tplShowHighlight" checked style="accent-color:var(--accent);">
+                  <span>Show dark showcase box</span>
                 </label>
+                <div class="param-row" style="margin-top:10px; flex-direction:column; gap:6px; align-items:flex-start;">
+                  <span style="font-size:12px; color:var(--text-muted);">Showcase Mode:</span>
+                  <div class="seg tpl-hl-mode-seg" id="tplHighlightModeSeg" style="width:100%; display:grid; grid-template-columns: repeat(3, 1fr); gap:4px;">
+                    <button type="button" data-v="mini_4" class="on" style="font-size:11px; padding:6px 2px;">4 Mini Icons</button>
+                    <button type="button" data-v="mini_6" style="font-size:11px; padding:6px 2px;">6 Mini Icons</button>
+                    <button type="button" data-v="hero_1" style="font-size:11px; padding:6px 2px;">1 Hero Icon</button>
+                  </div>
+                </div>
               </div>
             </div>
 
@@ -808,8 +862,9 @@
           <div class="template-preview-column">
             <div class="stage-frame template-stage-frame">
               <div class="artboard-indicator">
-                <span class="ab-tag">PRESENTATION ARTBOARD</span>
-                <span class="ab-size" id="tplDimsBadge">1600 × 1000 px · SVG &amp; EPS Merged</span>
+                <span class="ab-tag">MICROSTOCK ARTBOARD</span>
+                <span class="ab-size" id="tplDimsBadge">3840 × 2160 px · 16:9 Ultra-HD</span>
+                <span class="ab-zoom-badge" id="tplZoomBadge">100%</span>
               </div>
 
               <!-- Main scrollable / zoomable preview canvas -->
@@ -819,16 +874,18 @@
                 </div>
               </div>
 
-              <!-- Bottom zoom strip -->
+              <!-- Bottom zoom & pan control bar -->
               <div class="canvas-footer-bar">
                 <div class="footer-status-pill">
                   <span class="pulse-dot"></span>
-                  <span>Merged Template: Left Info Card + Right Traced Vector Icons</span>
+                  <span id="tplFooterHint">Adobe Stock Standard Presentation · Drag to pan · Scroll wheel to zoom</span>
                 </div>
                 <div class="zoom-cluster">
-                  <button id="tplZout" class="zoom-btn">−</button>
-                  <button id="tplZfit" class="zoom-btn zoom-fit">Fit</button>
-                  <button id="tplZin" class="zoom-btn">+</button>
+                  <button id="tplZout" class="zoom-btn" title="Zoom Out (−)">−</button>
+                  <button id="tplZfit" class="zoom-btn zoom-fit" title="Fit to View">Fit</button>
+                  <button id="tplZ100" class="zoom-btn zoom-100" title="100% Actual Size">1:1</button>
+                  <button id="tplZin" class="zoom-btn" title="Zoom In (+)">+</button>
+                  <span class="zoom-readout" id="tplZoomReadout">100%</span>
                 </div>
               </div>
             </div>

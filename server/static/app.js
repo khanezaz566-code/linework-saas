@@ -1344,45 +1344,117 @@
   }
 
   // ================================================================
-  // Presentation Template Studio Logic
+  // Adobe Stock / Vectuz Style Presentation Template Studio Logic
   // ================================================================
   const TEMPLATE_PRESETS = {
-    obsidian: {
-      name: 'Obsidian Dark',
-      bg: '#090d14', panel_bg: '#121824', accent: '#00f5a0',
-      title_color: '#ffffff', text_color: '#ffffff', icon_stroke: '#00f5a0'
+    vectuz_yellow: {
+      id: 'vectuz_yellow',
+      name: 'Adobe Stock Gold / Yellow',
+      banner_bg: '#F5B800',
+      banner_text: '#1E1E1E',
+      highlight_bg: '#181B24',
+      highlight_stroke: '#FFFFFF',
+      artboard_bg: 'checkered',
+      icon_stroke: '#181B24',
+      accent: '#F5B800',
     },
-    minimal: {
-      name: 'Minimalist Studio',
-      bg: '#f8fafc', panel_bg: '#ffffff', accent: '#0284c7',
-      title_color: '#0f172a', text_color: '#0f172a', icon_stroke: '#0f172a'
+    vectuz_cyan: {
+      id: 'vectuz_cyan',
+      name: 'Tech & AI Mint / Cyan',
+      banner_bg: '#00D2A0',
+      banner_text: '#064E3B',
+      highlight_bg: '#0F172A',
+      highlight_stroke: '#FFFFFF',
+      artboard_bg: 'checkered',
+      icon_stroke: '#0F172A',
+      accent: '#00D2A0',
     },
-    cyber: {
-      name: 'Cyber Neon',
-      bg: '#0a0a16', panel_bg: '#131326', accent: '#f43f5e',
-      title_color: '#ffffff', text_color: '#ffffff', icon_stroke: '#38bdf8'
+    vectuz_coral: {
+      id: 'vectuz_coral',
+      name: 'Beauty & Medical Coral',
+      banner_bg: '#FF4757',
+      banner_text: '#FFFFFF',
+      highlight_bg: '#1E1322',
+      highlight_stroke: '#FFFFFF',
+      artboard_bg: 'checkered',
+      icon_stroke: '#18181B',
+      accent: '#FF4757',
     },
-    gold: {
-      name: 'Luxury Gold',
-      bg: '#121110', panel_bg: '#1c1a17', accent: '#d4af37',
-      title_color: '#fef3c7', text_color: '#fef3c7', icon_stroke: '#d4af37'
+    vectuz_purple: {
+      id: 'vectuz_purple',
+      name: 'Creative & App Iris Purple',
+      banner_bg: '#8B5CF6',
+      banner_text: '#FFFFFF',
+      highlight_bg: '#120E24',
+      highlight_stroke: '#FFFFFF',
+      artboard_bg: 'checkered',
+      icon_stroke: '#18181B',
+      accent: '#8B5CF6',
     },
-    cream: {
-      name: 'Pastel Cream',
-      bg: '#faf7f2', panel_bg: '#ffffff', accent: '#e11d48',
-      title_color: '#292524', text_color: '#292524', icon_stroke: '#292524'
+    vectuz_emerald: {
+      id: 'vectuz_emerald',
+      name: 'Nature & Ecology Emerald',
+      banner_bg: '#10B981',
+      banner_text: '#FFFFFF',
+      highlight_bg: '#061A14',
+      highlight_stroke: '#FFFFFF',
+      artboard_bg: 'checkered',
+      icon_stroke: '#061A14',
+      accent: '#10B981',
     },
-    blueprint: {
-      name: 'Blueprint Tech',
-      bg: '#0a192f', panel_bg: '#112240', accent: '#38bdf8',
-      title_color: '#f8fafc', text_color: '#f8fafc', icon_stroke: '#38bdf8'
+    vectuz_orange: {
+      id: 'vectuz_orange',
+      name: 'Industry & Logistics Orange',
+      banner_bg: '#F97316',
+      banner_text: '#FFFFFF',
+      highlight_bg: '#1C1917',
+      highlight_stroke: '#FFFFFF',
+      artboard_bg: 'checkered',
+      icon_stroke: '#1C1917',
+      accent: '#F97316',
+    },
+    vectuz_blue: {
+      id: 'vectuz_blue',
+      name: 'Corporate & Finance Royal Blue',
+      banner_bg: '#2563EB',
+      banner_text: '#FFFFFF',
+      highlight_bg: '#0B1329',
+      highlight_stroke: '#FFFFFF',
+      artboard_bg: 'checkered',
+      icon_stroke: '#0B1329',
+      accent: '#2563EB',
+    },
+    minimal_white: {
+      id: 'minimal_white',
+      name: 'Minimalist White Studio',
+      banner_bg: '#F4F4F5',
+      banner_text: '#18181B',
+      highlight_bg: '#18181B',
+      highlight_stroke: '#FFFFFF',
+      artboard_bg: '#FFFFFF',
+      icon_stroke: '#18181B',
+      accent: '#18181B',
+    },
+    midnight_dark: {
+      id: 'midnight_dark',
+      name: 'Midnight Dark Edition',
+      banner_bg: '#18181B',
+      banner_text: '#F4F4F5',
+      highlight_bg: '#09090B',
+      highlight_stroke: '#00F5A0',
+      artboard_bg: '#0F172A',
+      icon_stroke: '#F4F4F5',
+      accent: '#00F5A0',
     }
   };
 
   S.template = {
-    preset: 'obsidian',
-    layout: 'landscape',
-    zoom: 1.0
+    preset: 'vectuz_yellow',
+    layout: 'landscape_16_9',
+    banner_text: '#1E1E1E',
+    artboard_bg: 'checkered',
+    highlight_mode: 'mini_4',
+    show_highlight: true,
   };
 
   function renderPresetCards() {
@@ -1396,9 +1468,9 @@
       el.innerHTML = `
         <div class="preset-card-name">${p.name}</div>
         <div class="preset-swatches">
-          <span class="swatch-dot" style="background:${p.bg}" title="Background"></span>
-          <span class="swatch-dot" style="background:${p.panel_bg}" title="Card"></span>
-          <span class="swatch-dot" style="background:${p.accent}" title="Accent"></span>
+          <span class="swatch-dot" style="background:${p.banner_bg}" title="Cover Banner"></span>
+          <span class="swatch-dot" style="background:${p.highlight_bg}" title="Showcase Box"></span>
+          <span class="swatch-dot" style="background:${p.banner_text}" title="Text"></span>
           <span class="swatch-dot" style="background:${p.icon_stroke}" title="Stroke"></span>
         </div>
       `;
@@ -1412,16 +1484,165 @@
     if (!p) return;
     S.template.preset = key;
     $$('#presetList .preset-card').forEach(c => c.classList.toggle('active', c.dataset.p === key));
+    $$('#savedTemplatesList .saved-template-card').forEach(c => c.classList.remove('active'));
     const hint = $('#customColorHint');
     if (hint) hint.textContent = p.name;
 
-    if ($('#tplBgColor')) $('#tplBgColor').value = p.bg;
-    if ($('#tplPanelBgColor')) $('#tplPanelBgColor').value = p.panel_bg;
-    if ($('#tplAccentColor')) $('#tplAccentColor').value = p.accent;
-    if ($('#tplTextColor')) $('#tplTextColor').value = p.title_color;
+    if ($('#tplBannerBg')) $('#tplBannerBg').value = p.banner_bg;
+    S.template.banner_text = p.banner_text;
+    $$('#tplBannerTextSeg button').forEach(b => b.classList.toggle('on', b.dataset.v === p.banner_text));
+
+    if ($('#tplHighlightBg')) $('#tplHighlightBg').value = p.highlight_bg;
+    if ($('#tplHighlightStroke')) $('#tplHighlightStroke').value = p.highlight_stroke;
+
+    S.template.artboard_bg = p.artboard_bg;
+    $$('#tplArtboardBgSeg button').forEach(b => b.classList.toggle('on', b.dataset.v === p.artboard_bg));
+
     if ($('#tplStrokeColor')) $('#tplStrokeColor').value = p.icon_stroke;
 
     scheduleTemplateUpdate();
+  }
+
+  // Saved Custom Templates in LocalStorage
+  function loadSavedTemplates() {
+    try {
+      const raw = localStorage.getItem('linework_stock_templates');
+      return raw ? JSON.parse(raw) : [];
+    } catch (e) {
+      return [];
+    }
+  }
+
+  function saveCurrentCustomTemplate() {
+    const defaultName = ($('#tplTitle') && $('#tplTitle').value ? $('#tplTitle').value : 'Custom') + ' Stock Style';
+    const name = window.prompt('Enter a name for this custom template preset:', defaultName);
+    if (!name || !name.trim()) return;
+
+    const list = loadSavedTemplates();
+    const item = {
+      id: 'tpl_' + Date.now(),
+      name: name.trim(),
+      preset: S.template.preset || 'custom',
+      banner_bg: $('#tplBannerBg') ? $('#tplBannerBg').value : '#F5B800',
+      banner_text: S.template.banner_text || '#1E1E1E',
+      highlight_bg: $('#tplHighlightBg') ? $('#tplHighlightBg').value : '#181B24',
+      highlight_stroke: $('#tplHighlightStroke') ? $('#tplHighlightStroke').value : '#FFFFFF',
+      artboard_bg: S.template.artboard_bg || 'checkered',
+      stroke: $('#tplStrokeColor') ? $('#tplStrokeColor').value : '#181B24',
+      scale: $('#tplStrokeScale') ? parseFloat($('#tplStrokeScale').value) : 1.0,
+      layout: S.template.layout || 'landscape_16_9',
+      show_highlight: $('#tplShowHighlight') ? $('#tplShowHighlight').checked : true,
+      highlight_mode: S.template.highlight_mode || 'mini_4',
+      title: $('#tplTitle') ? $('#tplTitle').value : 'TECHNOLOGY',
+      subtitle: $('#tplSubtitle') ? $('#tplSubtitle').value : 'Editable Line Icons',
+      count: $('#tplCount') ? $('#tplCount').value : '24',
+      created: Date.now()
+    };
+    list.unshift(item);
+    try {
+      localStorage.setItem('linework_stock_templates', JSON.stringify(list));
+    } catch (e) {
+      console.error(e);
+    }
+    renderSavedTemplates();
+    toast(`Saved custom template "${item.name}"!`);
+  }
+
+  function deleteSavedTemplate(id, e) {
+    if (e) e.stopPropagation();
+    let list = loadSavedTemplates();
+    list = list.filter(item => item.id !== id);
+    try {
+      localStorage.setItem('linework_stock_templates', JSON.stringify(list));
+    } catch (err) {
+      console.error(err);
+    }
+    renderSavedTemplates();
+    toast('Custom template deleted');
+  }
+
+  function applySavedTemplate(item) {
+    if (!item) return;
+    if ($('#tplTitle') && item.title) $('#tplTitle').value = item.title;
+    if ($('#tplCount') && item.count) $('#tplCount').value = item.count;
+    if ($('#tplSubtitle') && item.subtitle) $('#tplSubtitle').value = item.subtitle;
+
+    if ($('#tplBannerBg') && item.banner_bg) $('#tplBannerBg').value = item.banner_bg;
+    if (item.banner_text) {
+      S.template.banner_text = item.banner_text;
+      $$('#tplBannerTextSeg button').forEach(b => b.classList.toggle('on', b.dataset.v === item.banner_text));
+    }
+    if ($('#tplHighlightBg') && item.highlight_bg) $('#tplHighlightBg').value = item.highlight_bg;
+    if ($('#tplHighlightStroke') && item.highlight_stroke) $('#tplHighlightStroke').value = item.highlight_stroke;
+
+    if (item.artboard_bg) {
+      S.template.artboard_bg = item.artboard_bg;
+      $$('#tplArtboardBgSeg button').forEach(b => b.classList.toggle('on', b.dataset.v === item.artboard_bg));
+    }
+    if ($('#tplStrokeColor') && item.stroke) $('#tplStrokeColor').value = item.stroke;
+    if ($('#tplStrokeScale') && item.scale) {
+      $('#tplStrokeScale').value = item.scale;
+      if ($('#tplScaleVal')) $('#tplScaleVal').textContent = Math.round(item.scale * 100) + '%';
+    }
+    if (item.layout) {
+      S.template.layout = item.layout;
+      $$('#tplLayoutSeg button').forEach(b => b.classList.toggle('on', b.dataset.v === item.layout));
+    }
+    if ($('#tplShowHighlight') && item.show_highlight !== undefined) {
+      $('#tplShowHighlight').checked = item.show_highlight;
+    }
+    if (item.highlight_mode) {
+      S.template.highlight_mode = item.highlight_mode;
+      $$('#tplHighlightModeSeg button').forEach(b => b.classList.toggle('on', b.dataset.v === item.highlight_mode));
+    }
+
+    $$('#presetList .preset-card').forEach(c => c.classList.remove('active'));
+    $$('#savedTemplatesList .saved-template-card').forEach(c => c.classList.toggle('active', c.dataset.id === item.id));
+    const hint = $('#customColorHint');
+    if (hint) hint.textContent = item.name;
+
+    scheduleTemplateUpdate();
+    toast(`Applied "${item.name}"`);
+  }
+
+  function renderSavedTemplates() {
+    const listEl = $('#savedTemplatesList');
+    const badge = $('#savedCountBadge');
+    if (!listEl) return;
+    const list = loadSavedTemplates();
+    if (badge) badge.textContent = `${list.length} saved`;
+
+    if (list.length === 0) {
+      listEl.innerHTML = '<div class="saved-empty-msg">No custom templates saved yet. Click "Save Template" above to save your custom styles.</div>';
+      return;
+    }
+
+    listEl.innerHTML = '';
+    list.forEach(item => {
+      const card = document.createElement('div');
+      card.className = 'saved-template-card' + (item.preset === S.template.preset ? ' active' : '');
+      card.dataset.id = item.id;
+      card.innerHTML = `
+        <div class="saved-tpl-info">
+          <div class="saved-tpl-name" title="${item.name}">${item.name}</div>
+          <div class="saved-tpl-meta">
+            <span class="swatch-dot" style="background:${item.banner_bg || '#f5b800'}; width:10px; height:10px;" title="Banner"></span>
+            <span class="swatch-dot" style="background:${item.highlight_bg || '#181b24'}; width:10px; height:10px;" title="Card"></span>
+            <span class="swatch-dot" style="background:${item.stroke || '#181b24'}; width:10px; height:10px;" title="Stroke"></span>
+            <span style="font-size:10px; color:var(--text-dim); margin-left:4px;">${item.layout ? item.layout.replace('landscape_', '') : ''}</span>
+          </div>
+        </div>
+        <button type="button" class="btn-delete-saved" title="Delete Saved Template">
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+        </button>
+      `;
+      card.onclick = () => applySavedTemplate(item);
+      const delBtn = card.querySelector('.btn-delete-saved');
+      if (delBtn) {
+        delBtn.onclick = (e) => deleteSavedTemplate(item.id, e);
+      }
+      listEl.appendChild(card);
+    });
   }
 
   let tplUpdateTimer = null;
@@ -1430,65 +1651,97 @@
     tplUpdateTimer = setTimeout(updateTemplatePreview, 80);
   }
 
-  function formatTitle(rawName) {
-    if (!rawName) return 'Minimal Vector Line Icons';
+  function formatStockTitle(rawName) {
+    if (!rawName) return 'TECHNOLOGY';
     let clean = rawName.replace(/\.[^/.]+$/, '').replace(/[-_]+/g, ' ');
-    clean = clean.replace(/\b\w/g, c => c.toUpperCase());
-    if (!clean.toLowerCase().includes('icon')) clean += ' Icons';
-    return clean;
+    clean = clean.replace(/\b(icons|icon|set|pack|collection|sheet|vector)\b/gi, '').trim();
+    if (!clean) clean = 'TECHNOLOGY';
+    return clean.toUpperCase();
   }
 
   function openTemplateStudio() {
-    if (!S.job) return;
+    if (!S.job) {
+      toast('Please process or load an icon sheet in Redraw first to build Stock presentations.', 1);
+      return;
+    }
     $('#work').hidden = true;
+    if ($('#landing')) $('#landing').hidden = true;
     $('#templateStudio').hidden = false;
+
+    $$('.nav-menu .nav-item').forEach(el => el.classList.remove('active'));
+    if ($('#navTemplates')) $('#navTemplates').classList.add('active');
 
     // Auto-populate title if empty or default
     const titleInput = $('#tplTitle');
-    if (titleInput && (!titleInput.value || titleInput.value === 'Minimal Vector Line Icons')) {
-      titleInput.value = formatTitle(S.name);
+    if (titleInput && (!titleInput.value || titleInput.value === 'TECHNOLOGY' || titleInput.value === 'Minimal Vector Line Icons')) {
+      titleInput.value = formatStockTitle(S.name);
+    }
+
+    // Auto-detect count if empty or default
+    const countInput = $('#tplCount');
+    if (countInput && (!countInput.value || countInput.value === '24')) {
+      const count = (S.icons && S.icons.length) ? S.icons.length : 24;
+      countInput.value = count;
     }
 
     renderPresetCards();
+    renderSavedTemplates();
+    resetTemplateView();
     updateTemplatePreview();
   }
 
   function closeTemplateStudio() {
     $('#templateStudio').hidden = true;
-    $('#work').hidden = false;
-    fit();
+    if (S.job) {
+      $('#work').hidden = false;
+      if ($('#landing')) $('#landing').hidden = true;
+    } else {
+      if ($('#landing')) $('#landing').hidden = false;
+    }
+    $$('.nav-menu .nav-item').forEach(el => el.classList.remove('active'));
+    if ($('#navRedraw')) $('#navRedraw').classList.add('active');
+    if (typeof fit === 'function') fit();
   }
 
   async function updateTemplatePreview() {
     if (!S.job) return;
-    const title = $('#tplTitle') ? $('#tplTitle').value : 'Minimal Vector Line Icons';
-    const subtitle = $('#tplSubtitle') ? $('#tplSubtitle').value : 'Clean Centerline Vector Icon Collection';
-    const grid = $('#tplGrid') ? $('#tplGrid').value : '64 × 64 px Grid';
-    const author = $('#tplAuthor') ? $('#tplAuthor').value : 'Linework AI Precision Engine';
-    const bg = $('#tplBgColor') ? $('#tplBgColor').value : '#090d14';
-    const panelBg = $('#tplPanelBgColor') ? $('#tplPanelBgColor').value : '#121824';
-    const accent = $('#tplAccentColor') ? $('#tplAccentColor').value : '#00f5a0';
-    const stroke = $('#tplStrokeColor') ? $('#tplStrokeColor').value : '#00f5a0';
+    const title = $('#tplTitle') ? $('#tplTitle').value : 'TECHNOLOGY';
+    const count = $('#tplCount') ? $('#tplCount').value : '';
+    const subtitle = $('#tplSubtitle') ? $('#tplSubtitle').value : 'Editable Line Icons';
+    const bannerBg = $('#tplBannerBg') ? $('#tplBannerBg').value : '#F5B800';
+    const bannerText = S.template.banner_text || '#1E1E1E';
+    const highlightBg = $('#tplHighlightBg') ? $('#tplHighlightBg').value : '#181B24';
+    const highlightStroke = $('#tplHighlightStroke') ? $('#tplHighlightStroke').value : '#FFFFFF';
+    const artboardBg = S.template.artboard_bg || 'checkered';
+    const stroke = $('#tplStrokeColor') ? $('#tplStrokeColor').value : '#181B24';
     const scale = $('#tplStrokeScale') ? $('#tplStrokeScale').value : '1.0';
-    const layout = S.template.layout || 'landscape';
+    const layout = S.template.layout || 'landscape_16_9';
+    const showHighlight = ($('#tplShowHighlight') && $('#tplShowHighlight').checked) ? 1 : 0;
+    const highlightMode = S.template.highlight_mode || 'mini_4';
 
     const params = new URLSearchParams({
-      preset: S.template.preset || 'obsidian',
+      preset: S.template.preset || 'vectuz_yellow',
       title: title,
+      count: count,
       subtitle: subtitle,
-      grid_size: grid,
-      author: author,
-      layout: layout,
+      banner_bg: bannerBg,
+      banner_text: bannerText,
+      highlight_bg: highlightBg,
+      highlight_stroke: highlightStroke,
+      artboard_bg: artboardBg,
       stroke: stroke,
       scale: scale,
-      bg: bg,
-      panel_bg: panelBg,
-      accent: accent,
+      layout: layout,
+      show_highlight: showHighlight,
+      highlight_mode: highlightMode,
     });
 
     // Update download links
     const dlSvg = $('#btnDlTemplateSvg');
     if (dlSvg) dlSvg.href = `/api/jobs/${S.job}/template.svg?${params.toString()}&download=1`;
+
+    const dlPng = $('#btnDlTemplatePng');
+    if (dlPng) dlPng.href = `/api/jobs/${S.job}/template.png?${params.toString()}&download=1`;
 
     const dlEps = $('#btnDlTemplateEps');
     if (dlEps) dlEps.href = `/api/jobs/${S.job}/template.eps?${params.toString()}&download=1`;
@@ -1499,7 +1752,12 @@
     // Update dims indicator
     const dimsBadge = $('#tplDimsBadge');
     if (dimsBadge) {
-      dimsBadge.textContent = (layout === 'square' ? '1200 × 1200 px' : '1600 × 1000 px') + ' · SVG & EPS Merged';
+      let desc = '3840 × 2160 px · 16:9 Ultra-HD';
+      if (layout === 'landscape_16_10') desc = '1920 × 1200 px · 16:10 Widescreen';
+      else if (layout === 'landscape_4_3') desc = '2400 × 1800 px · 4:3 Microstock Standard';
+      else if (layout === 'square') desc = '2000 × 2000 px · 1:1 Square';
+      else if (layout === 'auto_dock') desc = 'Auto-Docked to Native Sheet Size';
+      dimsBadge.textContent = desc;
     }
 
     try {
@@ -1514,6 +1772,60 @@
     } catch (e) {
       console.error('Failed to load template preview:', e);
     }
+  }
+
+  // Zoom & Drag-to-Pan Hand Tool Engine for Template Studio
+  let tplZoom = 1.0;
+  let tplPanX = 0;
+  let tplPanY = 0;
+  let tplIsDragging = false;
+  let tplStartX = 0;
+  let tplStartY = 0;
+
+  function applyTemplateTransform() {
+    const container = $('#templateSvgContainer');
+    if (container) {
+      container.style.transform = `translate(${tplPanX}px, ${tplPanY}px) scale(${tplZoom})`;
+    }
+    const readout = $('#tplZoomReadout');
+    if (readout) readout.textContent = Math.round(tplZoom * 100) + '%';
+    const badge = $('#tplZoomBadge');
+    if (badge) badge.textContent = Math.round(tplZoom * 100) + '%';
+  }
+
+  function setTemplateZoom(z) {
+    tplZoom = Math.min(Math.max(z, 0.25), 4.0);
+    applyTemplateTransform();
+  }
+
+  function resetTemplateView() {
+    tplZoom = 1.0;
+    tplPanX = 0;
+    tplPanY = 0;
+    applyTemplateTransform();
+  }
+
+  function fitTemplateView() {
+    const stage = $('#templateStage');
+    const svg = $('#templateSvgContainer svg');
+    if (stage && svg) {
+      const stageW = stage.clientWidth - 48;
+      const stageH = stage.clientHeight - 48;
+      const vb = svg.viewBox && svg.viewBox.baseVal ? svg.viewBox.baseVal : { width: 3840, height: 2160 };
+      const svgW = vb.width || 3840;
+      const svgH = vb.height || 2160;
+      if (stageW > 0 && stageH > 0 && svgW > 0 && svgH > 0) {
+        const fitScale = Math.min(stageW / svgW, stageH / svgH);
+        tplZoom = Math.max(0.25, Math.min(fitScale * 0.95, 2.5));
+      } else {
+        tplZoom = 1.0;
+      }
+    } else {
+      tplZoom = 1.0;
+    }
+    tplPanX = 0;
+    tplPanY = 0;
+    applyTemplateTransform();
   }
 
   // Setup template listeners
@@ -1533,14 +1845,30 @@
     btnBackToWork.addEventListener('click', closeTemplateStudio);
   }
 
+  const btnSaveCustomTemplate = $('#btnSaveCustomTemplate');
+  if (btnSaveCustomTemplate) {
+    btnSaveCustomTemplate.addEventListener('click', saveCurrentCustomTemplate);
+  }
+
+  const btnAutoCount = $('#btnAutoCount');
+  if (btnAutoCount) {
+    btnAutoCount.addEventListener('click', () => {
+      const count = (S.icons && S.icons.length) ? S.icons.length : 24;
+      const countInput = $('#tplCount');
+      if (countInput) countInput.value = count;
+      scheduleTemplateUpdate();
+      toast(`Auto-detected ${count} icons from current sheet!`);
+    });
+  }
+
   // Text inputs live preview
-  ['tplTitle', 'tplSubtitle', 'tplGrid', 'tplAuthor'].forEach(id => {
+  ['tplTitle', 'tplCount', 'tplSubtitle'].forEach(id => {
     const el = $('#' + id);
     if (el) el.addEventListener('input', scheduleTemplateUpdate);
   });
 
   // Color inputs live preview
-  ['tplBgColor', 'tplPanelBgColor', 'tplAccentColor', 'tplTextColor', 'tplStrokeColor'].forEach(id => {
+  ['tplBannerBg', 'tplHighlightBg', 'tplHighlightStroke', 'tplStrokeColor'].forEach(id => {
     const el = $('#' + id);
     if (el) {
       el.addEventListener('input', () => {
@@ -1550,6 +1878,24 @@
         scheduleTemplateUpdate();
       });
     }
+  });
+
+  // Banner text segment
+  $$('#tplBannerTextSeg button').forEach(b => {
+    b.addEventListener('click', () => {
+      $$('#tplBannerTextSeg button').forEach(x => x.classList.toggle('on', x === b));
+      S.template.banner_text = b.dataset.v;
+      scheduleTemplateUpdate();
+    });
+  });
+
+  // Artboard background segment
+  $$('#tplArtboardBgSeg button').forEach(b => {
+    b.addEventListener('click', () => {
+      $$('#tplArtboardBgSeg button').forEach(x => x.classList.toggle('on', x === b));
+      S.template.artboard_bg = b.dataset.v;
+      scheduleTemplateUpdate();
+    });
   });
 
   // Stroke scale slider
@@ -1571,22 +1917,60 @@
     });
   });
 
-  // Zoom controls for template studio
-  let tplZoom = 1.0;
-  function setTemplateZoom(z) {
-    tplZoom = Math.min(Math.max(z, 0.4), 2.5);
-    const container = $('#templateSvgContainer');
-    if (container) {
-      container.style.transform = `scale(${tplZoom})`;
-    }
+  // Showcase controls
+  const tplShowHighlight = $('#tplShowHighlight');
+  if (tplShowHighlight) {
+    tplShowHighlight.addEventListener('change', scheduleTemplateUpdate);
   }
+  $$('#tplHighlightModeSeg button').forEach(b => {
+    b.addEventListener('click', () => {
+      $$('#tplHighlightModeSeg button').forEach(x => x.classList.toggle('on', x === b));
+      S.template.highlight_mode = b.dataset.v;
+      scheduleTemplateUpdate();
+    });
+  });
 
+  // Zoom buttons
   const tplZin = $('#tplZin');
-  if (tplZin) tplZin.onclick = () => setTemplateZoom(tplZoom * 1.2);
+  if (tplZin) tplZin.onclick = () => setTemplateZoom(tplZoom * 1.25);
   const tplZout = $('#tplZout');
-  if (tplZout) tplZout.onclick = () => setTemplateZoom(tplZoom / 1.2);
+  if (tplZout) tplZout.onclick = () => setTemplateZoom(tplZoom / 1.25);
   const tplZfit = $('#tplZfit');
-  if (tplZfit) tplZfit.onclick = () => setTemplateZoom(1.0);
+  if (tplZfit) tplZfit.onclick = () => fitTemplateView();
+  const tplZ100 = $('#tplZ100');
+  if (tplZ100) tplZ100.onclick = () => resetTemplateView();
+
+  // Mouse wheel & drag-to-pan on templateStage
+  const tplStage = $('#templateStage');
+  if (tplStage) {
+    tplStage.addEventListener('mousedown', (e) => {
+      if (e.button !== 0) return;
+      tplIsDragging = true;
+      tplStartX = e.clientX - tplPanX;
+      tplStartY = e.clientY - tplPanY;
+      tplStage.classList.add('is-dragging');
+    });
+
+    window.addEventListener('mousemove', (e) => {
+      if (!tplIsDragging) return;
+      tplPanX = e.clientX - tplStartX;
+      tplPanY = e.clientY - tplStartY;
+      applyTemplateTransform();
+    });
+
+    window.addEventListener('mouseup', () => {
+      if (tplIsDragging) {
+        tplIsDragging = false;
+        tplStage.classList.remove('is-dragging');
+      }
+    });
+
+    tplStage.addEventListener('wheel', (e) => {
+      e.preventDefault();
+      const delta = e.deltaY < 0 ? 1.12 : 0.89;
+      setTemplateZoom(tplZoom * delta);
+    }, { passive: false });
+  }
 
   // ================================================================
   // BG Studio Integration (Dynamic Script Loading & Shadow DOM Mount)
@@ -1738,8 +2122,15 @@
   if (navTemplates) {
     navTemplates.addEventListener('click', () => {
       closeBgStudio();
-      $$('.nav-menu .nav-item').forEach(el => el.classList.remove('active'));
-      navTemplates.classList.add('active');
+      if (S.job) {
+        openTemplateStudio();
+      } else {
+        toast('Please trace or load an icon sheet in Redraw first to build Stock presentations.', 1);
+        $$('.nav-menu .nav-item').forEach(el => el.classList.remove('active'));
+        if (navRedraw) navRedraw.classList.add('active');
+        if ($('#landing')) $('#landing').hidden = false;
+        if ($('#work')) $('#work').hidden = true;
+      }
     });
   }
   const navSettings = $('#navSettings');
@@ -1760,7 +2151,14 @@
       if (currentBgStudio || ($('#bgStudio') && !$('#bgStudio').hidden)) {
         closeBgStudio();
       }
-      if (hash === '#redraw') {
+      if (hash === '#templates' || hash === '#template') {
+        if (S.job) {
+          openTemplateStudio();
+        } else {
+          toast('Please trace or load an icon sheet in Redraw first to build Stock presentations.', 1);
+          window.location.hash = '#redraw';
+        }
+      } else if (hash === '#redraw') {
         const tplSt = $('#templateStudio'); if (tplSt) tplSt.hidden = true;
         $$('.nav-menu .nav-item').forEach(el => el.classList.remove('active'));
         if (navRedraw) navRedraw.classList.add('active');

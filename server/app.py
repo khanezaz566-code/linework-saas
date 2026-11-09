@@ -889,12 +889,19 @@ def template_presets():
 @app.get("/api/jobs/{job_id}/template.svg")
 def job_template_svg(
     job_id: str,
-    preset: str = "obsidian",
-    title: str = "Minimal Vector Line Icons",
-    subtitle: str = "Clean Centerline Vector Icon Collection",
-    grid_size: str = "64 × 64 px",
-    author: str = "Linework AI Precision Engine",
-    layout: str = "landscape",
+    preset: str = "vectuz_yellow",
+    title: str = "TECHNOLOGY",
+    count: str = "",
+    subtitle: str = "Editable Line Icons",
+    banner_bg: str = "",
+    banner_text: str = "",
+    banner_sub: str = "",
+    highlight_bg: str = "",
+    highlight_stroke: str = "",
+    artboard_bg: str = "",
+    show_highlight: int = 1,
+    highlight_mode: str = "mini_4",
+    layout: str = "landscape_16_9",
     stroke: str = "",
     scale: float = 1.0,
     bg: str = "",
@@ -908,12 +915,19 @@ def job_template_svg(
     if not m.paths:
         raise HTTPException(404, "No finished icons yet")
     cfg = dict(
-        preset=preset, title=title, subtitle=subtitle, grid_size=grid_size,
-        author=author, layout=layout, stroke_scale=float(scale)
+        preset=preset, title=title, count=count, subtitle=subtitle,
+        layout=layout, stroke_scale=float(scale),
+        show_highlight=bool(show_highlight), highlight_mode=highlight_mode
     )
+    if banner_bg: cfg["banner_bg"] = banner_bg
+    if banner_text: cfg["banner_text"] = banner_text
+    if banner_sub: cfg["banner_sub"] = banner_sub
+    if highlight_bg: cfg["highlight_bg"] = highlight_bg
+    if highlight_stroke: cfg["highlight_stroke"] = highlight_stroke
+    if artboard_bg: cfg["artboard_bg"] = artboard_bg
     if stroke: cfg["icon_stroke"] = stroke
-    if bg: cfg["bg"] = bg
-    if panel_bg: cfg["panel_bg"] = panel_bg
+    if bg: cfg["artboard_bg"] = bg
+    if panel_bg: cfg["banner_bg"] = panel_bg
     if accent: cfg["accent"] = accent
     
     svg = build_template_svg(m, job.get("icons", []), cfg)
@@ -926,12 +940,18 @@ def job_template_svg(
 @app.get("/api/jobs/{job_id}/template.eps")
 def job_template_eps(
     job_id: str,
-    preset: str = "obsidian",
-    title: str = "Minimal Vector Line Icons",
-    subtitle: str = "Clean Centerline Vector Icon Collection",
-    grid_size: str = "64 × 64 px",
-    author: str = "Linework AI Precision Engine",
-    layout: str = "landscape",
+    preset: str = "vectuz_yellow",
+    title: str = "TECHNOLOGY",
+    count: str = "",
+    subtitle: str = "Editable Line Icons",
+    banner_bg: str = "",
+    banner_text: str = "",
+    highlight_bg: str = "",
+    highlight_stroke: str = "",
+    artboard_bg: str = "",
+    show_highlight: int = 1,
+    highlight_mode: str = "mini_4",
+    layout: str = "landscape_16_9",
     stroke: str = "",
     scale: float = 1.0,
     bg: str = "",
@@ -945,12 +965,18 @@ def job_template_eps(
     if not m.paths:
         raise HTTPException(404, "No finished icons yet")
     cfg = dict(
-        preset=preset, title=title, subtitle=subtitle, grid_size=grid_size,
-        author=author, layout=layout, stroke_scale=float(scale)
+        preset=preset, title=title, count=count, subtitle=subtitle,
+        layout=layout, stroke_scale=float(scale),
+        show_highlight=bool(show_highlight), highlight_mode=highlight_mode
     )
+    if banner_bg: cfg["banner_bg"] = banner_bg
+    if banner_text: cfg["banner_text"] = banner_text
+    if highlight_bg: cfg["highlight_bg"] = highlight_bg
+    if highlight_stroke: cfg["highlight_stroke"] = highlight_stroke
+    if artboard_bg: cfg["artboard_bg"] = artboard_bg
     if stroke: cfg["icon_stroke"] = stroke
-    if bg: cfg["bg"] = bg
-    if panel_bg: cfg["panel_bg"] = panel_bg
+    if bg: cfg["artboard_bg"] = bg
+    if panel_bg: cfg["banner_bg"] = panel_bg
     if accent: cfg["accent"] = accent
 
     eps = build_template_eps(m, job.get("icons", []), cfg)
@@ -958,6 +984,54 @@ def job_template_eps(
     if download:
         headers["Content-Disposition"] = _attachment_disposition(job["name"], "-presentation.eps")
     return Response(eps, media_type="application/postscript", headers=headers)
+
+
+@app.get("/api/jobs/{job_id}/template.png")
+def job_template_png(
+    job_id: str,
+    preset: str = "vectuz_yellow",
+    title: str = "TECHNOLOGY",
+    count: str = "",
+    subtitle: str = "Editable Line Icons",
+    banner_bg: str = "",
+    banner_text: str = "",
+    highlight_bg: str = "",
+    highlight_stroke: str = "",
+    artboard_bg: str = "",
+    show_highlight: int = 1,
+    highlight_mode: str = "mini_4",
+    layout: str = "landscape_16_9",
+    stroke: str = "",
+    scale: float = 1.0,
+    download: int = 0,
+):
+    from linework.template import build_template_svg
+    job = _get(job_id)
+    m = _compose(job_id)
+    if not m.paths:
+        raise HTTPException(404, "No finished icons yet")
+    cfg = dict(
+        preset=preset, title=title, count=count, subtitle=subtitle,
+        layout=layout, stroke_scale=float(scale),
+        show_highlight=bool(show_highlight), highlight_mode=highlight_mode
+    )
+    if banner_bg: cfg["banner_bg"] = banner_bg
+    if banner_text: cfg["banner_text"] = banner_text
+    if highlight_bg: cfg["highlight_bg"] = highlight_bg
+    if highlight_stroke: cfg["highlight_stroke"] = highlight_stroke
+    if artboard_bg: cfg["artboard_bg"] = artboard_bg
+    if stroke: cfg["icon_stroke"] = stroke
+
+    svg = build_template_svg(m, job.get("icons", []), cfg)
+    try:
+        import resvg_py
+        png_bytes = bytes(resvg_py.svg_to_bytes(svg_string=svg))
+        headers = {"Cache-Control": "no-store"}
+        if download:
+            headers["Content-Disposition"] = _attachment_disposition(job["name"], "-stock-presentation.png")
+        return Response(png_bytes, media_type="image/png", headers=headers)
+    except Exception as e:
+        raise HTTPException(500, f"PNG rendering error: {e}")
 
 
 @app.get("/api/jobs/{job_id}/result.eps")

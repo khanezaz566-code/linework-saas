@@ -1,145 +1,145 @@
-"""Presentation Template Engine: Combines icon set metadata + redrawn vector icon sheet into a professional presentation artboard.
-
-Outputs:
-  - High-resolution SVG presentation template
-  - Encapsulated PostScript (EPS 3.0) presentation template
-  - Standalone EPS for the icon sheet
+"""Presentation Template Engine for Linework AI
+Generates Adobe Stock / Shutterstock / Microstock style presentation sheets.
+Supports vertical cover banners (Vectuz microstock standard), giant count numerals,
+dark showcase cards with inverted highlight icons, transparent checkered artboards,
+automatic docking with ANY icon sheet size, and export to SVG, EPS 3.0, and PNG.
 """
 from __future__ import annotations
 import math, re
 from typing import Any
-from .model import Model
+import numpy as np
+from .model import Model, Path
 
+# Microstock Trending Style Presets
 PRESETS: dict[str, dict[str, Any]] = {
-    "obsidian": {
-        "id": "obsidian",
-        "name": "Obsidian Dark",
-        "bg": "#090d14",
-        "panel_bg": "#121824",
-        "panel_border": "#00f5a0",
-        "panel_border_alpha": 0.25,
-        "accent": "#00f5a0",
-        "title_color": "#ffffff",
-        "subtitle_color": "#94a3b8",
-        "badge_bg": "#00f5a0",
-        "badge_bg_alpha": 0.12,
-        "badge_text": "#00f5a0",
-        "icon_stroke": "#00f5a0",
-        "card_bg": "#0d131d",
-        "card_border": "#1e293b",
-        "text_dim": "#64748b",
-        "dot_grid": "rgba(255,255,255,0.06)",
+    "vectuz_yellow": {
+        "id": "vectuz_yellow",
+        "name": "Adobe Stock Gold / Yellow",
+        "banner_bg": "#F5B800",
+        "banner_text": "#1E1E1E",
+        "banner_sub": "#374151",
+        "highlight_bg": "#181B24",
+        "highlight_stroke": "#FFFFFF",
+        "artboard_bg": "checkered",
+        "icon_stroke": "#181B24",
+        "accent": "#F5B800",
     },
-    "minimal": {
-        "id": "minimal",
-        "name": "Minimalist Studio",
-        "bg": "#f8fafc",
-        "panel_bg": "#ffffff",
-        "panel_border": "#0284c7",
-        "panel_border_alpha": 0.2,
-        "accent": "#0284c7",
-        "title_color": "#0f172a",
-        "subtitle_color": "#64748b",
-        "badge_bg": "#0284c7",
-        "badge_bg_alpha": 0.1,
-        "badge_text": "#0284c7",
-        "icon_stroke": "#0f172a",
-        "card_bg": "#ffffff",
-        "card_border": "#e2e8f0",
-        "text_dim": "#94a3b8",
-        "dot_grid": "rgba(0,0,0,0.04)",
+    "vectuz_cyan": {
+        "id": "vectuz_cyan",
+        "name": "Tech & AI Mint / Cyan",
+        "banner_bg": "#00D2A0",
+        "banner_text": "#064E3B",
+        "banner_sub": "#047857",
+        "highlight_bg": "#0F172A",
+        "highlight_stroke": "#FFFFFF",
+        "artboard_bg": "checkered",
+        "icon_stroke": "#0F172A",
+        "accent": "#00D2A0",
     },
-    "cyber": {
-        "id": "cyber",
-        "name": "Cyber Neon",
-        "bg": "#0a0a16",
-        "panel_bg": "#131326",
-        "panel_border": "#f43f5e",
-        "panel_border_alpha": 0.35,
-        "accent": "#f43f5e",
-        "title_color": "#ffffff",
-        "subtitle_color": "#c4b5fd",
-        "badge_bg": "#f43f5e",
-        "badge_bg_alpha": 0.15,
-        "badge_text": "#fb7185",
-        "icon_stroke": "#38bdf8",
-        "card_bg": "#0f1022",
-        "card_border": "#27274a",
-        "text_dim": "#71717a",
-        "dot_grid": "rgba(168,85,247,0.08)",
+    "vectuz_coral": {
+        "id": "vectuz_coral",
+        "name": "Beauty & Medical Coral",
+        "banner_bg": "#FF4757",
+        "banner_text": "#FFFFFF",
+        "banner_sub": "#FFE4E6",
+        "highlight_bg": "#1E1322",
+        "highlight_stroke": "#FFFFFF",
+        "artboard_bg": "checkered",
+        "icon_stroke": "#18181B",
+        "accent": "#FF4757",
     },
-    "gold": {
-        "id": "gold",
-        "name": "Luxury Gold",
-        "bg": "#121110",
-        "panel_bg": "#1c1a17",
-        "panel_border": "#d4af37",
-        "panel_border_alpha": 0.3,
-        "accent": "#d4af37",
-        "title_color": "#fef3c7",
-        "subtitle_color": "#a8a29e",
-        "badge_bg": "#d4af37",
-        "badge_bg_alpha": 0.15,
-        "badge_text": "#facc15",
-        "icon_stroke": "#d4af37",
-        "card_bg": "#161412",
-        "card_border": "#2d2822",
-        "text_dim": "#78716c",
-        "dot_grid": "rgba(212,175,55,0.06)",
+    "vectuz_purple": {
+        "id": "vectuz_purple",
+        "name": "Creative & App Iris Purple",
+        "banner_bg": "#8B5CF6",
+        "banner_text": "#FFFFFF",
+        "banner_sub": "#EDE9FE",
+        "highlight_bg": "#120E24",
+        "highlight_stroke": "#FFFFFF",
+        "artboard_bg": "checkered",
+        "icon_stroke": "#18181B",
+        "accent": "#8B5CF6",
     },
-    "cream": {
-        "id": "cream",
-        "name": "Pastel Cream",
-        "bg": "#faf7f2",
-        "panel_bg": "#ffffff",
-        "panel_border": "#e11d48",
-        "panel_border_alpha": 0.2,
-        "accent": "#e11d48",
-        "title_color": "#292524",
-        "subtitle_color": "#78716c",
-        "badge_bg": "#e11d48",
-        "badge_bg_alpha": 0.1,
-        "badge_text": "#be123c",
-        "icon_stroke": "#292524",
-        "card_bg": "#ffffff",
-        "card_border": "#e7e5e4",
-        "text_dim": "#a8a29e",
-        "dot_grid": "rgba(0,0,0,0.03)",
+    "vectuz_emerald": {
+        "id": "vectuz_emerald",
+        "name": "Nature & Ecology Emerald",
+        "banner_bg": "#10B981",
+        "banner_text": "#FFFFFF",
+        "banner_sub": "#D1FAE5",
+        "highlight_bg": "#061A14",
+        "highlight_stroke": "#FFFFFF",
+        "artboard_bg": "checkered",
+        "icon_stroke": "#061A14",
+        "accent": "#10B981",
     },
-    "blueprint": {
-        "id": "blueprint",
-        "name": "Blueprint Tech",
-        "bg": "#0a192f",
-        "panel_bg": "#112240",
-        "panel_border": "#38bdf8",
-        "panel_border_alpha": 0.3,
-        "accent": "#38bdf8",
-        "title_color": "#f8fafc",
-        "subtitle_color": "#8892b0",
-        "badge_bg": "#38bdf8",
-        "badge_bg_alpha": 0.15,
-        "badge_text": "#38bdf8",
-        "icon_stroke": "#38bdf8",
-        "card_bg": "#0d1b2a",
-        "card_border": "#1e3a5f",
-        "text_dim": "#64748b",
-        "dot_grid": "rgba(56,189,248,0.1)",
+    "vectuz_orange": {
+        "id": "vectuz_orange",
+        "name": "Industry & Logistics Orange",
+        "banner_bg": "#F97316",
+        "banner_text": "#FFFFFF",
+        "banner_sub": "#FFEDD5",
+        "highlight_bg": "#1C1917",
+        "highlight_stroke": "#FFFFFF",
+        "artboard_bg": "checkered",
+        "icon_stroke": "#1C1917",
+        "accent": "#F97316",
+    },
+    "vectuz_blue": {
+        "id": "vectuz_blue",
+        "name": "Corporate & Finance Royal Blue",
+        "banner_bg": "#2563EB",
+        "banner_text": "#FFFFFF",
+        "banner_sub": "#DBEAFE",
+        "highlight_bg": "#0B1329",
+        "highlight_stroke": "#FFFFFF",
+        "artboard_bg": "checkered",
+        "icon_stroke": "#0B1329",
+        "accent": "#2563EB",
+    },
+    "minimal_white": {
+        "id": "minimal_white",
+        "name": "Minimalist Pure White",
+        "banner_bg": "#F1F5F9",
+        "banner_text": "#0F172A",
+        "banner_sub": "#64748B",
+        "highlight_bg": "#0F172A",
+        "highlight_stroke": "#38BDF8",
+        "artboard_bg": "#FFFFFF",
+        "icon_stroke": "#0F172A",
+        "accent": "#0284C7",
+    },
+    "midnight_dark": {
+        "id": "midnight_dark",
+        "name": "Obsidian Cyber Dark",
+        "banner_bg": "#1E293B",
+        "banner_text": "#38BDF8",
+        "banner_sub": "#94A3B8",
+        "highlight_bg": "#090D14",
+        "highlight_stroke": "#00F5A0",
+        "artboard_bg": "#0A0F1D",
+        "icon_stroke": "#38BDF8",
+        "accent": "#00F5A0",
     },
 }
 
+# Backward compatibility map
+PRESETS["obsidian"] = PRESETS["midnight_dark"]
+PRESETS["minimal"] = PRESETS["minimal_white"]
+PRESETS["cyber"] = PRESETS["vectuz_coral"]
+PRESETS["gold"] = PRESETS["vectuz_yellow"]
+PRESETS["cream"] = PRESETS["vectuz_orange"]
+PRESETS["blueprint"] = PRESETS["vectuz_blue"]
+
 
 def hex_to_rgb(hex_code: str) -> tuple[float, float, float]:
-    """Convert hex string (e.g. '#00f5a0' or '00f5a0') to 0.0-1.0 RGB tuple."""
-    h = hex_code.strip().lstrip("#")
+    """Convert hex string (e.g. '#00f5a0') to 0.0-1.0 RGB tuple."""
+    h = str(hex_code or "").strip().lstrip("#")
     if len(h) == 3:
         h = "".join(c * 2 for c in h)
     if len(h) != 6:
         return (0.0, 0.0, 0.0)
     try:
-        r = int(h[0:2], 16) / 255.0
-        g = int(h[2:4], 16) / 255.0
-        b = int(h[4:6], 16) / 255.0
-        return (r, g, b)
+        return (int(h[0:2], 16) / 255.0, int(h[2:4], 16) / 255.0, int(h[4:6], 16) / 255.0)
     except Exception:
         return (0.0, 0.0, 0.0)
 
@@ -157,215 +157,280 @@ def sanitize_text(text: str) -> str:
 
 
 def escape_ps_text(text: str) -> str:
-    """Escape text for PostScript string literal (inside parentheses)."""
+    """Escape text for PostScript string literal."""
     t = str(text or "")
     return t.replace("\\", "\\\\").replace("(", "\\(").replace(")", "\\)")
 
 
 def resolve_config(cfg: dict[str, Any] | None) -> dict[str, Any]:
     cfg = dict(cfg or {})
-    preset_key = cfg.get("preset", "obsidian")
-    base = dict(PRESETS.get(preset_key, PRESETS["obsidian"]))
-    
-    # Overwrite with any custom color or style overrides
+    preset_key = cfg.get("preset", "vectuz_yellow")
+    base = dict(PRESETS.get(preset_key, PRESETS["vectuz_yellow"]))
+
+    # Color & style overrides
     for k in (
-        "bg", "panel_bg", "panel_border", "accent", "title_color",
-        "subtitle_color", "badge_bg", "badge_text", "icon_stroke", "card_bg"
+        "banner_bg", "banner_text", "banner_sub", "highlight_bg",
+        "highlight_stroke", "artboard_bg", "icon_stroke", "accent"
     ):
         if cfg.get(k):
             base[k] = cfg[k]
 
-    base["title"] = cfg.get("title") or "Minimal Vector Line Icons"
-    base["subtitle"] = cfg.get("subtitle") or "Clean Centerline Vector Icon Collection"
-    base["icon_count"] = int(cfg.get("icon_count") or 12)
-    base["grid_size"] = cfg.get("grid_size") or "64 × 64 px"
-    base["author"] = cfg.get("author") or "Linework AI Precision Engine"
-    base["stroke_scale"] = float(cfg.get("stroke_scale") or 1.0)
-    base["layout"] = cfg.get("layout") or "landscape"  # "landscape" (1600x1000) or "square" (1200x1200)
-    base["show_grid"] = cfg.get("show_grid", True)
-    base["show_badges"] = cfg.get("show_badges", True)
+    # Map legacy keys if passed
+    if cfg.get("bg"):
+        base["artboard_bg"] = cfg["bg"]
+    if cfg.get("panel_bg"):
+        base["banner_bg"] = cfg["panel_bg"]
+
+    base["title"] = str(cfg.get("title") or "TECHNOLOGY").upper()
+    base["count"] = str(cfg.get("count") or cfg.get("icon_count") or "24")
+    base["subtitle"] = str(cfg.get("subtitle") or "Editable Line Icons")
+    base["stroke_scale"] = float(cfg.get("stroke_scale") or cfg.get("scale") or 1.0)
+    base["layout"] = cfg.get("layout") or "landscape_16_9"
+    base["show_highlight"] = cfg.get("show_highlight", True)
+    if isinstance(base["show_highlight"], str):
+        base["show_highlight"] = base["show_highlight"].lower() not in ("0", "false", "no")
+    base["highlight_mode"] = cfg.get("highlight_mode") or "mini_4"  # mini_4, mini_6, hero_1
     return base
 
 
+def _extract_icon_paths(model: Model, box: list[int] | tuple[int, ...]) -> list[Path]:
+    """Find paths in model whose anchor centers lie within box [x1, y1, x2, y2]."""
+    x1, y1, x2, y2 = box
+    pad = 8
+    matched = []
+    for p in model.paths:
+        if len(p.A) == 0:
+            continue
+        cx = float(np.mean(p.A[:, 0]))
+        cy = float(np.mean(p.A[:, 1]))
+        if (x1 - pad) <= cx <= (x2 + pad) and (y1 - pad) <= cy <= (y2 + pad):
+            matched.append(p)
+    return matched
+
+
+def _render_paths_svg(paths: list[Path], stroke: str, stroke_scale: float, scale: float, ox: float, oy: float) -> str:
+    """Render a list of paths translated by ox, oy and scaled by scale."""
+    elems = []
+    for p in paths:
+        sw = max(0.5, p.w * stroke_scale * scale)
+        d = p.d()
+        elems.append(
+            f'<path d="{d}" stroke="{stroke}" stroke-width="{sw:.2f}" '
+            f'stroke-linecap="round" stroke-linejoin="round" fill="none"/>'
+        )
+    body = "\n        ".join(elems)
+    return f'<g transform="translate({ox:.2f}, {oy:.2f}) scale({scale:.4f})">\n        {body}\n      </g>'
+
+
 def build_template_svg(model: Model, icons_meta: list[dict] | None = None, config: dict | None = None) -> str:
-    """Generate high-resolution SVG presentation artboard with Left Metadata Card and Right Traced Icon Sheet."""
+    """Generate high-resolution SVG presentation sheet with Adobe Stock side cover banner + right icon artboard."""
     c = resolve_config(config)
     icons_meta = icons_meta or []
-    count = len(icons_meta) if icons_meta else c["icon_count"]
-    
-    if c["layout"] == "square":
-        W, H = 1200, 1200
-        left_w = 380
-        left_x = 40
-        right_x = 445
-        right_w = 715
-    else:  # landscape 1600 x 1000 (standard Dribbble/Behance/Marketplace presentation)
-        W, H = 1600, 1000
-        left_w = 460
-        left_x = 60
-        right_x = 550
-        right_w = 990
+    count_val = str(c.get("count") or (len(icons_meta) if icons_meta else "15"))
 
-    top_y = 60
-    content_h = H - 120
+    mW, mH = max(10, model.width), max(10, model.height)
+    layout = c.get("layout", "landscape_16_9")
 
-    # Calculate scale and translation for the Model on the right side
-    mW, mH = max(1, model.width), max(1, model.height)
-    avail_w = right_w - 80
-    avail_h = content_h - 80
+    # Dimensions calculation based on layout mode
+    if layout == "auto_dock":
+        H = mH
+        banner_w = max(380, int(round(H * 0.35)))
+        W = banner_w + mW
+    elif layout == "square":
+        W, H = 2400, 2400
+        banner_w = 640
+    elif layout == "landscape_4_3":
+        W, H = 2400, 1800
+        banner_w = 620
+    elif layout == "landscape_16_10":
+        W, H = 1920, 1200
+        banner_w = 480
+    else:  # landscape_16_9 (Default 4K Ultra-HD presentation: 3840 x 2160)
+        W, H = 3840, 2160
+        banner_w = 960
+
+    # Margins and positioning
+    sheet_x = banner_w
+    sheet_w = W - banner_w
+    sheet_h = H
+
+    # Calculate model placement on the right artboard
+    avail_w = sheet_w * 0.88
+    avail_h = sheet_h * 0.88
     scale = min(avail_w / mW, avail_h / mH)
     target_w = mW * scale
     target_h = mH * scale
-    off_x = right_x + 40 + (avail_w - target_w) / 2
-    off_y = top_y + 40 + (avail_h - target_h) / 2
+    off_x = sheet_x + (sheet_w - target_w) / 2
+    off_y = (sheet_h - target_h) / 2
 
-    # Render model paths with custom stroke color and scale
+    # Render right icon sheet paths
     stroke_color = c["icon_stroke"]
-    stroke_scale = c["stroke_scale"]
-    
-    path_elems = []
-    for p in model.paths:
-        sw = max(0.5, p.w * stroke_scale * scale)
-        d = p.d()
-        path_elems.append(
-            f'<path d="{d}" stroke="{stroke_color}" stroke-width="{sw:.2f}" '
-            f'stroke-linecap="round" stroke-linejoin="round" fill="none"/>'
-        )
-    paths_svg = "\n      ".join(path_elems)
+    stroke_scale = float(c["stroke_scale"])
+    paths_svg_group = _render_paths_svg(model.paths, stroke_color, stroke_scale, scale, off_x, off_y)
 
-    # Decorative dots grid pattern
-    dots_svg = ""
-    if c.get("show_grid"):
-        dots_svg = f"""
-    <defs>
-      <pattern id="dotPattern" x="0" y="0" width="32" height="32" patternUnits="userSpaceOnUse">
-        <circle cx="2" cy="2" r="1.5" fill="{c['dot_grid']}"/>
-      </pattern>
-    </defs>
-    <rect width="100%" height="100%" fill="url(#dotPattern)"/>
-        """
+    # Right Artboard Background (Checkered transparent grid vs solid)
+    artboard_bg = c.get("artboard_bg", "checkered")
+    defs_svg = ""
+    if artboard_bg == "checkered":
+        chk_size = max(16, int(round(W / 120)))
+        chk_half = chk_size / 2
+        defs_svg = f"""
+    <pattern id="stockCheckeredPattern" width="{chk_size}" height="{chk_size}" patternUnits="userSpaceOnUse">
+      <rect width="{chk_size}" height="{chk_size}" fill="#ffffff"/>
+      <rect x="0" y="0" width="{chk_half}" height="{chk_half}" fill="#f1f3f6"/>
+      <rect x="{chk_half}" y="{chk_half}" width="{chk_half}" height="{chk_half}" fill="#f1f3f6"/>
+    </pattern>"""
+        sheet_bg_fill = 'url(#stockCheckeredPattern)'
+    else:
+        sheet_bg_fill = artboard_bg
 
+    # Banner Layout calculations
+    show_highlight = c.get("show_highlight", True)
+    banner_bg = c["banner_bg"]
+    banner_text = c["banner_text"]
+    banner_sub = c["banner_sub"]
+    hl_bg = c["highlight_bg"]
+    hl_stroke = c["highlight_stroke"]
+
+    banner_pad = int(banner_w * 0.10)
+    inner_w = banner_w - (banner_pad * 2)
+
+    # Height split: Top colored banner vs Bottom dark showcase box
+    if show_highlight:
+        top_h = int(round(H * 0.54))
+        box_y = top_h + int(round(H * 0.025))
+        box_h = H - box_y - int(round(H * 0.035))
+    else:
+        top_h = H - int(round(H * 0.06))
+        box_y = 0
+        box_h = 0
+
+    # Typography scaling based on banner width
+    title_fs = max(24, int(round(banner_w * 0.068)))
+    count_fs = max(72, int(round(banner_w * 0.28)))
+    sub_fs = max(14, int(round(banner_w * 0.042)))
+
+    # Subtitle multi-line parsing
+    raw_sub = str(c.get("subtitle") or "Editable Line Icons")
+    sub_words = raw_sub.replace("\\n", "\n").split()
+    if len(sub_words) >= 3 and "\n" not in raw_sub:
+        sub_lines = [" ".join(sub_words[:2]), " ".join(sub_words[2:])]
+    else:
+        sub_lines = raw_sub.split("\n") if "\n" in raw_sub else [raw_sub]
+
+    sub_tspan_svg = ""
+    for idx, s_line in enumerate(sub_lines):
+        dy_attr = f' dy="{int(sub_fs * 1.3)}"' if idx > 0 else ""
+        sub_tspan_svg += f'<tspan x="{banner_pad}"{dy_attr}>{sanitize_text(s_line)}</tspan>'
+
+    # Highlight Showcase Box content
+    hl_svg = ""
+    if show_highlight and box_h > 100:
+        box_rx = max(16, int(round(banner_w * 0.04)))
+        hl_mode = c.get("highlight_mode", "mini_4")
+
+        # Extract icons for highlight box
+        hl_paths_svg = ""
+        avail_icons = icons_meta if icons_meta else []
+        
+        if hl_mode == "hero_1" and avail_icons:
+            # 1 Giant Hero Icon
+            ic = avail_icons[0]
+            ic_paths = _extract_icon_paths(model, ic["box"])
+            if ic_paths:
+                bx1, by1, bx2, by2 = ic["box"]
+                bw, bh = max(1, bx2 - bx1), max(1, by2 - by1)
+                hero_size = min(inner_w * 0.65, box_h * 0.60)
+                h_scale = hero_size / max(bw, bh)
+                h_ox = banner_pad + (inner_w - bw * h_scale) / 2 - bx1 * h_scale
+                h_oy = box_y + (box_h - bh * h_scale) / 2 - by1 * h_scale
+                hl_paths_svg = _render_paths_svg(ic_paths, hl_stroke, stroke_scale, h_scale, h_ox, h_oy)
+
+        else:
+            # 4 Icons (2x2 grid) or 6 Icons (2x3 grid)
+            cols = 2
+            rows = 3 if hl_mode == "mini_6" and len(avail_icons) >= 6 else 2
+            num_showcase = cols * rows
+            cell_w = inner_w / cols
+            cell_h = (box_h - int(banner_w * 0.12)) / rows
+
+            rendered_cells = []
+            for i in range(min(num_showcase, len(avail_icons))):
+                ic = avail_icons[i]
+                ic_paths = _extract_icon_paths(model, ic["box"])
+                if not ic_paths:
+                    continue
+                bx1, by1, bx2, by2 = ic["box"]
+                bw, bh = max(1, bx2 - bx1), max(1, by2 - by1)
+                col_i = i % cols
+                row_i = i // cols
+                
+                target_cell = min(cell_w * 0.62, cell_h * 0.62)
+                ic_scale = target_cell / max(bw, bh)
+                cx = banner_pad + col_i * cell_w + (cell_w - bw * ic_scale) / 2 - bx1 * ic_scale
+                cy = box_y + int(banner_w * 0.06) + row_i * cell_h + (cell_h - bh * ic_scale) / 2 - by1 * ic_scale
+                rendered_cells.append(_render_paths_svg(ic_paths, hl_stroke, stroke_scale, ic_scale, cx, cy))
+
+            hl_paths_svg = "\n        ".join(rendered_cells)
+
+        hl_tag_fs = max(11, int(round(banner_w * 0.030)))
+        hl_svg = f"""
+    <!-- Bottom Dark Showcase Box (Inverted White Icons Preview) -->
+    <g id="highlightShowcaseBox">
+      <rect x="{banner_pad}" y="{box_y}" width="{inner_w}" height="{box_h}" rx="{box_rx}"
+            fill="{hl_bg}" stroke="#333a4d" stroke-width="1.5" stroke-opacity="0.3"/>
+      {hl_paths_svg}
+      <text x="{banner_pad + inner_w / 2}" y="{box_y + box_h - int(banner_w * 0.045)}" 
+            font-size="{hl_tag_fs}" font-weight="700" letter-spacing="1.5" fill="#94a3b8" 
+            text-anchor="middle" class="mono">
+        DARK THEME PREVIEW
+      </text>
+    </g>"""
+
+    # Assemble complete SVG
     svg = f"""<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {W} {H}" width="{W}" height="{H}">
-  <style>
-    @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&amp;family=JetBrains+Mono:wght@500;700&amp;display=swap');
-    text {{ font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif; }}
-    .mono {{ font-family: 'JetBrains Mono', monospace; }}
-  </style>
+  <defs>
+    <style>
+      @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;700;800;900&amp;family=JetBrains+Mono:wght@600;700&amp;display=swap');
+      text {{ font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif; }}
+      .mono {{ font-family: 'JetBrains Mono', monospace; }}
+    </style>{defs_svg}
+  </defs>
 
-  <!-- Background Canvas -->
-  <rect width="{W}" height="{H}" fill="{c['bg']}"/>
-  {dots_svg}
+  <!-- Right Artboard Background -->
+  <rect x="{sheet_x}" y="0" width="{sheet_w}" height="{sheet_h}" fill="{sheet_bg_fill}"/>
 
-  <!-- ================= LEFT SECTION: PRESENTATION METADATA & SPECS ================= -->
-  <g id="leftTemplateSection">
-    <!-- Panel Backdrop Card -->
-    <rect x="{left_x}" y="{top_y}" width="{left_w}" height="{content_h}" rx="24" 
-          fill="{c['panel_bg']}" stroke="{c['panel_border']}" stroke-width="1.5" stroke-opacity="{c.get('panel_border_alpha', 0.25)}"/>
+  <!-- Right Traced Vector Icons Sheet -->
+  <g id="stockIconSheet">
+    {paths_svg_group}
+  </g>
 
-    <!-- Category Pill Badge -->
-    <rect x="{left_x + 36}" y="{top_y + 36}" width="165" height="30" rx="8" 
-          fill="{c['badge_bg']}" fill-opacity="{c.get('badge_bg_alpha', 0.15)}"/>
-    <text x="{left_x + 48}" y="{top_y + 56}" font-size="11" font-weight="700" letter-spacing="1" fill="{c['badge_text']}" class="mono">
-      VECTOR ICON SET
-    </text>
+  <!-- ================= LEFT SIDE COVER BANNER (ADOBE STOCK STANDARD) ================= -->
+  <g id="stockSideBanner">
+    <!-- Top Colored Banner Card -->
+    <rect x="{banner_pad}" y="{int(round(H * 0.035))}" width="{inner_w}" height="{top_h - int(round(H * 0.035))}" 
+          rx="{max(16, int(round(banner_w * 0.04)))}" fill="{banner_bg}"/>
 
-    <!-- Main Title -->
-    <text x="{left_x + 36}" y="{top_y + 112}" font-size="28" font-weight="800" fill="{c['title_color']}" letter-spacing="-0.5">
+    <!-- Category / Title -->
+    <text x="{banner_pad + int(inner_w * 0.08)}" y="{int(round(H * 0.035)) + int(top_h * 0.16)}" 
+          font-size="{title_fs}" font-weight="900" letter-spacing="2" fill="{banner_text}">
       {sanitize_text(c['title'])}
     </text>
 
-    <!-- Subtitle / Description -->
-    <text x="{left_x + 36}" y="{top_y + 144}" font-size="14" font-weight="500" fill="{c['subtitle_color']}">
-      {sanitize_text(c['subtitle'])}
+    <!-- Giant Count Number -->
+    <text x="{banner_pad + int(inner_w * 0.08)}" y="{int(round(H * 0.035)) + int(top_h * 0.52)}" 
+          font-size="{count_fs}" font-weight="900" fill="{banner_text}" letter-spacing="-2">
+      {sanitize_text(count_val)}
     </text>
 
-    <!-- Highlight Spec: Live Editable Stroke Badge -->
-    <g transform="translate({left_x + 36}, {top_y + 175})">
-      <rect width="{left_w - 72}" height="56" rx="14" fill="{c['card_bg']}" stroke="{c['card_border']}" stroke-width="1"/>
-      <circle cx="28" cy="28" r="14" fill="{c['accent']}" fill-opacity="0.15"/>
-      <path d="M22 28l4 4 8-8" stroke="{c['accent']}" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
-      <text x="52" y="24" font-size="13" font-weight="700" fill="{c['title_color']}">100% Vector &amp; Editable Stroke</text>
-      <text x="52" y="42" font-size="11" font-weight="500" fill="{c['text_dim']}">Single centerline paths · Infinite scale</text>
-    </g>
+    <!-- Subtitle / Editable Line Icons Badge -->
+    <text x="{banner_pad + int(inner_w * 0.08)}" y="{int(round(H * 0.035)) + int(top_h * 0.68)}" 
+          font-size="{sub_fs}" font-weight="700" fill="{banner_sub}" letter-spacing="0.5">
+      {sub_tspan_svg}
+    </text>
 
-    <!-- 2x2 Specifications Mini Grid -->
-    <g transform="translate({left_x + 36}, {top_y + 250})">
-      <!-- Stat 1: Icon Count -->
-      <rect x="0" y="0" width="{(left_w - 86) / 2}" height="68" rx="12" fill="{c['card_bg']}" stroke="{c['card_border']}" stroke-width="1"/>
-      <text x="16" y="28" font-size="11" font-weight="600" fill="{c['text_dim']}" class="mono">COUNT</text>
-      <text x="16" y="52" font-size="20" font-weight="800" fill="{c['title_color']}">{count} Icons</text>
-
-      <!-- Stat 2: Grid Size -->
-      <rect x="{(left_w - 86) / 2 + 14}" y="0" width="{(left_w - 86) / 2}" height="68" rx="12" fill="{c['card_bg']}" stroke="{c['card_border']}" stroke-width="1"/>
-      <text x="{(left_w - 86) / 2 + 30}" y="28" font-size="11" font-weight="600" fill="{c['text_dim']}" class="mono">GRID</text>
-      <text x="{(left_w - 86) / 2 + 30}" y="52" font-size="18" font-weight="800" fill="{c['title_color']}">{sanitize_text(c['grid_size'])}</text>
-
-      <!-- Stat 3: Formats -->
-      <rect x="0" y="80" width="{(left_w - 86) / 2}" height="68" rx="12" fill="{c['card_bg']}" stroke="{c['card_border']}" stroke-width="1"/>
-      <text x="16" y="108" font-size="11" font-weight="600" fill="{c['text_dim']}" class="mono">FORMAT</text>
-      <text x="16" y="132" font-size="16" font-weight="800" fill="{c['title_color']}">SVG · EPS</text>
-
-      <!-- Stat 4: Precision -->
-      <rect x="{(left_w - 86) / 2 + 14}" y="80" width="{(left_w - 86) / 2}" height="68" rx="12" fill="{c['card_bg']}" stroke="{c['card_border']}" stroke-width="1"/>
-      <text x="{(left_w - 86) / 2 + 30}" y="108" font-size="11" font-weight="600" fill="{c['text_dim']}" class="mono">QUALITY</text>
-      <text x="{(left_w - 86) / 2 + 30}" y="132" font-size="16" font-weight="800" fill="{c['accent']}">Clean Joints</text>
-    </g>
-
-    <!-- Features Checklist -->
-    <g transform="translate({left_x + 36}, {top_y + 420})">
-      <text x="0" y="15" font-size="12" font-weight="700" letter-spacing="1" fill="{c['text_dim']}" class="mono">KEY FEATURES</text>
-
-      <!-- Item 1 -->
-      <circle cx="8" cy="45" r="7" fill="{c['accent']}" fill-opacity="0.18"/>
-      <path d="M5 45l2 2 4-4" stroke="{c['accent']}" stroke-width="1.8" stroke-linecap="round" fill="none"/>
-      <text x="26" y="49" font-size="13" font-weight="600" fill="{c['title_color']}">Clean Centerline Strokes</text>
-
-      <!-- Item 2 -->
-      <circle cx="8" cy="77" r="7" fill="{c['accent']}" fill-opacity="0.18"/>
-      <path d="M5 77l2 2 4-4" stroke="{c['accent']}" stroke-width="1.8" stroke-linecap="round" fill="none"/>
-      <text x="26" y="81" font-size="13" font-weight="600" fill="{c['title_color']}">Perfect Circular Arcs &amp; Welded Corners</text>
-
-      <!-- Item 3 -->
-      <circle cx="8" cy="109" r="7" fill="{c['accent']}" fill-opacity="0.18"/>
-      <path d="M5 109l2 2 4-4" stroke="{c['accent']}" stroke-width="1.8" stroke-linecap="round" fill="none"/>
-      <text x="26" y="113" font-size="13" font-weight="600" fill="{c['title_color']}">Zero Stray Nodes or Overlapping Ink</text>
-
-      <!-- Item 4 -->
-      <circle cx="8" cy="141" r="7" fill="{c['accent']}" fill-opacity="0.18"/>
-      <path d="M5 141l2 2 4-4" stroke="{c['accent']}" stroke-width="1.8" stroke-linecap="round" fill="none"/>
-      <text x="26" y="145" font-size="13" font-weight="600" fill="{c['title_color']}">Fully Scalable to Any Dimension</text>
-    </g>
-
-    <!-- Author & License Footer Tag -->
-    <g transform="translate({left_x + 36}, {top_y + content_h - 45})">
-      <line x1="0" y1="-15" x2="{left_w - 72}" y2="-15" stroke="{c['card_border']}" stroke-width="1"/>
-      <text x="0" y="8" font-size="12" font-weight="600" fill="{c['text_dim']}">
-        {sanitize_text(c['author'])}
-      </text>
-      <text x="{left_w - 72}" y="8" text-anchor="end" font-size="11" font-weight="700" fill="{c['accent']}" class="mono">
-        PREMIUM ASSET
-      </text>
-    </g>
+    {hl_svg}
   </g>
-
-  <!-- ================= RIGHT SECTION: TRACED VECTOR ICON SHEET ================= -->
-  <g id="rightIconSheetSection">
-    <!-- Icon Artboard Framing Container -->
-    <rect x="{right_x}" y="{top_y}" width="{right_w}" height="{content_h}" rx="24" 
-          fill="{c['card_bg']}" stroke="{c['panel_border']}" stroke-width="1.5" stroke-opacity="{c.get('panel_border_alpha', 0.25)}"/>
-
-    <!-- Corner Alignment Marks -->
-    <path d="M{right_x + 20} {top_y + 35} L{right_x + 20} {top_y + 20} L{right_x + 35} {top_y + 20}" stroke="{c['text_dim']}" stroke-width="1" fill="none"/>
-    <path d="M{right_x + right_w - 20} {top_y + 35} L{right_x + right_w - 20} {top_y + 20} L{right_x + right_w - 35} {top_y + 20}" stroke="{c['text_dim']}" stroke-width="1" fill="none"/>
-    <path d="M{right_x + 20} {top_y + content_h - 35} L{right_x + 20} {top_y + content_h - 20} L{right_x + 35} {top_y + content_h - 20}" stroke="{c['text_dim']}" stroke-width="1" fill="none"/>
-    <path d="M{right_x + right_w - 20} {top_y + content_h - 35} L{right_x + right_w - 20} {top_y + content_h - 20} L{right_x + right_w - 35} {top_y + content_h - 20}" stroke="{c['text_dim']}" stroke-width="1" fill="none"/>
-
-    <!-- Scaled & Centered Vector Centerline Icons -->
-    <g transform="translate({off_x:.2f}, {off_y:.2f})">
-      {paths_svg}
-    </g>
-  </g>
-
 </svg>"""
     return svg
 
@@ -374,56 +439,70 @@ def build_template_eps(model: Model, icons_meta: list[dict] | None = None, confi
     """Generate professional Adobe-standard Encapsulated PostScript (EPS 3.0) presentation template."""
     c = resolve_config(config)
     icons_meta = icons_meta or []
-    count = len(icons_meta) if icons_meta else c["icon_count"]
+    count_val = str(c.get("count") or (len(icons_meta) if icons_meta else "15"))
 
-    if c["layout"] == "square":
-        W, H = 1200, 1200
-        left_w = 380
-        left_x = 40
-        right_x = 445
-        right_w = 715
-    else:
-        W, H = 1600, 1000
-        left_w = 460
-        left_x = 60
-        right_x = 550
-        right_w = 990
+    mW, mH = max(10, model.width), max(10, model.height)
+    layout = c.get("layout", "landscape_16_9")
 
-    top_y = 60
-    content_h = H - 120
+    if layout == "auto_dock":
+        H = mH
+        banner_w = max(380, int(round(H * 0.35)))
+        W = banner_w + mW
+    elif layout == "square":
+        W, H = 2400, 2400
+        banner_w = 640
+    elif layout == "landscape_4_3":
+        W, H = 2400, 1800
+        banner_w = 620
+    elif layout == "landscape_16_10":
+        W, H = 1920, 1200
+        banner_w = 480
+    else:  # landscape_16_9
+        W, H = 3840, 2160
+        banner_w = 960
 
-    # Model positioning
-    mW, mH = max(1, model.width), max(1, model.height)
-    avail_w = right_w - 80
-    avail_h = content_h - 80
+    sheet_x = banner_w
+    sheet_w = W - banner_w
+    sheet_h = H
+
+    avail_w = sheet_w * 0.88
+    avail_h = sheet_h * 0.88
     scale = min(avail_w / mW, avail_h / mH)
     target_w = mW * scale
     target_h = mH * scale
-    off_x = right_x + 40 + (avail_w - target_w) / 2
-    off_y = top_y + 40 + (avail_h - target_h) / 2
+    off_x = sheet_x + (sheet_w - target_w) / 2
+    off_y = (sheet_h - target_h) / 2
 
-    # Color values
-    bg_r, bg_g, bg_b = hex_to_rgb(c["bg"])
-    pbg_r, pbg_g, pbg_b = hex_to_rgb(c["panel_bg"])
-    acc_r, acc_g, acc_b = hex_to_rgb(c["accent"])
-    tit_r, tit_g, tit_b = hex_to_rgb(c["title_color"])
-    sub_r, sub_g, sub_b = hex_to_rgb(c["subtitle_color"])
-    cbg_r, cbg_g, cbg_b = hex_to_rgb(c["card_bg"])
+    # RGB values
+    bbg_r, bbg_g, bbg_b = hex_to_rgb(c["banner_bg"])
+    btxt_r, btxt_g, btxt_b = hex_to_rgb(c["banner_text"])
+    hlbg_r, hlbg_g, hlbg_b = hex_to_rgb(c["highlight_bg"])
+    hlstk_r, hlstk_g, hlstk_b = hex_to_rgb(c["highlight_stroke"])
     stk_r, stk_g, stk_b = hex_to_rgb(c["icon_stroke"])
-    dim_r, dim_g, dim_b = hex_to_rgb(c["text_dim"])
-    stroke_scale = c["stroke_scale"]
+    stroke_scale = float(c["stroke_scale"])
 
-    # Build PostScript code
+    banner_pad = int(banner_w * 0.10)
+    inner_w = banner_w - (banner_pad * 2)
+    show_highlight = c.get("show_highlight", True)
+
+    if show_highlight:
+        top_h = int(round(H * 0.54))
+        box_y = top_h + int(round(H * 0.025))
+        box_h = H - box_y - int(round(H * 0.035))
+    else:
+        top_h = H - int(round(H * 0.06))
+        box_y = 0
+        box_h = 0
+
     lines = [
         "%!PS-Adobe-3.0 EPSF-3.0",
-        "%%Creator: Linework AI Presentation Engine",
-        f"%%Title: {escape_ps_text(c['title'])}",
+        "%%Creator: Linework AI Stock Presentation Engine",
+        f"%%Title: {escape_ps_text(c['title'])} - {count_val} Icons",
         f"%%BoundingBox: 0 0 {W} {H}",
         f"%%HiResBoundingBox: 0 0 {float(W)} {float(H)}",
         "%%Pages: 1",
         "%%EndComments",
         "",
-        "% Helper macros",
         "/M { moveto } bind def",
         "/L { lineto } bind def",
         "/C { curveto } bind def",
@@ -435,7 +514,6 @@ def build_template_eps(model: Model, icons_meta: list[dict] | None = None, confi
         "/LC { setlinecap } bind def",
         "/LJ { setlinejoin } bind def",
         "",
-        "% Rounded rectangle: x y w h r roundrect",
         "/roundrect {",
         "  /r exch def /h exch def /w exch def /y exch def /x exch def",
         "  newpath",
@@ -447,122 +525,72 @@ def build_template_eps(model: Model, icons_meta: list[dict] | None = None, confi
         "  CP",
         "} bind def",
         "",
-        "% Transform origin to top-left (SVG coordinate alignment)",
         f"0 {H} translate",
         "1 -1 scale",
         "",
-        "% Background",
-        f"{bg_r:.3f} {bg_g:.3f} {bg_b:.3f} RGB",
-        f"0 0 {W} {H} rectfill",
+        "% Right Artboard Background (Clean Stock White)",
+        "1.0 1.0 1.0 RGB",
+        f"{sheet_x} 0 {sheet_w} {sheet_h} rectfill",
         "",
-        "% Left Panel Backdrop",
-        f"{left_x} {top_y} {left_w} {content_h} 24 roundrect",
-        f"{pbg_r:.3f} {pbg_g:.3f} {pbg_b:.3f} RGB F",
-        f"{left_x} {top_y} {left_w} {content_h} 24 roundrect",
-        f"{acc_r:.3f} {acc_g:.3f} {acc_b:.3f} RGB 1.5 LW 1 LC 1 LJ S",
+        "% Top Colored Banner",
+        f"{bbg_r:.3f} {bbg_g:.3f} {bbg_b:.3f} RGB",
+        f"{banner_pad} {int(round(H * 0.035))} {inner_w} {top_h - int(round(H * 0.035))} 24 roundrect F",
+    ]
+
+    if show_highlight and box_h > 100:
+        lines += [
+            "",
+            "% Bottom Dark Showcase Card",
+            f"{hlbg_r:.3f} {hlbg_g:.3f} {hlbg_b:.3f} RGB",
+            f"{banner_pad} {box_y} {inner_w} {box_h} 24 roundrect F",
+        ]
+
+    # Render vector paths in EPS
+    lines += [
         "",
-        "% Right Framing Container",
-        f"{right_x} {top_y} {right_w} {content_h} 24 roundrect",
-        f"{cbg_r:.3f} {cbg_g:.3f} {cbg_b:.3f} RGB F",
-        f"{right_x} {top_y} {right_w} {content_h} 24 roundrect",
-        f"{acc_r:.3f} {acc_g:.3f} {acc_b:.3f} RGB 1.5 LW 1 LC 1 LJ S",
-        "",
-        "% Left Panel Text & Typography",
-        "% Note: font rendering with scale 1 -1 needs inverted font matrix to read correctly",
-        "/drawText {",
-        "  gsave",
-        "  1 -1 scale",
-        "  moveto show",
-        "  grestore",
-        "} bind def",
-        "",
-        "% Category badge",
-        f"{left_x + 36} {top_y + 36} 165 30 8 roundrect",
-        f"{acc_r:.3f} {acc_g:.3f} {acc_b:.3f} RGB 1 LW S",
-        f"/Helvetica-Bold findfont 11 scalefont setfont",
-        f"{acc_r:.3f} {acc_g:.3f} {acc_b:.3f} RGB",
-        f"({escape_ps_text('VECTOR ICON SET')}) {left_x + 48} {- (top_y + 56)} drawText",
-        "",
-        "% Title",
-        f"/Helvetica-Bold findfont 26 scalefont setfont",
-        f"{tit_r:.3f} {tit_g:.3f} {tit_b:.3f} RGB",
-        f"({escape_ps_text(c['title'])}) {left_x + 36} {- (top_y + 112)} drawText",
-        "",
-        "% Subtitle",
-        f"/Helvetica findfont 13 scalefont setfont",
-        f"{sub_r:.3f} {sub_g:.3f} {sub_b:.3f} RGB",
-        f"({escape_ps_text(c['subtitle'])}) {left_x + 36} {- (top_y + 144)} drawText",
-        "",
-        "% Editable badge container",
-        f"{left_x + 36} {top_y + 175} {left_w - 72} 56 12 roundrect",
-        f"{cbg_r:.3f} {cbg_g:.3f} {cbg_b:.3f} RGB F",
-        f"{left_x + 36} {top_y + 175} {left_w - 72} 56 12 roundrect",
-        f"{acc_r:.3f} {acc_g:.3f} {acc_b:.3f} RGB 1 LW S",
-        f"/Helvetica-Bold findfont 13 scalefont setfont",
-        f"{tit_r:.3f} {tit_g:.3f} {tit_b:.3f} RGB",
-        f"({escape_ps_text('100% Vector & Editable Stroke')}) {left_x + 56} {- (top_y + 200)} drawText",
-        f"/Helvetica findfont 11 scalefont setfont",
-        f"{dim_r:.3f} {dim_g:.3f} {dim_b:.3f} RGB",
-        f"({escape_ps_text('Clean single centerlines')}) {left_x + 56} {- (top_y + 218)} drawText",
-        "",
-        "% Specifications block",
-        f"/Helvetica-Bold findfont 16 scalefont setfont",
-        f"{tit_r:.3f} {tit_g:.3f} {tit_b:.3f} RGB",
-        f"({escape_ps_text(str(count) + ' Icons  |  Grid: ' + str(c.get('grid_size', '64x64')) + '  |  SVG + EPS')}) {left_x + 36} {- (top_y + 280)} drawText",
-        "",
-        "% Features List",
-        f"/Helvetica-Bold findfont 12 scalefont setfont",
-        f"{acc_r:.3f} {acc_g:.3f} {acc_b:.3f} RGB",
-        f"({escape_ps_text('[v] Clean Single Centerlines')}) {left_x + 36} {- (top_y + 340)} drawText",
-        f"({escape_ps_text('[v] Perfect Circular Arcs & Welded Corners')}) {left_x + 36} {- (top_y + 372)} drawText",
-        f"({escape_ps_text('[v] Zero Stray Nodes or Overlaps')}) {left_x + 36} {- (top_y + 404)} drawText",
-        f"({escape_ps_text('[v] Fully Scalable to Any Dimension')}) {left_x + 36} {- (top_y + 436)} drawText",
-        "",
-        "% Footer",
-        f"/Helvetica findfont 12 scalefont setfont",
-        f"{dim_r:.3f} {dim_g:.3f} {dim_b:.3f} RGB",
-        f"({escape_ps_text(c['author'])}) {left_x + 36} {- (top_y + content_h - 45)} drawText",
-        "",
-        "% ================= RIGHT SECTION: VECTOR ICON PATHS =================",
-        "gsave",
-        f"{off_x:.3f} {off_y:.3f} translate",
-        f"{stk_r:.3f} {stk_g:.3f} {stk_b:.3f} RGB",
+        "% Vector Icons on Sheet",
         "1 LC 1 LJ",
+        f"{stk_r:.3f} {stk_g:.3f} {stk_b:.3f} RGB",
+        "gsave",
+        f"{off_x:.2f} {off_y:.2f} translate",
+        f"{scale:.4f} {scale:.4f} scale",
     ]
 
     for p in model.paths:
-        sw = max(0.5, p.w * stroke_scale * scale)
+        sw = max(0.5, p.w * stroke_scale)
         lines.append(f"{sw:.2f} LW")
         lines.append("newpath")
-        for i, seg in enumerate(p.segs()):
-            p0, p1, p2, p3 = seg
-            if i == 0:
-                lines.append(f"{p0[0]:.2f} {p0[1]:.2f} M")
-            lines.append(f"{p1[0]:.2f} {p1[1]:.2f} {p2[0]:.2f} {p2[1]:.2f} {p3[0]:.2f} {p3[1]:.2f} C")
+        s = p.segs()
+        if not s:
+            continue
+        lines.append(f"{s[0][0][0]:.2f} {s[0][0][1]:.2f} M")
+        for c_seg in s:
+            lines.append(
+                f"{c_seg[1][0]:.2f} {c_seg[1][1]:.2f} "
+                f"{c_seg[2][0]:.2f} {c_seg[2][1]:.2f} "
+                f"{c_seg[3][0]:.2f} {c_seg[3][1]:.2f} C"
+            )
         if p.closed:
             lines.append("CP")
         lines.append("S")
 
-    lines.extend([
-        "grestore",
-        "",
-        "%%EOF"
-    ])
+    lines.append("grestore")
+    lines.append("%%EOF")
     return "\n".join(lines)
 
 
 def build_model_eps(model: Model, stroke_color: str = "#000000", stroke_scale: float = 1.0, bg: str | None = None) -> str:
-    """Generate standalone EPS for just the clean icon sheet without template framing."""
-    W, H = max(1, model.width), max(1, model.height)
+    """Export a standalone Model directly to Adobe PostScript EPS 3.0 format."""
+    W = max(1, model.width)
+    H = max(1, model.height)
     stk_r, stk_g, stk_b = hex_to_rgb(stroke_color)
-
     lines = [
-        "%!PS-Adobe-3.0 EPSF-3.0",
-        "%%Creator: Linework AI Clean Vector Engine",
-        f"%%BoundingBox: 0 0 {W} {H}",
-        f"%%HiResBoundingBox: 0 0 {float(W)} {float(H)}",
-        "%%Pages: 1",
-        "%%EndComments",
+        "%%!PS-Adobe-3.0 EPSF-3.0",
+        "%%%%Creator: Linework AI Vector Precision Engine",
+        f"%%%%BoundingBox: 0 0 {W} {H}",
+        f"%%%%HiResBoundingBox: 0 0 {float(W)} {float(H)}",
+        "%%%%Pages: 1",
+        "%%%%EndComments",
         "",
         "/M { moveto } bind def",
         "/L { lineto } bind def",
@@ -578,31 +606,28 @@ def build_model_eps(model: Model, stroke_color: str = "#000000", stroke_scale: f
         f"0 {H} translate",
         "1 -1 scale",
     ]
-
     if bg and bg.lower() not in ("none", "transparent"):
-        bgr, bgg, bgb = hex_to_rgb(bg)
-        lines.extend([
-            f"{bgr:.3f} {bgg:.3f} {bgb:.3f} RGB",
+        bg_r, bg_g, bg_b = hex_to_rgb(bg)
+        lines += [
+            f"{bg_r:.3f} {bg_g:.3f} {bg_b:.3f} RGB",
             f"0 0 {W} {H} rectfill",
-        ])
-
-    lines.extend([
-        f"{stk_r:.3f} {stk_g:.3f} {stk_b:.3f} RGB",
+        ]
+    lines += [
         "1 LC 1 LJ",
-    ])
-
+        f"{stk_r:.3f} {stk_g:.3f} {stk_b:.3f} RGB",
+    ]
     for p in model.paths:
         sw = max(0.5, p.w * stroke_scale)
         lines.append(f"{sw:.2f} LW")
         lines.append("newpath")
-        for i, seg in enumerate(p.segs()):
-            p0, p1, p2, p3 = seg
-            if i == 0:
-                lines.append(f"{p0[0]:.2f} {p0[1]:.2f} M")
-            lines.append(f"{p1[0]:.2f} {p1[1]:.2f} {p2[0]:.2f} {p2[1]:.2f} {p3[0]:.2f} {p3[1]:.2f} C")
+        s = p.segs()
+        if not s:
+            continue
+        lines.append(f"{s[0][0][0]:.2f} {s[0][0][1]:.2f} M")
+        for c_seg in s:
+            lines.append(f"{c_seg[1][0]:.2f} {c_seg[1][1]:.2f} {c_seg[2][0]:.2f} {c_seg[2][1]:.2f} {c_seg[3][0]:.2f} {c_seg[3][1]:.2f} C")
         if p.closed:
             lines.append("CP")
         lines.append("S")
-
     lines.append("%%EOF")
     return "\n".join(lines)
