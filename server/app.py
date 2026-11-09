@@ -103,7 +103,7 @@ def pool():
         # 16 worker threads so multi-node remote Colabs can be dispatched concurrently
         # Local execution is strictly capped to 1 by _LOCAL_SEMAPHORE to prevent any OOM on Render
         worker.init(_Q)
-        _POOL = ThreadPoolExecutor(max_workers=16)
+        _POOL = ThreadPoolExecutor(max_workers=64)
     return _POOL
 
 

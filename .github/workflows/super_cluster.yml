@@ -1,4 +1,4 @@
-name: "Linework 24/7 Free Super-Cluster (16 CPU Cores / 64GB RAM)"
+name: "Linework 24/7 Free Super-Cluster (40 CPU Cores / 160GB RAM)"
 
 on:
   push:
@@ -20,7 +20,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        node: [1, 2, 3, 4]
+        node: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
 
     steps:
       - name: Checkout Linework AI Engine
