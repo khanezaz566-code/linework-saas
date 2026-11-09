@@ -41,13 +41,17 @@ def find_icons(D, merge=1.15, min_area_w2=6.0):
     k += (k + 1) % 2
     dil = cv2.dilate(mask, cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (k, k)))
     n, lab, st, _ = cv2.connectedComponentsWithStats(dil)
+    del dil
     icons = []
     for i in range(1, n):
         x, y, bw, bh, a = st[i]
-        ink = int((mask[lab == i]).sum())
+        sub_lab = lab[y:y + bh, x:x + bw]
+        sub_mask = mask[y:y + bh, x:x + bw]
+        ink = int(sub_mask[sub_lab == i].sum())
         if ink < min_area_w2 * w * w * 0.5:
             continue
         icons.append(dict(id=i, box=[int(x), int(y), int(x + bw), int(y + bh)], ink=ink))
+    del mask
     # an icon sitting entirely inside another icon's box (e.g. the X on a cushion) belongs to it
     def inside(a, b, tol=4):
         return a[0] >= b[0] - tol and a[1] >= b[1] - tol and a[2] <= b[2] + tol and a[3] <= b[3] + tol
@@ -55,7 +59,9 @@ def find_icons(D, merge=1.15, min_area_w2=6.0):
     for ic in sorted(icons, key=lambda c: -((c["box"][2] - c["box"][0]) * (c["box"][3] - c["box"][1]))):
         host = next((h for h in keep if inside(ic["box"], h["box"])), None)
         if host is not None:
-            lab[lab == ic["id"]] = host["id"]
+            bx0, by0, bx1, by1 = ic["box"]
+            sub_l = lab[by0:by1, bx0:bx1]
+            sub_l[sub_l == ic["id"]] = host["id"]
             host["ink"] += ic["ink"]
         else:
             keep.append(ic)

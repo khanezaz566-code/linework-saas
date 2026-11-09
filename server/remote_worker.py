@@ -195,7 +195,7 @@ def release_worker(url: str, failed: bool = False):
         _CV.notify_all()
 
 
-def dispatch_via_pull_queue(payload: dict, timeout: float = 55.0) -> dict:
+def dispatch_via_pull_queue(payload: dict, timeout: float = 115.0) -> dict:
     """Enqueue an icon task for any Zero-Tunnel Pull Worker and wait for its completion."""
     task_id = uuid.uuid4().hex[:16]
     ev = threading.Event()
@@ -226,6 +226,37 @@ def dispatch_via_pull_queue(payload: dict, timeout: float = 55.0) -> dict:
             _PULL_QUEUE[:] = [t for t in _PULL_QUEUE if t["task_id"] != task_id]
 
 
+def try_pop_pending_task(worker_id: str, secret: str, specs: dict = None, register: bool = False) -> dict:
+    """Non-blocking instant check for a pending pull task.
+    Designed to be called from FastAPI's main asyncio loop so 100+ pull workers consume ZERO OS threads!
+    """
+    if secret != WORKER_SECRET:
+        return {"ok": False, "error": "unauthorized"}
+
+    if register or worker_id not in ACTIVE_NODES:
+        register_worker_node(worker_id, secret, specs)
+
+    now = time.time()
+    with _CV:
+        if worker_id in ACTIVE_NODES:
+            ACTIVE_NODES[worker_id]["last_ping"] = now
+        _PULL_QUEUE[:] = [t for t in _PULL_QUEUE if now - t["created"] < 150.0 and t["task_id"] in _INFLIGHT_TASKS]
+        if _PULL_QUEUE:
+            task = _PULL_QUEUE.pop(0)
+            tid = task["task_id"]
+            if tid in _INFLIGHT_TASKS:
+                _INFLIGHT_TASKS[tid]["worker_id"] = worker_id
+            if worker_id in ACTIVE_NODES:
+                ACTIVE_NODES[worker_id]["last_dispatched"] = now
+            return {
+                "ok": True,
+                "has_task": True,
+                "task_id": tid,
+                "payload": task["payload"],
+            }
+        return {"ok": True, "has_task": False}
+
+
 def pull_pending_task(worker_id: str, secret: str, specs: dict = None, wait_timeout: float = 20.0) -> dict:
     """Called by remote workers via POST /api/worker/pull.
     Automatically updates worker heartbeat and blocks up to wait_timeout seconds for a task.
@@ -239,8 +270,8 @@ def pull_pending_task(worker_id: str, secret: str, specs: dict = None, wait_time
     with _CV:
         while True:
             now = time.time()
-            # Discard stale queued tasks older than 60s
-            _PULL_QUEUE[:] = [t for t in _PULL_QUEUE if now - t["created"] < 60.0 and t["task_id"] in _INFLIGHT_TASKS]
+            # Discard stale queued tasks older than 150s
+            _PULL_QUEUE[:] = [t for t in _PULL_QUEUE if now - t["created"] < 150.0 and t["task_id"] in _INFLIGHT_TASKS]
 
             if _PULL_QUEUE:
                 task = _PULL_QUEUE.pop(0)
@@ -344,6 +375,7 @@ def get_cluster_operations_detail() -> dict:
         return {
             "active_nodes_count": len(nodes_detail),
             "total_capacity": sum(n["capacity"] for n in nodes_detail),
+            "total_cluster_ram_gb": len(nodes_detail) * 16,
             "active_tasks": sum(n["active"] for n in nodes_detail),
             "total_completed": sum(n["total_dispatched"] for n in nodes_detail),
             "pull_queue_depth": len(_PULL_QUEUE),

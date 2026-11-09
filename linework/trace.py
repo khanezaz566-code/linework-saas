@@ -12,17 +12,22 @@ _K[1, 1] = 0
 
 def ink_map(gray: np.ndarray) -> np.ndarray:
     """Normalised ink coverage in [0,1] (1 = ink). Handles dark-on-light and light-on-dark."""
-    g = gray.astype(np.float32)
-    border = np.r_[g[0], g[-1], g[:, 0], g[:, -1]]
+    g_u8 = gray if gray.dtype == np.uint8 else np.clip(gray, 0, 255).astype(np.uint8)
+    border = np.r_[g_u8[0], g_u8[-1], g_u8[:, 0], g_u8[:, -1]]
     if np.median(border) < 128:
-        g = 255 - g
-    t, _ = cv2.threshold(g.astype(np.uint8), 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
-    dark, light = g[g <= t], g[g > t]
+        g_u8 = 255 - g_u8
+    t, _ = cv2.threshold(g_u8, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+    dark, light = g_u8[g_u8 <= t], g_u8[g_u8 > t]
     lo = float(np.median(dark)) if dark.size else 0.0
     hi = float(np.median(light)) if light.size else 255.0
+    del dark, light
     if hi - lo < 30:
         lo, hi = 0.0, 255.0
-    return np.clip((hi - g) / (hi - lo), 0, 1).astype(np.float32)
+    out = g_u8.astype(np.float32)
+    np.subtract(hi, out, out=out)
+    out *= (1.0 / (hi - lo))
+    np.clip(out, 0.0, 1.0, out=out)
+    return out
 
 
 # ---------------------------------------------------------------- skeleton

@@ -266,11 +266,24 @@
     setArtboardBg('#ffffff');
     setView('vector');
     clearTimeout(S.timer);
+    clearInterval(S.clockTimer);
+    S.clockTimer = setInterval(() => {
+      if (!S.job || S.done) {
+        clearInterval(S.clockTimer);
+        return;
+      }
+      const mTime = $('#metricTime');
+      if (mTime && S.startTime) {
+        const sec = Math.max(0, (Date.now() - S.startTime) / 1000);
+        mTime.textContent = sec.toFixed(1) + 's';
+      }
+    }, 100);
     poll();
   }
 
   function cancelCurrentJob() {
     clearTimeout(S.timer);
+    clearInterval(S.clockTimer);
     if (S.job) {
       api('/api/jobs/' + S.job + '/cancel', { method: 'POST' }).catch(() => {});
       S.job = null;
@@ -303,23 +316,30 @@
     if (!S.job) return;
     const id = S.job;
     try {
-      const j = await (await api(`/api/jobs/${id}?since=${S.since}`)).json();
+      const ctrl = new AbortController();
+      const tId = setTimeout(() => ctrl.abort(), 8000);
+      const res = await api(`/api/jobs/${id}?since=${S.since}`, { signal: ctrl.signal });
+      clearTimeout(tId);
+      const j = await res.json();
       if (id !== S.job) return;
       S.since = j.next;
       ingest(j);
       if (j.status === 'cancelled') {
+        clearInterval(S.clockTimer);
         toast('Job was cancelled', 0);
         const stg = $('#stage'); if (stg) stg.classList.remove('processing');
         const cMsg = $('#canvasStatusMsg'); if (cMsg) cMsg.textContent = 'Cancelled';
         return;
       }
       if (j.status === 'error') {
+        clearInterval(S.clockTimer);
         toast(j.error || 'Job failed', 1);
         const stg = $('#stage'); if (stg) stg.classList.remove('processing');
         const cMsg = $('#canvasStatusMsg'); if (cMsg) cMsg.textContent = 'Processing error';
         return;
       }
       if (j.status === 'done') {
+        clearInterval(S.clockTimer);
         finish(j);
         return;
       }

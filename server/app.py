@@ -1,6 +1,6 @@
 """Linework SaaS backend (FastAPI). Engines live in ../linework; this file only does jobs + HTTP."""
 from __future__ import annotations
-import io, json, os, sys, time, uuid, shutil, threading, zipfile, re, urllib.parse, base64, multiprocessing as mp
+import asyncio, io, json, os, sys, time, uuid, shutil, threading, zipfile, re, urllib.parse, base64, multiprocessing as mp
 
 # One math thread per worker process: N workers x N BLAS threads oversubscribes the CPU and makes every icon slower.
 for _v in ("OMP_NUM_THREADS", "OPENBLAS_NUM_THREADS", "MKL_NUM_THREADS", "NUMEXPR_NUM_THREADS", "VECLIB_MAXIMUM_THREADS"):
@@ -508,8 +508,35 @@ def _detect_system_ram_mb() -> int:
 _SYSTEM_RAM_MB = _detect_system_ram_mb()
 _LOCAL_CAPACITY = max(2, min(4, os.cpu_count() or 2)) if _SYSTEM_RAM_MB >= 3000 else 1
 _LOCAL_SEMAPHORE = threading.Semaphore(_LOCAL_CAPACITY)
-_SPLIT_SEMAPHORE = threading.Semaphore(2 if _SYSTEM_RAM_MB < 2500 else 8)
+_SPLIT_SEMAPHORE = threading.Semaphore(1 if _SYSTEM_RAM_MB < 2500 else 8)
 _log_ops_event("ok", f"Engine booted ({_SYSTEM_RAM_MB}MB container limit, local cap={_LOCAL_CAPACITY})")
+
+
+def _trim_os_heap():
+    gc.collect()
+    try:
+        import ctypes
+        ctypes.CDLL("libc.so.6").malloc_trim(0)
+    except Exception:
+        pass
+
+
+def _start_proactive_ram_watchdog():
+    """Proactive 502 & Red-RAM Guard: keeps Render 512MB process heap trimmed in real time during multi-user bursts."""
+    def _watch():
+        while True:
+            time.sleep(3.5)
+            try:
+                ram_now = _get_process_ram_mb()
+                if ram_now > 235.0:
+                    _trim_os_heap()
+            except Exception:
+                pass
+
+    threading.Thread(target=_watch, daemon=True).start()
+
+
+_start_proactive_ram_watchdog()
 
 
 def _update_live_iou(job: dict):
@@ -518,13 +545,23 @@ def _update_live_iou(job: dict):
         job["iou"] = round(float(np.mean(done_ious)), 4)
 
 
-def _harmonize_sheet_strokes_fast(job, d, jobs) -> int:
+def _harmonize_sheet_strokes_fast(job, d, jobs=None) -> int:
     """Zero-RAM mathematical stroke width unification across all icons on a sheet."""
-    ok = [k for k, _, _ in jobs if (d / f"icon_local_{k}.json").exists()]
+    icons = job.get("icons") or []
+    ok = [ic["k"] for ic in icons if (d / f"icon_local_{ic['k']}.json").exists()]
     if not ok:
         return 0
-    offs = {k: off for k, _, off in jobs}
-    mets = {k: job["icons"][k].get("metrics") or {} for k in ok}
+    offs = {}
+    for k in ok:
+        off_f = d / f"icon_crop_{k}.json"
+        if off_f.exists():
+            try:
+                offs[k] = tuple(json.loads(off_f.read_text()))
+            except Exception:
+                offs[k] = (int(icons[k]["box"][0]), int(icons[k]["box"][1]))
+        else:
+            offs[k] = (int(icons[k]["box"][0]), int(icons[k]["box"][1]))
+    mets = {k: icons[k].get("metrics") or {} for k in ok if k < len(icons)}
     models = {}
     all_ws = []
     for k in ok:
@@ -548,7 +585,7 @@ def _harmonize_sheet_strokes_fast(job, d, jobs) -> int:
                 mod_changed = True
         if mod_changed:
             changed += 1
-            _store_icon(job, d, k, m.to_json(), offs[k], mets[k])
+            _store_icon(job, d, k, m.to_json(), offs[k], mets.get(k, {}))
     return changed
 
 
@@ -556,7 +593,7 @@ def _set_pass(job_id, d, jobs, order):
     job = JOBS.get(job_id)
     if job is None or is_job_cancelled(job_id):
         return
-    if _SYSTEM_RAM_MB >= 2500:
+    if _SYSTEM_RAM_MB >= 2500 and jobs:
         from linework import setlevel as SL
         ok = [k for k, _, _ in jobs if job["icons"][k].get("metrics") and (d / f"icon_local_{k}.json").exists()]
         if ok:
@@ -568,10 +605,10 @@ def _set_pass(job_id, d, jobs, order):
             for k, m0, m1 in zip(ok, models, new):
                 if m1 is not m0:
                     _store_icon(job, d, k, m1.to_json(), offs[k], mets[k])
-            fast_chg = _harmonize_sheet_strokes_fast(job, d, jobs)
+            fast_chg = _harmonize_sheet_strokes_fast(job, d)
             job["set_pass"] = dict(weak=[], widths_changed=max(rep["changed"], fast_chg), classes=1)
     else:
-        fast_chg = _harmonize_sheet_strokes_fast(job, d, jobs)
+        fast_chg = _harmonize_sheet_strokes_fast(job, d)
         job["set_pass"] = dict(weak=[], widths_changed=fast_chg, classes=1)
     _finish_composite(job_id)
 
@@ -583,25 +620,46 @@ def _dispatch_single_icon(args):
     job = JOBS.get(job_id)
     if job and k < len(job.get("icons", [])):
         job["icons"][k]["status"] = "running"
+    d = _jobdir(job_id)
 
-    # Try up to 2 attempts on remote cluster nodes if available
-    for _attempt in range(2):
+    # Read pre-saved PNG bytes directly from disk (holds 0 numpy arrays in RAM during multi-user bursts!)
+    crop_png_path = d / f"icon_crop_{k}.png"
+    crop_b64 = None
+    if crop_png_path.exists():
+        crop_b64 = base64.b64encode(crop_png_path.read_bytes()).decode("ascii")
+    elif crop is not None:
+        _, enc = cv2.imencode(".png", crop)
+        crop_b64 = base64.b64encode(enc.tobytes()).decode("ascii")
+
+    # Dispatch to 16GB RAM Super-Cluster nodes (up to 5 attempts with deep queue patience so Render 512MB RAM never spikes!)
+    for _attempt in range(5):
+        if is_job_cancelled(job_id):
+            raise RuntimeError("Cancelled")
         if not remote_worker.has_active_remote_worker():
             break
-        node_url = remote_worker.acquire_worker(timeout=35.0)
+        node_url = remote_worker.acquire_worker(timeout=65.0)
         if not node_url:
-            break
+            if remote_worker.has_active_pull_worker() and crop_b64:
+                payload = {
+                    "job_id": job_id,
+                    "k": k,
+                    "off": [int(off[0]), int(off[1])],
+                    "crop_b64": crop_b64,
+                    "options": opts,
+                }
+                res = remote_worker.dispatch_via_pull_queue(payload, timeout=115.0)
+                if res and res.get("ok"):
+                    return k, off, res["model_json"], res["metrics"]
+            continue
         try:
-            _, enc = cv2.imencode(".png", crop)
-            crop_b64 = base64.b64encode(enc.tobytes()).decode("utf-8")
             payload = {
                 "job_id": job_id,
                 "k": k,
                 "off": [int(off[0]), int(off[1])],
                 "crop_b64": crop_b64,
-                "options": opts
+                "options": opts,
             }
-            res = remote_worker.dispatch_to_remote_worker(node_url, "/process_icon", payload, timeout=70)
+            res = remote_worker.dispatch_to_remote_worker(node_url, "/process_icon", payload, timeout=115)
             if res and res.get("ok"):
                 remote_worker.release_worker(node_url, failed=False)
                 return k, off, res["model_json"], res["metrics"]
@@ -611,11 +669,14 @@ def _dispatch_single_icon(args):
             print(f"[Remote Dispatch Error on {node_url}] {e}")
             remote_worker.release_worker(node_url, failed=True)
 
-    # Local execution (throttled to 1 on Render 512MB, or 2-4 parallel cores on 16GB HF Spaces / VPS)
+    # Local fallback (ONLY when no remote cluster nodes are online, or on 16GB+ servers)
     with _LOCAL_SEMAPHORE:
-        res = worker.run_icon(args)
+        if crop is None and crop_png_path.exists():
+            crop = cv2.imread(str(crop_png_path), cv2.IMREAD_GRAYSCALE)
+        res = worker.run_icon((job_id, k, crop, off, opts))
+        del crop
         if _SYSTEM_RAM_MB < 2000:
-            gc.collect()
+            _trim_os_heap()
         return res
 
 
@@ -631,44 +692,57 @@ def _run_job(job_id):
             opts = Options(**job["options"])
             W, H, jobs = process_sheet(gray, opts)
             del gray
-            gc.collect()
+            if len(jobs) > MAX_ICONS:
+                del jobs
+                _trim_os_heap()
+                raise RuntimeError(f"Too many icons; limit is {MAX_ICONS}")
+            icon_meta = []
+            for k_c, crop_c, off_c in jobs:
+                try:
+                    cv2.imwrite(str(d / f"icon_crop_{k_c}.png"), crop_c)
+                    (d / f"icon_crop_{k_c}.json").write_text(json.dumps([int(off_c[0]), int(off_c[1])]))
+                except Exception:
+                    pass
+                icon_meta.append((
+                    int(k_c),
+                    (int(off_c[0]), int(off_c[1])),
+                    [int(off_c[0]), int(off_c[1]), int(off_c[0] + crop_c.shape[1]), int(off_c[1] + crop_c.shape[0])],
+                    int(crop_c.size),
+                ))
+            # Free all numpy crops IMMEDIATELY after saving to disk so multi-user concurrent sheets use 0 MB crop RAM!
+            jobs.clear()
+            del jobs
+            _trim_os_heap()
+
         if is_job_cancelled(job_id):
             job["status"] = "cancelled"
             return
-        if len(jobs) > MAX_ICONS:
-            raise RuntimeError(f"Too many icons ({len(jobs)}); limit is {MAX_ICONS}")
-        for k_c, crop_c, off_c in jobs:
-            try:
-                cv2.imwrite(str(d / f"icon_crop_{k_c}.png"), crop_c)
-                (d / f"icon_crop_{k_c}.json").write_text(json.dumps([int(off_c[0]), int(off_c[1])]))
-            except Exception:
-                pass
+
         job["width"], job["height"] = W, H
         job["icons"] = [
-            dict(k=k, box=[int(off[0]), int(off[1]), int(off[0] + c.shape[1]), int(off[1] + c.shape[0])], status="queued", stage="queued")
-            for k, c, off in jobs
+            dict(k=k_m, box=box_m, status="queued", stage="queued")
+            for k_m, _, box_m, _ in icon_meta
         ]
         job["status"] = "running"
-        job["events"].append(dict(engine="split", msg=f"Found {len(jobs)} icon(s)", t=0, n=len(job["events"])))
-        _log_ops_event("info", f"Sheet #{job_id[:6]} started ({len(jobs)} icons, {remote_worker.get_active_nodes_count()} cluster nodes)")
-        order = sorted(jobs, key=lambda j: -j[1].size)
-        crop_map = {k: c for k, c, off in jobs}
-        off_map = {k: off for k, c, off in jobs}
+        job["events"].append(dict(engine="split", msg=f"Found {len(icon_meta)} icon(s)", t=0, n=len(job["events"])))
+        _log_ops_event("info", f"Sheet #{job_id[:6]} started ({len(icon_meta)} icons, {remote_worker.get_active_nodes_count()} cluster nodes)")
+        order = sorted(icon_meta, key=lambda item: -item[3])
+        off_map = {k_m: off_m for k_m, off_m, _, _ in icon_meta}
 
         futs = {}
         p = pool()
-        for k, crop, off in order:
+        for k_m, off_m, _, _ in order:
             if is_job_cancelled(job_id):
                 break
             try:
-                futs[p.submit(_dispatch_single_icon, (job_id, k, crop, off, job["options"]))] = k
+                futs[p.submit(_dispatch_single_icon, (job_id, k_m, None, off_m, job["options"]))] = k_m
             except Exception:
                 reset_pool()
                 p = pool()
                 try:
-                    futs[p.submit(_dispatch_single_icon, (job_id, k, crop, off, job["options"]))] = k
+                    futs[p.submit(_dispatch_single_icon, (job_id, k_m, None, off_m, job["options"]))] = k_m
                 except Exception:
-                    k_r, off_r, mj_r, met_r = _dispatch_single_icon((job_id, k, crop, off, job["options"]))
+                    k_r, off_r, mj_r, met_r = _dispatch_single_icon((job_id, k_m, None, off_m, job["options"]))
                     _store_icon(job, d, k_r, mj_r, off_r, met_r)
                     job["done"] += 1
                     _update_live_iou(job)
@@ -685,7 +759,7 @@ def _run_job(job_id):
                     break
                 print(f"[Job {job_id}] Icon #{k+1} retry after: {e}")
                 try:
-                    k_r, off_r, mj_r, met_r = _dispatch_single_icon((job_id, k, crop_map[k], off_map[k], job["options"]))
+                    k_r, off_r, mj_r, met_r = _dispatch_single_icon((job_id, k, None, off_map[k], job["options"]))
                     _store_icon(job, d, k_r, mj_r, off_r, met_r)
                     job["done"] += 1
                     _update_live_iou(job)
@@ -697,10 +771,8 @@ def _run_job(job_id):
             job["done"] += 1
             _update_live_iou(job)
 
-        # Free in-memory icon crops immediately after dispatch loop finishes
-        jobs.clear()
         order.clear()
-        crop_map.clear()
+        off_map.clear()
 
         if is_job_cancelled(job_id):
             job["status"] = "cancelled"
@@ -839,22 +911,31 @@ async def register_worker(request: Request):
 
 
 @app.post("/api/worker/pull")
-def worker_pull(body: dict = Body(...)):
-    """Zero-Tunnel Direct Pull endpoint. Runs in FastAPI's sync threadpool so workers can long-poll up to 18s."""
+async def worker_pull(request: Request):
+    """Zero-Tunnel Direct Pull endpoint running on FastAPI's main asyncio event loop (0 OS threads consumed!)."""
+    body = await request.json()
     worker_id = body.get("worker_id") or body.get("url")
     secret = body.get("secret")
     specs = body.get("specs", {})
     if not worker_id or not secret:
         raise HTTPException(400, "Missing worker_id or secret")
-    res = remote_worker.pull_pending_task(worker_id, secret, specs, wait_timeout=18.0)
+    res = remote_worker.try_pop_pending_task(worker_id, secret, specs, register=True)
     if not res.get("ok") and res.get("error") == "unauthorized":
         raise HTTPException(401, "Invalid secret")
-    return res
+    if res.get("has_task"):
+        return res
+    for _ in range(56):
+        await asyncio.sleep(0.25)
+        res = remote_worker.try_pop_pending_task(worker_id, secret, specs, register=False)
+        if res.get("has_task"):
+            return res
+    return {"ok": True, "has_task": False}
 
 
 @app.post("/api/worker/complete")
-def worker_complete(body: dict = Body(...)):
-    """Zero-Tunnel Task Completion endpoint."""
+async def worker_complete(request: Request):
+    """Zero-Tunnel Task Completion endpoint running on main asyncio loop for instant 0ms wakeup."""
+    body = await request.json()
     task_id = body.get("task_id")
     worker_id = body.get("worker_id")
     secret = body.get("secret")
@@ -893,7 +974,7 @@ def worker_bundle(secret: str = Query(...)):
 
 
 @app.get("/api/worker/status")
-def worker_status():
+async def worker_status():
     best = remote_worker.get_best_worker_url()
     return {
         "hybrid_active": best is not None,
@@ -905,7 +986,7 @@ def worker_status():
 
 
 @app.get("/api/health")
-def health():
+async def health():
     return dict(
         ok=True,
         renderer=backend_name(),
@@ -934,8 +1015,14 @@ async def create_job(
     data = await file.read()
     if len(data) > MAX_BYTES:
         raise HTTPException(413, "File too large (15 MB max)")
-    gray = _decode_upload(data, file.filename or "")
-    return _start(gray, file.filename or "upload", quality, clean, target, fresh=fresh, user_id=user["id"])
+    with _SPLIT_SEMAPHORE:
+        gray = _decode_upload(data, file.filename or "")
+        del data
+        res = _start(gray, file.filename or "upload", quality, clean, target, fresh=fresh, user_id=user["id"])
+        del gray
+        if _SYSTEM_RAM_MB < 2000:
+            _trim_os_heap()
+        return res
 
 
 def _start(gray, name, quality, clean, target, fresh: bool = True, user_id: int = None):
@@ -947,6 +1034,7 @@ def _start(gray, name, quality, clean, target, fresh: bool = True, user_id: int 
     d = _jobdir(job_id)
     d.mkdir(parents=True, exist_ok=True)
     cv2.imwrite(str(d / "original.png"), gray)
+    H, W = int(gray.shape[0]), int(gray.shape[1])
     clean = float(np.clip(clean, 0, 1))
     p_cfg = PRESETS.get(quality, PRESETS["standard"])
     opts = dict(
@@ -961,7 +1049,7 @@ def _start(gray, name, quality, clean, target, fresh: bool = True, user_id: int 
     )
     job = dict(
         id=job_id, user_id=user_id, name=name, status="queued", options=opts, created=time.time(), icons=[], events=[],
-        width=int(gray.shape[1]), height=int(gray.shape[0]), version=0, done=0, iou=None,
+        width=W, height=H, version=0, done=0, iou=None,
     )
     JOBS[job_id] = job
     threading.Thread(target=_run_job, args=(job_id,), daemon=True).start()
@@ -978,12 +1066,15 @@ def sample(name: str, request: Request, quality: str = "standard", fresh: bool =
     fn = ROOT / "samples" / f"{name}.png"
     if not fn.exists() or not name.replace("-", "").isalnum():
         raise HTTPException(404)
-    gray = cv2.imread(str(fn), 0)
-    return _start(gray, name, quality, 0.5, 99.5, fresh=fresh, user_id=user["id"])
+    with _SPLIT_SEMAPHORE:
+        gray = cv2.imread(str(fn), 0)
+        res = _start(gray, name, quality, 0.5, 99.5, fresh=fresh, user_id=user["id"])
+        del gray
+        return res
 
 
 @app.get("/api/jobs/{job_id}")
-def job_state(job_id: str, since: int = 0):
+async def job_state(job_id: str, since: int = 0):
     j = _get(job_id)
     out = {k: v for k, v in j.items() if k != "events"}
     out["events"] = j["events"][since:]
@@ -1725,12 +1816,13 @@ def api_admin_stats(request: Request):
 
 
 @app.get("/api/admin/operations")
-def api_admin_operations(request: Request):
+async def api_admin_operations(request: Request):
     require_admin(request)
     cluster = remote_worker.get_cluster_operations_detail()
     ram_used = _get_process_ram_mb()
     ram_limit = float(_SYSTEM_RAM_MB)
     ram_pct = min(99.0, round((ram_used / max(ram_limit, 1.0)) * 100.0, 1))
+    cluster_ram_gb = int(cluster.get("total_cluster_ram_gb", 0))
     now = time.time()
     active_jobs = [
         {
@@ -1756,6 +1848,7 @@ def api_admin_operations(request: Request):
                 "ram_used_mb": ram_used,
                 "ram_limit_mb": int(ram_limit),
                 "ram_pct": ram_pct,
+                "cluster_ram_gb": cluster_ram_gb,
                 "uptime_sec": int(round(now - _SERVER_START_TIME)),
                 "renderer": backend_name(),
                 "local_capacity": _LOCAL_CAPACITY,

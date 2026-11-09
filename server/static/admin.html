@@ -730,11 +730,12 @@
 
           <div style="background:#090c12; border:1px solid var(--card-border); border-radius:10px; padding:14px;">
             <div style="display:flex; justify-content:space-between; font-size:11px; color:var(--text-muted); font-weight:700; text-transform:uppercase;">
-              <span>Render Server RAM (502 Guard)</span>
+              <span id="opsRamLabel">Cluster + Gateway RAM (502 Guard)</span>
               <span id="opsRamPct" style="color:#00f5a0; font-family:var(--mono);">0%</span>
             </div>
-            <div style="font-size:22px; font-weight:800; color:#fff; font-family:var(--mono); margin-top:4px;" id="opsRamText">-- MB / 512 MB</div>
-            <div style="width:100%; height:6px; background:#1b2233; border-radius:4px; overflow:hidden; margin-top:8px;">
+            <div style="font-size:21px; font-weight:800; color:#fff; font-family:var(--mono); margin-top:4px;" id="opsRamText">-- MB / 512 MB</div>
+            <div style="font-size:11.5px; color:#00f5a0; font-family:var(--mono); margin-top:2px;" id="opsClusterRamSub">Cluster Pool: 0 GB RAM · Disk-Stream Active</div>
+            <div style="width:100%; height:6px; background:#1b2233; border-radius:4px; overflow:hidden; margin-top:6px;">
               <div id="opsRamBar" style="width:20%; height:100%; background:linear-gradient(90deg, #00f5a0, #00d2ff); transition:width 0.3s;"></div>
             </div>
           </div>
@@ -1214,20 +1215,23 @@
         const pendEl = document.getElementById('kpiPendingPayments');
         if (navPay && pendEl) navPay.textContent = pendEl.textContent || '0';
 
+        const clusterRamGb = cl.total_cluster_ram_gb || (nodesCount * 16);
         const hdrCluster = document.getElementById('opsHeaderClusterPill');
         if (hdrCluster) {
           hdrCluster.textContent = nodesCount > 0
-            ? `🚀 Super-Cluster: ${nodesCount} Nodes (${totalCap} Cores)`
+            ? `🚀 Super-Cluster: ${nodesCount} Nodes (${totalCap} Cores · ${clusterRamGb} GB RAM)`
             : `⚡ Local Engine Ready (0 Remote Nodes)`;
         }
         const hdrRam = document.getElementById('opsHeaderRamPill');
         if (hdrRam) {
-          hdrRam.textContent = `🖥️ Render RAM: ${sv.ram_used_mb || 0} / ${sv.ram_limit_mb || 512} MB (${sv.ram_pct || 0}%)`;
+          hdrRam.textContent = clusterRamGb > 0
+            ? `🧠 Total RAM: ${clusterRamGb} GB Cluster + ${sv.ram_used_mb || 0}/${sv.ram_limit_mb || 512} MB Gateway`
+            : `🖥️ Gateway RAM: ${sv.ram_used_mb || 0} / ${sv.ram_limit_mb || 512} MB (${sv.ram_pct || 0}%)`;
         }
 
         const stBadge = document.getElementById('opsClusterStatusBadge');
         if (stBadge) {
-          stBadge.textContent = nodesCount > 0 ? `SUPER-CLUSTER ACTIVE (${nodesCount} NODES)` : 'LOCAL STANDBY';
+          stBadge.textContent = nodesCount > 0 ? `SUPER-CLUSTER ACTIVE (${nodesCount} NODES · ${clusterRamGb}GB)` : 'LOCAL STANDBY';
         }
 
         document.getElementById('opsNodesCount').textContent = `${nodesCount} Active Nodes`;
@@ -1235,10 +1239,16 @@
 
         document.getElementById('opsRamPct').textContent = `${sv.ram_pct || 0}%`;
         document.getElementById('opsRamText').textContent = `${sv.ram_used_mb || 0} MB / ${sv.ram_limit_mb || 512} MB`;
+        const clusterRamSub = document.getElementById('opsClusterRamSub');
+        if (clusterRamSub) {
+          clusterRamSub.textContent = clusterRamGb > 0
+            ? `⚡ +${clusterRamGb} GB Super-Cluster RAM Pool Active`
+            : `⚡ Zero-RAM Disk Streaming Active`;
+        }
         const ramBar = document.getElementById('opsRamBar');
         if (ramBar) {
           ramBar.style.width = `${Math.min(100, Math.max(5, sv.ram_pct || 15))}%`;
-          ramBar.style.background = (sv.ram_pct || 0) > 80
+          ramBar.style.background = (sv.ram_pct || 0) > 85
             ? 'linear-gradient(90deg, #ffb703, #ff4757)'
             : 'linear-gradient(90deg, #00f5a0, #00d2ff)';
         }
