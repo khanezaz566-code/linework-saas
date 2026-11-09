@@ -896,6 +896,12 @@ def regenerate_icon_endpoint(job_id: str, k: int, payload: dict = Body(None)):
     )
 
 
+@app.get("/api/template/designs")
+def template_designs():
+    from linework.template import DESIGNS
+    return DESIGNS
+
+
 @app.get("/api/template/presets")
 def template_presets():
     from linework.template import PRESETS
@@ -905,6 +911,7 @@ def template_presets():
 @app.get("/api/jobs/{job_id}/template.svg")
 def job_template_svg(
     job_id: str,
+    design: str = "vectuz_sidebar",
     preset: str = "vectuz_yellow",
     title: str = "TECHNOLOGY",
     count: str = "",
@@ -931,7 +938,7 @@ def job_template_svg(
     if not m.paths:
         raise HTTPException(404, "No finished icons yet")
     cfg = dict(
-        preset=preset, title=title, count=count, subtitle=subtitle,
+        design=design, preset=preset, title=title, count=count, subtitle=subtitle,
         layout=layout, stroke_scale=float(scale),
         show_highlight=bool(show_highlight), highlight_mode=highlight_mode
     )
@@ -956,6 +963,7 @@ def job_template_svg(
 @app.get("/api/jobs/{job_id}/template.eps")
 def job_template_eps(
     job_id: str,
+    design: str = "vectuz_sidebar",
     preset: str = "vectuz_yellow",
     title: str = "TECHNOLOGY",
     count: str = "",
@@ -981,7 +989,7 @@ def job_template_eps(
     if not m.paths:
         raise HTTPException(404, "No finished icons yet")
     cfg = dict(
-        preset=preset, title=title, count=count, subtitle=subtitle,
+        design=design, preset=preset, title=title, count=count, subtitle=subtitle,
         layout=layout, stroke_scale=float(scale),
         show_highlight=bool(show_highlight), highlight_mode=highlight_mode
     )
@@ -1005,6 +1013,7 @@ def job_template_eps(
 @app.get("/api/jobs/{job_id}/template.png")
 def job_template_png(
     job_id: str,
+    design: str = "vectuz_sidebar",
     preset: str = "vectuz_yellow",
     title: str = "TECHNOLOGY",
     count: str = "",
@@ -1027,7 +1036,7 @@ def job_template_png(
     if not m.paths:
         raise HTTPException(404, "No finished icons yet")
     cfg = dict(
-        preset=preset, title=title, count=count, subtitle=subtitle,
+        design=design, preset=preset, title=title, count=count, subtitle=subtitle,
         layout=layout, stroke_scale=float(scale),
         show_highlight=bool(show_highlight), highlight_mode=highlight_mode
     )

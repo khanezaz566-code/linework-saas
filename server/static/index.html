@@ -9,7 +9,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/static/style.css?v=3.5.0">
+<link rel="stylesheet" href="/static/style.css?v=3.6.0">
 </head>
 <body class="luxury-theme">
 <div class="app-layout">
@@ -720,6 +720,19 @@
 
           <!-- Left Controls Column -->
           <div class="template-controls-sidebar">
+
+            <!-- Template Design Styles (8 Microstock Layouts) -->
+            <div class="card panel tpl-panel" id="designLayoutsPanel">
+              <div class="panel-header">
+                <h3>Template Design Layout</h3>
+                <span class="badge-live" id="designCountBadge">8 Styles</span>
+              </div>
+              <div class="panel-body">
+                <div class="design-cards-grid" id="designList">
+                  <!-- Populated dynamically with 8 microstock design cards -->
+                </div>
+              </div>
+            </div>
 
             <!-- Presets Section -->
             <div class="card panel tpl-panel">
@@ -1511,6 +1524,6 @@
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
 <!-- Application Script -->
-<script src="/static/app.js?v=3.5.0"></script>
+<script src="/static/app.js?v=3.6.0"></script>
 </body>
 </html>

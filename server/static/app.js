@@ -1346,6 +1346,57 @@
   // ================================================================
   // Adobe Stock / Vectuz Style Presentation Template Studio Logic
   // ================================================================
+  const TEMPLATE_DESIGNS = {
+    vectuz_sidebar: {
+      id: 'vectuz_sidebar',
+      name: 'Side Cover (Left)',
+      badge: 'Adobe Stock',
+      desc: 'Left vertical banner with top colored card & dark showcase'
+    },
+    top_banner: {
+      id: 'top_banner',
+      name: 'Top Header Bar',
+      badge: 'Shutterstock',
+      desc: 'Wide top magazine banner with count pill & specs'
+    },
+    split_duo: {
+      id: 'split_duo',
+      name: 'Dual Theme 50/50',
+      badge: 'Bestseller',
+      desc: 'Half Light + Half Dark theme split with floating pill'
+    },
+    floating_card: {
+      id: 'floating_card',
+      name: 'Floating Card',
+      badge: 'Dribbble UI',
+      desc: 'Modern floating badge card with drop shadow'
+    },
+    bottom_dock: {
+      id: 'bottom_dock',
+      name: 'Bottom Dock',
+      badge: 'Creative Mkt',
+      desc: 'Bottom dock strip with title, big count & mini showcase'
+    },
+    hero_spotlight: {
+      id: 'hero_spotlight',
+      name: 'Hero Spotlight',
+      badge: 'Spotlight',
+      desc: 'Large dark circle highlighting 1 hero icon + grid'
+    },
+    framed_editorial: {
+      id: 'framed_editorial',
+      name: 'Framed Luxury',
+      badge: 'Passe-Partout',
+      desc: 'Double vector borders with corner crosshairs & badges'
+    },
+    vectuz_right: {
+      id: 'vectuz_right',
+      name: 'Side Cover (Right)',
+      badge: 'Mirrored',
+      desc: 'Right vertical cover card with left icon artboard'
+    }
+  };
+
   const TEMPLATE_PRESETS = {
     vectuz_yellow: {
       id: 'vectuz_yellow',
@@ -1449,6 +1500,7 @@
   };
 
   S.template = {
+    design: 'vectuz_sidebar',
     preset: 'vectuz_yellow',
     layout: 'landscape_16_9',
     banner_text: '#1E1E1E',
@@ -1456,6 +1508,34 @@
     highlight_mode: 'mini_4',
     show_highlight: true,
   };
+
+  function renderDesignCards() {
+    const box = $('#designList');
+    if (!box) return;
+    box.innerHTML = '';
+    for (const [key, d] of Object.entries(TEMPLATE_DESIGNS)) {
+      const el = document.createElement('div');
+      el.className = 'design-card' + (S.template.design === key ? ' active' : '');
+      el.dataset.d = key;
+      el.innerHTML = `
+        <div class="design-card-top">
+          <span class="design-card-name">${d.name}</span>
+          <span class="design-card-badge">${d.badge}</span>
+        </div>
+        <div class="design-card-desc">${d.desc}</div>
+      `;
+      el.onclick = () => selectDesign(key);
+      box.appendChild(el);
+    }
+  }
+
+  function selectDesign(key) {
+    if (!TEMPLATE_DESIGNS[key]) return;
+    S.template.design = key;
+    $$('#designList .design-card').forEach(c => c.classList.toggle('active', c.dataset.d === key));
+    scheduleTemplateUpdate();
+    toast(`Layout switched to: ${TEMPLATE_DESIGNS[key].name}`);
+  }
 
   function renderPresetCards() {
     const box = $('#presetList');
@@ -1522,6 +1602,7 @@
     const item = {
       id: 'tpl_' + Date.now(),
       name: name.trim(),
+      design: S.template.design || 'vectuz_sidebar',
       preset: S.template.preset || 'custom',
       banner_bg: $('#tplBannerBg') ? $('#tplBannerBg').value : '#F5B800',
       banner_text: S.template.banner_text || '#1E1E1E',
@@ -1563,6 +1644,10 @@
 
   function applySavedTemplate(item) {
     if (!item) return;
+    if (item.design && TEMPLATE_DESIGNS[item.design]) {
+      S.template.design = item.design;
+      $$('#designList .design-card').forEach(c => c.classList.toggle('active', c.dataset.d === item.design));
+    }
     if ($('#tplTitle') && item.title) $('#tplTitle').value = item.title;
     if ($('#tplCount') && item.count) $('#tplCount').value = item.count;
     if ($('#tplSubtitle') && item.subtitle) $('#tplSubtitle').value = item.subtitle;
@@ -1691,6 +1776,7 @@
       }
     }
 
+    renderDesignCards();
     renderPresetCards();
     renderSavedTemplates();
     resetTemplateView();
@@ -1727,6 +1813,7 @@
     const highlightMode = S.template.highlight_mode || 'mini_4';
 
     const params = new URLSearchParams({
+      design: S.template.design || 'vectuz_sidebar',
       preset: S.template.preset || 'vectuz_yellow',
       title: title,
       count: count,

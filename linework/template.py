@@ -1,14 +1,80 @@
 """Presentation Template Engine for Linework AI
 Generates Adobe Stock / Shutterstock / Microstock style presentation sheets.
-Supports vertical cover banners (Vectuz microstock standard), giant count numerals,
-dark showcase cards with inverted highlight icons, transparent checkered artboards,
-automatic docking with ANY icon sheet size, and export to SVG, EPS 3.0, and PNG.
+Supports 8 diverse microstock layout designs:
+  1. vectuz_sidebar: Classic Adobe Stock Left Vertical Split Banner
+  2. vectuz_right: Mirrored Right Vertical Split Banner
+  3. top_banner: Shutterstock Magazine Full-Width Top Header Bar
+  4. bottom_dock: Creative Market Bottom Dock Gallery
+  5. split_duo: 50/50 Dual Light & Dark Contrast Theme Split
+  6. floating_card: Dribbble/Behance Modern Minimalist Floating Card
+  7. framed_editorial: Luxury Passe-Partout Framed Artboard
+  8. hero_spotlight: Spotlight Circle with 1 Prominent Hero Icon + Grid
 """
 from __future__ import annotations
 import math, re
 from typing import Any
 import numpy as np
 from .model import Model, Path
+
+# 8 Professional Microstock Design Layouts
+DESIGNS: dict[str, dict[str, Any]] = {
+    "vectuz_sidebar": {
+        "id": "vectuz_sidebar",
+        "name": "Side Cover Banner",
+        "badge": "Adobe Stock",
+        "desc": "Vertical left cover card with giant numeral & dark showcase box",
+        "icon": "left-panel"
+    },
+    "vectuz_right": {
+        "id": "vectuz_right",
+        "name": "Right Cover Banner",
+        "badge": "Mirrored",
+        "desc": "Vertical right cover card with left icon artboard",
+        "icon": "right-panel"
+    },
+    "top_banner": {
+        "id": "top_banner",
+        "name": "Top Header Magazine",
+        "badge": "Shutterstock",
+        "desc": "Wide horizontal top header with count pill, title & specs",
+        "icon": "top-bar"
+    },
+    "bottom_dock": {
+        "id": "bottom_dock",
+        "name": "Bottom Dock Bar",
+        "badge": "Creative Market",
+        "desc": "Bottom dock strip with title, big count & mini showcase",
+        "icon": "bottom-bar"
+    },
+    "split_duo": {
+        "id": "split_duo",
+        "name": "Dual Theme 50/50",
+        "badge": "Bestseller",
+        "desc": "Half Light theme + Half Dark theme split with floating pill",
+        "icon": "split"
+    },
+    "floating_card": {
+        "id": "floating_card",
+        "name": "Floating Glass Card",
+        "badge": "Dribbble UI",
+        "desc": "Minimalist floating rounded badge card with drop shadow",
+        "icon": "card"
+    },
+    "framed_editorial": {
+        "id": "framed_editorial",
+        "name": "Framed Passe-Partout",
+        "badge": "Luxury Art",
+        "desc": "Double fine vector borders with corner crosshairs & centered badges",
+        "icon": "frame"
+    },
+    "hero_spotlight": {
+        "id": "hero_spotlight",
+        "name": "Hero Spotlight Circle",
+        "badge": "Spotlight",
+        "desc": "Large circular dark showcase highlighting 1 hero icon + grid",
+        "icon": "circle"
+    }
+}
 
 # Microstock Trending Style Presets
 PRESETS: dict[str, dict[str, Any]] = {
@@ -98,105 +164,67 @@ PRESETS: dict[str, dict[str, Any]] = {
     },
     "minimal_white": {
         "id": "minimal_white",
-        "name": "Minimalist Pure White",
-        "banner_bg": "#F1F5F9",
-        "banner_text": "#0F172A",
-        "banner_sub": "#64748B",
-        "highlight_bg": "#0F172A",
-        "highlight_stroke": "#38BDF8",
+        "name": "Minimalist White Studio",
+        "banner_bg": "#F4F4F5",
+        "banner_text": "#18181B",
+        "banner_sub": "#71717A",
+        "highlight_bg": "#18181B",
+        "highlight_stroke": "#FFFFFF",
         "artboard_bg": "#FFFFFF",
-        "icon_stroke": "#0F172A",
-        "accent": "#0284C7",
+        "icon_stroke": "#18181B",
+        "accent": "#18181B",
     },
     "midnight_dark": {
         "id": "midnight_dark",
-        "name": "Obsidian Cyber Dark",
-        "banner_bg": "#1E293B",
-        "banner_text": "#38BDF8",
-        "banner_sub": "#94A3B8",
-        "highlight_bg": "#090D14",
+        "name": "Midnight Dark Edition",
+        "banner_bg": "#18181B",
+        "banner_text": "#F4F4F5",
+        "banner_sub": "#A1A1AA",
+        "highlight_bg": "#09090B",
         "highlight_stroke": "#00F5A0",
-        "artboard_bg": "#0A0F1D",
-        "icon_stroke": "#38BDF8",
+        "artboard_bg": "#0F172A",
+        "icon_stroke": "#F4F4F5",
         "accent": "#00F5A0",
-    },
+    }
 }
 
-# Backward compatibility map
-PRESETS["obsidian"] = PRESETS["midnight_dark"]
-PRESETS["minimal"] = PRESETS["minimal_white"]
-PRESETS["cyber"] = PRESETS["vectuz_coral"]
-PRESETS["gold"] = PRESETS["vectuz_yellow"]
-PRESETS["cream"] = PRESETS["vectuz_orange"]
-PRESETS["blueprint"] = PRESETS["vectuz_blue"]
+def resolve_config(cfg: dict | None) -> dict[str, Any]:
+    c = dict(PRESETS["vectuz_yellow"])
+    c.update({
+        "design": "vectuz_sidebar",
+        "title": "TECHNOLOGY",
+        "count": "24",
+        "subtitle": "Editable Line Icons",
+        "layout": "landscape_16_9",
+        "stroke_scale": 1.0,
+        "show_highlight": True,
+        "highlight_mode": "mini_4"
+    })
+    if cfg:
+        p_name = cfg.get("preset")
+        if p_name and p_name in PRESETS:
+            c.update(PRESETS[p_name])
+        for k, v in cfg.items():
+            if v is not None and v != "":
+                c[k] = v
+    return c
 
+def sanitize_text(s: str) -> str:
+    return str(s).replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace('"', "&quot;")
 
 def hex_to_rgb(hex_code: str) -> tuple[float, float, float]:
-    """Convert hex string (e.g. '#00f5a0') to 0.0-1.0 RGB tuple."""
-    h = str(hex_code or "").strip().lstrip("#")
+    h = hex_code.strip().lstrip("#")
     if len(h) == 3:
         h = "".join(c * 2 for c in h)
     if len(h) != 6:
-        return (0.0, 0.0, 0.0)
-    try:
-        return (int(h[0:2], 16) / 255.0, int(h[2:4], 16) / 255.0, int(h[4:6], 16) / 255.0)
-    except Exception:
-        return (0.0, 0.0, 0.0)
+        return 0.1, 0.1, 0.1
+    return int(h[0:2], 16) / 255.0, int(h[2:4], 16) / 255.0, int(h[4:6], 16) / 255.0
 
+def escape_ps_text(s: str) -> str:
+    return str(s).replace("\\", "\\\\").replace("(", "\\(").replace(")", "\\)")
 
-def sanitize_text(text: str) -> str:
-    """Escape text for XML/SVG safety."""
-    return (
-        str(text or "")
-        .replace("&", "&amp;")
-        .replace("<", "&lt;")
-        .replace(">", "&gt;")
-        .replace('"', "&quot;")
-        .replace("'", "&apos;")
-    )
-
-
-def escape_ps_text(text: str) -> str:
-    """Escape text for PostScript string literal."""
-    t = str(text or "")
-    return t.replace("\\", "\\\\").replace("(", "\\(").replace(")", "\\)")
-
-
-def resolve_config(cfg: dict[str, Any] | None) -> dict[str, Any]:
-    cfg = dict(cfg or {})
-    preset_key = cfg.get("preset", "vectuz_yellow")
-    base = dict(PRESETS.get(preset_key, PRESETS["vectuz_yellow"]))
-
-    # Color & style overrides
-    for k in (
-        "banner_bg", "banner_text", "banner_sub", "highlight_bg",
-        "highlight_stroke", "artboard_bg", "icon_stroke", "accent"
-    ):
-        if cfg.get(k):
-            base[k] = cfg[k]
-
-    # Map legacy keys if passed
-    if cfg.get("bg"):
-        base["artboard_bg"] = cfg["bg"]
-    if cfg.get("panel_bg"):
-        base["banner_bg"] = cfg["panel_bg"]
-
-    base["title"] = str(cfg.get("title") or "TECHNOLOGY").upper()
-    base["count"] = str(cfg.get("count") or cfg.get("icon_count") or "24")
-    base["subtitle"] = str(cfg.get("subtitle") or "Editable Line Icons")
-    base["stroke_scale"] = float(cfg.get("stroke_scale") or cfg.get("scale") or 1.0)
-    base["layout"] = cfg.get("layout") or "landscape_16_9"
-    base["show_highlight"] = cfg.get("show_highlight", True)
-    if isinstance(base["show_highlight"], str):
-        base["show_highlight"] = base["show_highlight"].lower() not in ("0", "false", "no")
-    base["highlight_mode"] = cfg.get("highlight_mode") or "mini_4"  # mini_4, mini_6, hero_1
-    return base
-
-
-def _extract_icon_paths(model: Model, box: list[int] | tuple[int, ...]) -> list[Path]:
-    """Find paths in model whose anchor centers lie within box [x1, y1, x2, y2]."""
+def _extract_icon_paths(model: Model, box: list[float] | tuple[float, ...], pad: float = 6.0) -> list[Path]:
     x1, y1, x2, y2 = box
-    pad = 8
     matched = []
     for p in model.paths:
         if len(p.A) == 0:
@@ -207,9 +235,7 @@ def _extract_icon_paths(model: Model, box: list[int] | tuple[int, ...]) -> list[
             matched.append(p)
     return matched
 
-
 def _render_paths_svg(paths: list[Path], stroke: str, stroke_scale: float, scale: float, ox: float, oy: float) -> str:
-    """Render a list of paths translated by ox, oy and scaled by scale."""
     elems = []
     for p in paths:
         sw = max(0.5, p.w * stroke_scale * scale)
@@ -221,40 +247,82 @@ def _render_paths_svg(paths: list[Path], stroke: str, stroke_scale: float, scale
     body = "\n        ".join(elems)
     return f'<g transform="translate({ox:.2f}, {oy:.2f}) scale({scale:.4f})">\n        {body}\n      </g>'
 
-
-def build_template_svg(model: Model, icons_meta: list[dict] | None = None, config: dict | None = None) -> str:
-    """Generate high-resolution SVG presentation sheet with Adobe Stock side cover banner + right icon artboard."""
-    c = resolve_config(config)
-    icons_meta = icons_meta or []
-    count_val = str(c.get("count") or (len(icons_meta) if icons_meta else "15"))
-
-    mW, mH = max(10, model.width), max(10, model.height)
-    layout = c.get("layout", "landscape_16_9")
-
-    # Dimensions calculation based on layout mode
+def _calc_dims(layout: str, mW: float, mH: float) -> tuple[int, int, int]:
     if layout == "auto_dock":
-        H = mH
+        H = int(max(400, mH))
         banner_w = max(380, int(round(H * 0.35)))
-        W = banner_w + mW
+        W = banner_w + int(max(400, mW))
     elif layout == "square":
-        W, H = 2400, 2400
-        banner_w = 640
+        W, H, banner_w = 2400, 2400, 640
     elif layout == "landscape_4_3":
-        W, H = 2400, 1800
-        banner_w = 620
+        W, H, banner_w = 2400, 1800, 620
     elif layout == "landscape_16_10":
-        W, H = 1920, 1200
-        banner_w = 480
+        W, H, banner_w = 1920, 1200, 480
     else:  # landscape_16_9 (Default 4K Ultra-HD presentation: 3840 x 2160)
-        W, H = 3840, 2160
-        banner_w = 960
+        W, H, banner_w = 3840, 2160, 960
+    return W, H, banner_w
 
-    # Margins and positioning
-    sheet_x = banner_w
+def _get_checkered_defs(W: int) -> tuple[str, str]:
+    chk_size = max(16, int(round(W / 120)))
+    chk_half = chk_size / 2
+    defs = f"""
+    <pattern id="stockCheckeredPattern" width="{chk_size}" height="{chk_size}" patternUnits="userSpaceOnUse">
+      <rect width="{chk_size}" height="{chk_size}" fill="#ffffff"/>
+      <rect x="0" y="0" width="{chk_half}" height="{chk_half}" fill="#f1f3f6"/>
+      <rect x="{chk_half}" y="{chk_half}" width="{chk_half}" height="{chk_half}" fill="#f1f3f6"/>
+    </pattern>"""
+    return defs, 'url(#stockCheckeredPattern)'
+
+def _extract_highlight_svg(model: Model, icons_meta: list[dict], hl_mode: str, count: int, hl_stroke: str, stroke_scale: float,
+                           inner_w: float, inner_h: float, ox: float, oy: float, cols: int = 2) -> str:
+    avail_icons = icons_meta or []
+    if not avail_icons:
+        return ""
+    if hl_mode == "hero_1":
+        ic = avail_icons[0]
+        ic_paths = _extract_icon_paths(model, ic["box"])
+        if not ic_paths:
+            return ""
+        bx1, by1, bx2, by2 = ic["box"]
+        bw, bh = max(1, bx2 - bx1), max(1, by2 - by1)
+        hero_size = min(inner_w * 0.68, inner_h * 0.68)
+        h_scale = hero_size / max(bw, bh)
+        h_ox = ox + (inner_w - bw * h_scale) / 2 - bx1 * h_scale
+        h_oy = oy + (inner_h - bh * h_scale) / 2 - by1 * h_scale
+        return _render_paths_svg(ic_paths, hl_stroke, stroke_scale, h_scale, h_ox, h_oy)
+
+    rows = max(1, math.ceil(count / cols))
+    cell_w = inner_w / cols
+    cell_h = inner_h / rows
+    rendered = []
+    for i in range(min(count, len(avail_icons))):
+        ic = avail_icons[i]
+        ic_paths = _extract_icon_paths(model, ic["box"])
+        if not ic_paths:
+            continue
+        bx1, by1, bx2, by2 = ic["box"]
+        bw, bh = max(1, bx2 - bx1), max(1, by2 - by1)
+        col_i = i % cols
+        row_i = i // cols
+        target_cell = min(cell_w * 0.62, cell_h * 0.62)
+        ic_scale = target_cell / max(bw, bh)
+        cx = ox + col_i * cell_w + (cell_w - bw * ic_scale) / 2 - bx1 * ic_scale
+        cy = oy + row_i * cell_h + (cell_h - bh * ic_scale) / 2 - by1 * ic_scale
+        rendered.append(_render_paths_svg(ic_paths, hl_stroke, stroke_scale, ic_scale, cx, cy))
+    return "\n        ".join(rendered)
+
+
+# =========================================================================
+# Layout Builder 1 & 2: Vectuz Sidebar (Left & Right)
+# =========================================================================
+def _build_vectuz_sidebar(model: Model, icons_meta: list[dict], c: dict, W: int, H: int, banner_w: int, is_right: bool = False) -> str:
+    count_val = str(c.get("count") or (len(icons_meta) if icons_meta else "24"))
+    mW, mH = max(10, model.width), max(10, model.height)
     sheet_w = W - banner_w
     sheet_h = H
+    sheet_x = 0 if is_right else banner_w
+    banner_x_offset = (W - banner_w) if is_right else 0
 
-    # Calculate model placement on the right artboard
     avail_w = sheet_w * 0.88
     avail_h = sheet_h * 0.88
     scale = min(avail_w / mW, avail_h / mH)
@@ -263,28 +331,18 @@ def build_template_svg(model: Model, icons_meta: list[dict] | None = None, confi
     off_x = sheet_x + (sheet_w - target_w) / 2
     off_y = (sheet_h - target_h) / 2
 
-    # Render right icon sheet paths
     stroke_color = c["icon_stroke"]
     stroke_scale = float(c["stroke_scale"])
     paths_svg_group = _render_paths_svg(model.paths, stroke_color, stroke_scale, scale, off_x, off_y)
 
-    # Right Artboard Background (Checkered transparent grid vs solid)
     artboard_bg = c.get("artboard_bg", "checkered")
     defs_svg = ""
     if artboard_bg == "checkered":
-        chk_size = max(16, int(round(W / 120)))
-        chk_half = chk_size / 2
-        defs_svg = f"""
-    <pattern id="stockCheckeredPattern" width="{chk_size}" height="{chk_size}" patternUnits="userSpaceOnUse">
-      <rect width="{chk_size}" height="{chk_size}" fill="#ffffff"/>
-      <rect x="0" y="0" width="{chk_half}" height="{chk_half}" fill="#f1f3f6"/>
-      <rect x="{chk_half}" y="{chk_half}" width="{chk_half}" height="{chk_half}" fill="#f1f3f6"/>
-    </pattern>"""
-        sheet_bg_fill = 'url(#stockCheckeredPattern)'
+        d_svg, sheet_bg_fill = _get_checkered_defs(W)
+        defs_svg = d_svg
     else:
         sheet_bg_fill = artboard_bg
 
-    # Banner Layout calculations
     show_highlight = c.get("show_highlight", True)
     banner_bg = c["banner_bg"]
     banner_text = c["banner_text"]
@@ -292,10 +350,9 @@ def build_template_svg(model: Model, icons_meta: list[dict] | None = None, confi
     hl_bg = c["highlight_bg"]
     hl_stroke = c["highlight_stroke"]
 
-    banner_pad = int(banner_w * 0.10)
-    inner_w = banner_w - (banner_pad * 2)
+    banner_pad = banner_x_offset + int(banner_w * 0.10)
+    inner_w = banner_w - int(banner_w * 0.20)
 
-    # Height split: Top colored banner vs Bottom dark showcase box
     if show_highlight:
         top_h = int(round(H * 0.54))
         box_y = top_h + int(round(H * 0.025))
@@ -305,12 +362,10 @@ def build_template_svg(model: Model, icons_meta: list[dict] | None = None, confi
         box_y = 0
         box_h = 0
 
-    # Typography scaling based on banner width
     title_fs = max(24, int(round(banner_w * 0.068)))
     count_fs = max(72, int(round(banner_w * 0.28)))
     sub_fs = max(14, int(round(banner_w * 0.042)))
 
-    # Subtitle multi-line parsing
     raw_sub = str(c.get("subtitle") or "Editable Line Icons")
     sub_words = raw_sub.replace("\\n", "\n").split()
     if len(sub_words) >= 3 and "\n" not in raw_sub:
@@ -321,65 +376,25 @@ def build_template_svg(model: Model, icons_meta: list[dict] | None = None, confi
     sub_tspan_svg = ""
     for idx, s_line in enumerate(sub_lines):
         dy_attr = f' dy="{int(sub_fs * 1.3)}"' if idx > 0 else ""
-        sub_tspan_svg += f'<tspan x="{banner_pad}"{dy_attr}>{sanitize_text(s_line)}</tspan>'
+        sub_tspan_svg += f'<tspan x="{banner_pad + int(inner_w * 0.08)}"{dy_attr}>{sanitize_text(s_line)}</tspan>'
 
-    # Highlight Showcase Box content
     hl_svg = ""
     if show_highlight and box_h > 100:
         box_rx = max(16, int(round(banner_w * 0.04)))
         hl_mode = c.get("highlight_mode", "mini_4")
-
-        # Extract icons for highlight box
-        hl_paths_svg = ""
-        avail_icons = icons_meta if icons_meta else []
-        
-        if hl_mode == "hero_1" and avail_icons:
-            # 1 Giant Hero Icon
-            ic = avail_icons[0]
-            ic_paths = _extract_icon_paths(model, ic["box"])
-            if ic_paths:
-                bx1, by1, bx2, by2 = ic["box"]
-                bw, bh = max(1, bx2 - bx1), max(1, by2 - by1)
-                hero_size = min(inner_w * 0.65, box_h * 0.60)
-                h_scale = hero_size / max(bw, bh)
-                h_ox = banner_pad + (inner_w - bw * h_scale) / 2 - bx1 * h_scale
-                h_oy = box_y + (box_h - bh * h_scale) / 2 - by1 * h_scale
-                hl_paths_svg = _render_paths_svg(ic_paths, hl_stroke, stroke_scale, h_scale, h_ox, h_oy)
-
-        else:
-            # 4 Icons (2x2 grid) or 6 Icons (2x3 grid)
-            cols = 2
-            rows = 3 if hl_mode == "mini_6" and len(avail_icons) >= 6 else 2
-            num_showcase = cols * rows
-            cell_w = inner_w / cols
-            cell_h = (box_h - int(banner_w * 0.12)) / rows
-
-            rendered_cells = []
-            for i in range(min(num_showcase, len(avail_icons))):
-                ic = avail_icons[i]
-                ic_paths = _extract_icon_paths(model, ic["box"])
-                if not ic_paths:
-                    continue
-                bx1, by1, bx2, by2 = ic["box"]
-                bw, bh = max(1, bx2 - bx1), max(1, by2 - by1)
-                col_i = i % cols
-                row_i = i // cols
-                
-                target_cell = min(cell_w * 0.62, cell_h * 0.62)
-                ic_scale = target_cell / max(bw, bh)
-                cx = banner_pad + col_i * cell_w + (cell_w - bw * ic_scale) / 2 - bx1 * ic_scale
-                cy = box_y + int(banner_w * 0.06) + row_i * cell_h + (cell_h - bh * ic_scale) / 2 - by1 * ic_scale
-                rendered_cells.append(_render_paths_svg(ic_paths, hl_stroke, stroke_scale, ic_scale, cx, cy))
-
-            hl_paths_svg = "\n        ".join(rendered_cells)
-
+        num_hl = 1 if hl_mode == "hero_1" else (6 if hl_mode == "mini_6" else 4)
+        cols = 1 if hl_mode == "hero_1" else 2
+        hl_paths = _extract_highlight_svg(
+            model, icons_meta, hl_mode, num_hl, hl_stroke, stroke_scale,
+            inner_w * 0.88, box_h * 0.72,
+            banner_pad + inner_w * 0.06, box_y + int(banner_w * 0.04), cols=cols
+        )
         hl_tag_fs = max(11, int(round(banner_w * 0.030)))
         hl_svg = f"""
-    <!-- Bottom Dark Showcase Box (Inverted White Icons Preview) -->
     <g id="highlightShowcaseBox">
       <rect x="{banner_pad}" y="{box_y}" width="{inner_w}" height="{box_h}" rx="{box_rx}"
             fill="{hl_bg}" stroke="#333a4d" stroke-width="1.5" stroke-opacity="0.3"/>
-      {hl_paths_svg}
+      {hl_paths}
       <text x="{banner_pad + inner_w / 2}" y="{box_y + box_h - int(banner_w * 0.045)}" 
             font-size="{hl_tag_fs}" font-weight="700" letter-spacing="1.5" fill="#94a3b8" 
             text-anchor="middle" class="mono">
@@ -387,8 +402,7 @@ def build_template_svg(model: Model, icons_meta: list[dict] | None = None, confi
       </text>
     </g>"""
 
-    # Assemble complete SVG
-    svg = f"""<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {W} {H}" width="{W}" height="{H}">
+    return f"""<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {W} {H}" width="{W}" height="{H}">
   <defs>
     <style>
       @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;700;800;900&amp;family=JetBrains+Mono:wght@600;700&amp;display=swap');
@@ -397,33 +411,29 @@ def build_template_svg(model: Model, icons_meta: list[dict] | None = None, confi
     </style>{defs_svg}
   </defs>
 
-  <!-- Right Artboard Background -->
+  <!-- Artboard Background -->
   <rect x="{sheet_x}" y="0" width="{sheet_w}" height="{sheet_h}" fill="{sheet_bg_fill}"/>
 
-  <!-- Right Traced Vector Icons Sheet -->
+  <!-- Vector Icon Sheet -->
   <g id="stockIconSheet">
     {paths_svg_group}
   </g>
 
-  <!-- ================= LEFT SIDE COVER BANNER (ADOBE STOCK STANDARD) ================= -->
+  <!-- Side Banner -->
   <g id="stockSideBanner">
-    <!-- Top Colored Banner Card -->
     <rect x="{banner_pad}" y="{int(round(H * 0.035))}" width="{inner_w}" height="{top_h - int(round(H * 0.035))}" 
           rx="{max(16, int(round(banner_w * 0.04)))}" fill="{banner_bg}"/>
 
-    <!-- Category / Title -->
     <text x="{banner_pad + int(inner_w * 0.08)}" y="{int(round(H * 0.035)) + int(top_h * 0.16)}" 
           font-size="{title_fs}" font-weight="900" letter-spacing="2" fill="{banner_text}">
       {sanitize_text(c['title'])}
     </text>
 
-    <!-- Giant Count Number -->
     <text x="{banner_pad + int(inner_w * 0.08)}" y="{int(round(H * 0.035)) + int(top_h * 0.52)}" 
           font-size="{count_fs}" font-weight="900" fill="{banner_text}" letter-spacing="-2">
       {sanitize_text(count_val)}
     </text>
 
-    <!-- Subtitle / Editable Line Icons Badge -->
     <text x="{banner_pad + int(inner_w * 0.08)}" y="{int(round(H * 0.035)) + int(top_h * 0.68)}" 
           font-size="{sub_fs}" font-weight="700" fill="{banner_sub}" letter-spacing="0.5">
       {sub_tspan_svg}
@@ -432,34 +442,604 @@ def build_template_svg(model: Model, icons_meta: list[dict] | None = None, confi
     {hl_svg}
   </g>
 </svg>"""
-    return svg
 
 
+# =========================================================================
+# Layout Builder 3: Top Header Magazine Bar (Shutterstock Style)
+# =========================================================================
+def _build_top_banner(model: Model, icons_meta: list[dict], c: dict, W: int, H: int) -> str:
+    count_val = str(c.get("count") or (len(icons_meta) if icons_meta else "24"))
+    mW, mH = max(10, model.width), max(10, model.height)
+
+    top_h = int(round(H * 0.22))
+    sheet_y = top_h
+    sheet_h = H - top_h
+
+    avail_w = W * 0.90
+    avail_h = sheet_h * 0.86
+    scale = min(avail_w / mW, avail_h / mH)
+    target_w = mW * scale
+    target_h = mH * scale
+    off_x = (W - target_w) / 2
+    off_y = sheet_y + (sheet_h - target_h) / 2
+
+    stroke_color = c["icon_stroke"]
+    stroke_scale = float(c["stroke_scale"])
+    paths_svg_group = _render_paths_svg(model.paths, stroke_color, stroke_scale, scale, off_x, off_y)
+
+    artboard_bg = c.get("artboard_bg", "checkered")
+    defs_svg = ""
+    if artboard_bg == "checkered":
+        d_svg, sheet_bg_fill = _get_checkered_defs(W)
+        defs_svg = d_svg
+    else:
+        sheet_bg_fill = artboard_bg
+
+    banner_bg = c["banner_bg"]
+    banner_text = c["banner_text"]
+    banner_sub = c["banner_sub"]
+    hl_bg = c["highlight_bg"]
+    hl_stroke = c["highlight_stroke"]
+
+    # Header components
+    card_margin = int(W * 0.02)
+    card_h = top_h - card_margin * 2
+
+    # Left count badge
+    badge_w = int(card_h * 1.5)
+    badge_x = card_margin
+    badge_y = card_margin
+
+    # Center title & subtitle
+    title_x = badge_x + badge_w + int(W * 0.03)
+    title_fs = max(32, int(round(top_h * 0.28)))
+    sub_fs = max(16, int(round(top_h * 0.12)))
+
+    # Right showcase box
+    show_highlight = c.get("show_highlight", True)
+    right_box_svg = ""
+    if show_highlight:
+        rb_w = int(W * 0.24)
+        rb_x = W - card_margin - rb_w
+        rb_y = card_margin
+        hl_mode = c.get("highlight_mode", "mini_4")
+        num_hl = 1 if hl_mode == "hero_1" else 4
+        hl_paths = _extract_highlight_svg(
+            model, icons_meta, hl_mode, num_hl, hl_stroke, stroke_scale,
+            rb_w * 0.86, card_h * 0.70, rb_x + rb_w * 0.07, rb_y + card_h * 0.10, cols=num_hl
+        )
+        right_box_svg = f"""
+    <g id="topHighlightBox">
+      <rect x="{rb_x}" y="{rb_y}" width="{rb_w}" height="{card_h}" rx="16" fill="{hl_bg}" stroke="#334155" stroke-width="1.5"/>
+      {hl_paths}
+      <text x="{rb_x + rb_w / 2}" y="{rb_y + card_h - 10}" font-size="11" font-weight="700" letter-spacing="1" fill="#94a3b8" text-anchor="middle" class="mono">
+        INVERTED CONTRAST
+      </text>
+    </g>"""
+
+    return f"""<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {W} {H}" width="{W}" height="{H}">
+  <defs>
+    <style>
+      @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@600;700;800;900&amp;family=JetBrains+Mono:wght@600;700&amp;display=swap');
+      text {{ font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif; }}
+      .mono {{ font-family: 'JetBrains Mono', monospace; }}
+    </style>{defs_svg}
+  </defs>
+
+  <!-- Artboard Background -->
+  <rect x="0" y="{sheet_y}" width="{W}" height="{sheet_h}" fill="{sheet_bg_fill}"/>
+
+  <!-- Vector Icon Sheet -->
+  <g id="stockIconSheet">
+    {paths_svg_group}
+  </g>
+
+  <!-- Top Header Magazine Banner -->
+  <g id="stockTopHeader">
+    <rect x="0" y="0" width="{W}" height="{top_h}" fill="{banner_bg}"/>
+    <line x1="0" y1="{top_h}" x2="{W}" y2="{top_h}" stroke="#1e293b" stroke-width="3"/>
+
+    <!-- Left Count Badge -->
+    <rect x="{badge_x}" y="{badge_y}" width="{badge_w}" height="{card_h}" rx="18" fill="{hl_bg}"/>
+    <text x="{badge_x + badge_w / 2}" y="{badge_y + int(card_h * 0.58)}" font-size="{int(card_h * 0.44)}" font-weight="900" fill="#ffffff" text-anchor="middle" letter-spacing="-1">
+      {sanitize_text(count_val)}
+    </text>
+    <text x="{badge_x + badge_w / 2}" y="{badge_y + int(card_h * 0.82)}" font-size="{int(card_h * 0.16)}" font-weight="800" fill="#00f5a0" text-anchor="middle" letter-spacing="2">
+      ICONS
+    </text>
+
+    <!-- Center Category & Subtitle -->
+    <text x="{title_x}" y="{badge_y + int(card_h * 0.46)}" font-size="{title_fs}" font-weight="900" letter-spacing="2" fill="{banner_text}">
+      {sanitize_text(c['title'])}
+    </text>
+    <text x="{title_x}" y="{badge_y + int(card_h * 0.78)}" font-size="{sub_fs}" font-weight="700" letter-spacing="0.5" fill="{banner_sub}">
+      {sanitize_text(c['subtitle'])} &#8226; 100% Scalable Vector Artboard
+    </text>
+
+    {right_box_svg}
+  </g>
+</svg>"""
+
+
+# =========================================================================
+# Layout Builder 4: Bottom Dock Gallery (Creative Market Style)
+# =========================================================================
+def _build_bottom_dock(model: Model, icons_meta: list[dict], c: dict, W: int, H: int) -> str:
+    count_val = str(c.get("count") or (len(icons_meta) if icons_meta else "24"))
+    mW, mH = max(10, model.width), max(10, model.height)
+
+    dock_h = int(round(H * 0.18))
+    sheet_h = H - dock_h
+
+    avail_w = W * 0.90
+    avail_h = sheet_h * 0.86
+    scale = min(avail_w / mW, avail_h / mH)
+    target_w = mW * scale
+    target_h = mH * scale
+    off_x = (W - target_w) / 2
+    off_y = (sheet_h - target_h) / 2
+
+    stroke_color = c["icon_stroke"]
+    stroke_scale = float(c["stroke_scale"])
+    paths_svg_group = _render_paths_svg(model.paths, stroke_color, stroke_scale, scale, off_x, off_y)
+
+    artboard_bg = c.get("artboard_bg", "checkered")
+    defs_svg = ""
+    if artboard_bg == "checkered":
+        d_svg, sheet_bg_fill = _get_checkered_defs(W)
+        defs_svg = d_svg
+    else:
+        sheet_bg_fill = artboard_bg
+
+    banner_bg = c["banner_bg"]
+    banner_text = c["banner_text"]
+    banner_sub = c["banner_sub"]
+    hl_bg = c["highlight_bg"]
+    hl_stroke = c["highlight_stroke"]
+
+    dock_y = sheet_h
+    dock_pad = int(W * 0.03)
+
+    return f"""<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {W} {H}" width="{W}" height="{H}">
+  <defs>
+    <style>
+      @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@600;700;800;900&amp;family=JetBrains+Mono:wght@600;700&amp;display=swap');
+      text {{ font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif; }}
+      .mono {{ font-family: 'JetBrains Mono', monospace; }}
+    </style>{defs_svg}
+  </defs>
+
+  <!-- Artboard Background -->
+  <rect x="0" y="0" width="{W}" height="{sheet_h}" fill="{sheet_bg_fill}"/>
+
+  <!-- Vector Icon Sheet -->
+  <g id="stockIconSheet">
+    {paths_svg_group}
+  </g>
+
+  <!-- Bottom Dock Gallery -->
+  <g id="stockBottomDock">
+    <rect x="0" y="{dock_y}" width="{W}" height="{dock_h}" fill="{banner_bg}"/>
+    <line x1="0" y1="{dock_y}" x2="{W}" y2="{dock_y}" stroke="{hl_bg}" stroke-width="4"/>
+
+    <!-- Left Title & Subtitle -->
+    <text x="{dock_pad}" y="{dock_y + int(dock_h * 0.46)}" font-size="{max(28, int(dock_h * 0.28))}" font-weight="900" letter-spacing="2" fill="{banner_text}">
+      {sanitize_text(c['title'])}
+    </text>
+    <text x="{dock_pad}" y="{dock_y + int(dock_h * 0.76)}" font-size="{max(15, int(dock_h * 0.13))}" font-weight="700" letter-spacing="0.5" fill="{banner_sub}">
+      {sanitize_text(c['subtitle'])} &#8226; Clean Stroke Geometry
+    </text>
+
+    <!-- Center Giant Numeral Pill -->
+    <rect x="{int(W * 0.52)}" y="{dock_y + int(dock_h * 0.16)}" width="{int(W * 0.18)}" height="{int(dock_h * 0.68)}" rx="20" fill="{hl_bg}"/>
+    <text x="{int(W * 0.61)}" y="{dock_y + int(dock_h * 0.62)}" font-size="{int(dock_h * 0.44)}" font-weight="900" fill="#ffffff" text-anchor="middle">
+      {sanitize_text(count_val)} <tspan font-size="{int(dock_h * 0.18)}" fill="#00f5a0" font-weight="800">ICONS</tspan>
+    </text>
+
+    <!-- Right Specs Badge -->
+    <text x="{W - dock_pad}" y="{dock_y + int(dock_h * 0.45)}" font-size="14" font-weight="800" letter-spacing="1" fill="{banner_text}" text-anchor="end" class="mono">
+      EDITABLE LINE ICONS
+    </text>
+    <text x="{W - dock_pad}" y="{dock_y + int(dock_h * 0.72)}" font-size="13" font-weight="700" letter-spacing="1" fill="{banner_sub}" text-anchor="end" class="mono">
+      SVG &#8226; EPS 3.0 &#8226; 4K PNG
+    </text>
+  </g>
+</svg>"""
+
+
+# =========================================================================
+# Layout Builder 5: Dual Theme 50/50 Split (Light & Dark Contrast)
+# =========================================================================
+def _build_split_duo(model: Model, icons_meta: list[dict], c: dict, W: int, H: int) -> str:
+    count_val = str(c.get("count") or (len(icons_meta) if icons_meta else "24"))
+    mW, mH = max(10, model.width), max(10, model.height)
+
+    half_w = W // 2
+    avail_w = half_w * 0.86
+    avail_h = H * 0.72
+    scale = min(avail_w / mW, avail_h / mH)
+    target_w = mW * scale
+    target_h = mH * scale
+
+    # Left half positioning (Light)
+    off_x1 = (half_w - target_w) / 2
+    off_y = (H - target_h) / 2 + 30
+
+    # Right half positioning (Dark)
+    off_x2 = half_w + (half_w - target_w) / 2
+
+    stroke_scale = float(c["stroke_scale"])
+    left_paths = _render_paths_svg(model.paths, c["icon_stroke"], stroke_scale, scale, off_x1, off_y)
+    right_paths = _render_paths_svg(model.paths, c["highlight_stroke"], stroke_scale, scale, off_x2, off_y)
+
+    artboard_bg = c.get("artboard_bg", "checkered")
+    defs_svg = ""
+    if artboard_bg == "checkered":
+        d_svg, left_bg_fill = _get_checkered_defs(W)
+        defs_svg = d_svg
+    else:
+        left_bg_fill = artboard_bg
+
+    banner_bg = c["banner_bg"]
+    banner_text = c["banner_text"]
+
+    pill_w = int(W * 0.58)
+    pill_h = 120
+    pill_x = (W - pill_w) // 2
+    pill_y = 40
+
+    return f"""<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {W} {H}" width="{W}" height="{H}">
+  <defs>
+    <style>
+      @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@700;800;900&amp;family=JetBrains+Mono:wght@600;700&amp;display=swap');
+      text {{ font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif; }}
+      .mono {{ font-family: 'JetBrains Mono', monospace; }}
+    </style>{defs_svg}
+  </defs>
+
+  <!-- Left Half: Light Theme Artboard -->
+  <rect x="0" y="0" width="{half_w}" height="{H}" fill="{left_bg_fill}"/>
+  <g id="lightSideIcons">
+    {left_paths}
+  </g>
+  <text x="{half_w / 2}" y="{H - 36}" font-size="14" font-weight="800" letter-spacing="2" fill="#64748b" text-anchor="middle" class="mono">
+    LIGHT THEME
+  </text>
+
+  <!-- Right Half: Dark Theme Artboard -->
+  <rect x="{half_w}" y="0" width="{half_w}" height="{H}" fill="#0F172A"/>
+  <g id="darkSideIcons">
+    {right_paths}
+  </g>
+  <text x="{half_w + half_w / 2}" y="{H - 36}" font-size="14" font-weight="800" letter-spacing="2" fill="#94a3b8" text-anchor="middle" class="mono">
+    DARK THEME
+  </text>
+
+  <!-- Middle Contrast Line -->
+  <line x1="{half_w}" y1="0" x2="{half_w}" y2="{H}" stroke="#334155" stroke-width="3" stroke-dasharray="14,10"/>
+
+  <!-- Top Floating Central Badge Pill -->
+  <g id="splitCenterPill">
+    <rect x="{pill_x}" y="{pill_y}" width="{pill_w}" height="{pill_h}" rx="60" fill="{banner_bg}" stroke="#0f172a" stroke-width="4"/>
+    <text x="{W / 2}" y="{pill_y + 74}" font-size="34" font-weight="900" letter-spacing="2" fill="{banner_text}" text-anchor="middle">
+      {sanitize_text(c['title'])} <tspan font-weight="900" fill="{banner_text}">&#8226;</tspan> {sanitize_text(count_val)} ICONS <tspan font-size="20" font-weight="700">&#8226; DUAL THEME</tspan>
+    </text>
+  </g>
+</svg>"""
+
+
+# =========================================================================
+# Layout Builder 6: Floating Modern Card (Dribbble / Minimal)
+# =========================================================================
+def _build_floating_card(model: Model, icons_meta: list[dict], c: dict, W: int, H: int) -> str:
+    count_val = str(c.get("count") or (len(icons_meta) if icons_meta else "24"))
+    mW, mH = max(10, model.width), max(10, model.height)
+
+    avail_w = W * 0.90
+    avail_h = H * 0.88
+    scale = min(avail_w / mW, avail_h / mH)
+    target_w = mW * scale
+    target_h = mH * scale
+    off_x = (W - target_w) / 2
+    off_y = (H - target_h) / 2
+
+    stroke_color = c["icon_stroke"]
+    stroke_scale = float(c["stroke_scale"])
+    paths_svg_group = _render_paths_svg(model.paths, stroke_color, stroke_scale, scale, off_x, off_y)
+
+    artboard_bg = c.get("artboard_bg", "checkered")
+    defs_svg = ""
+    if artboard_bg == "checkered":
+        d_svg, sheet_bg_fill = _get_checkered_defs(W)
+        defs_svg = d_svg
+    else:
+        sheet_bg_fill = artboard_bg
+
+    banner_bg = c["banner_bg"]
+    banner_text = c["banner_text"]
+    banner_sub = c["banner_sub"]
+    hl_bg = c["highlight_bg"]
+    hl_stroke = c["highlight_stroke"]
+
+    # Floating Card at Top-Left
+    card_w = int(W * 0.24)
+    card_h = int(H * 0.36)
+    card_x = 64
+    card_y = 64
+
+    # Mini showcase inset inside floating card
+    show_highlight = c.get("show_highlight", True)
+    mini_box_svg = ""
+    if show_highlight and card_h > 180:
+        mb_h = int(card_h * 0.38)
+        mb_y = card_y + card_h - mb_h - 20
+        mb_w = card_w - 48
+        mb_x = card_x + 24
+        hl_paths = _extract_highlight_svg(
+            model, icons_meta, "mini_4", 4, hl_stroke, stroke_scale,
+            mb_w * 0.88, mb_h * 0.75, mb_x + mb_w * 0.06, mb_y + mb_h * 0.12, cols=4
+        )
+        mini_box_svg = f"""
+      <rect x="{mb_x}" y="{mb_y}" width="{mb_w}" height="{mb_h}" rx="14" fill="{hl_bg}"/>
+      {hl_paths}"""
+
+    return f"""<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {W} {H}" width="{W}" height="{H}">
+  <defs>
+    <style>
+      @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@700;800;900&amp;family=JetBrains+Mono:wght@600;700&amp;display=swap');
+      text {{ font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif; }}
+      .mono {{ font-family: 'JetBrains Mono', monospace; }}
+    </style>{defs_svg}
+    <filter id="cardShadow" x="-10%" y="-10%" width="125%" height="125%">
+      <feDropShadow dx="0" dy="16" stdDeviation="24" flood-color="#000000" flood-opacity="0.35"/>
+    </filter>
+  </defs>
+
+  <!-- Artboard Background -->
+  <rect x="0" y="0" width="{W}" height="{H}" fill="{sheet_bg_fill}"/>
+
+  <!-- Vector Icon Sheet -->
+  <g id="stockIconSheet">
+    {paths_svg_group}
+  </g>
+
+  <!-- Modern Floating Glass Card -->
+  <g id="floatingGlassCard" filter="url(#cardShadow)">
+    <rect x="{card_x}" y="{card_y}" width="{card_w}" height="{card_h}" rx="28" fill="{banner_bg}" stroke="#ffffff" stroke-width="2" stroke-opacity="0.4"/>
+
+    <!-- Category Title -->
+    <text x="{card_x + 28}" y="{card_y + 60}" font-size="24" font-weight="900" letter-spacing="2" fill="{banner_text}">
+      {sanitize_text(c['title'])}
+    </text>
+
+    <!-- Giant Count -->
+    <text x="{card_x + 28}" y="{card_y + 148}" font-size="76" font-weight="900" letter-spacing="-2" fill="{banner_text}">
+      {sanitize_text(count_val)}
+    </text>
+
+    <!-- Subtitle -->
+    <text x="{card_x + 28}" y="{card_y + 188}" font-size="15" font-weight="700" letter-spacing="0.5" fill="{banner_sub}">
+      {sanitize_text(c['subtitle'])}
+    </text>
+
+    {mini_box_svg}
+  </g>
+</svg>"""
+
+
+# =========================================================================
+# Layout Builder 7: Framed Passe-Partout (Luxury Editorial)
+# =========================================================================
+def _build_framed_editorial(model: Model, icons_meta: list[dict], c: dict, W: int, H: int) -> str:
+    count_val = str(c.get("count") or (len(icons_meta) if icons_meta else "24"))
+    mW, mH = max(10, model.width), max(10, model.height)
+
+    pad = int(W * 0.04)
+    avail_w = (W - pad * 2) * 0.86
+    avail_h = (H - pad * 2) * 0.74
+    scale = min(avail_w / mW, avail_h / mH)
+    target_w = mW * scale
+    target_h = mH * scale
+    off_x = (W - target_w) / 2
+    off_y = (H - target_h) / 2 + 10
+
+    stroke_color = c["icon_stroke"]
+    stroke_scale = float(c["stroke_scale"])
+    paths_svg_group = _render_paths_svg(model.paths, stroke_color, stroke_scale, scale, off_x, off_y)
+
+    artboard_bg = c.get("artboard_bg", "checkered")
+    defs_svg = ""
+    if artboard_bg == "checkered":
+        d_svg, sheet_bg_fill = _get_checkered_defs(W)
+        defs_svg = d_svg
+    else:
+        sheet_bg_fill = artboard_bg
+
+    banner_bg = c["banner_bg"]
+    banner_text = c["banner_text"]
+
+    return f"""<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {W} {H}" width="{W}" height="{H}">
+  <defs>
+    <style>
+      @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@600;700;800;900&amp;family=JetBrains+Mono:wght@600;700&amp;display=swap');
+      text {{ font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif; }}
+      .mono {{ font-family: 'JetBrains Mono', monospace; }}
+    </style>{defs_svg}
+  </defs>
+
+  <!-- Artboard Background -->
+  <rect x="0" y="0" width="{W}" height="{H}" fill="{sheet_bg_fill}"/>
+
+  <!-- Outer Double Luxury Vector Frame -->
+  <rect x="{pad}" y="{pad}" width="{W - pad * 2}" height="{H - pad * 2}" rx="12" fill="none" stroke="{banner_bg}" stroke-width="4"/>
+  <rect x="{pad + 18}" y="{pad + 18}" width="{W - pad * 2 - 36}" height="{H - pad * 2 - 36}" rx="8" fill="none" stroke="{banner_bg}" stroke-width="1.5" stroke-dasharray="16,8"/>
+
+  <!-- 4 Corner Crosshairs -->
+  <path d="M{pad-12},{pad} h24 M{pad},{pad-12} v24" stroke="{banner_bg}" stroke-width="2"/>
+  <path d="M{W-pad-12},{pad} h24 M{W-pad},{pad-12} v24" stroke="{banner_bg}" stroke-width="2"/>
+  <path d="M{pad-12},{H-pad} h24 M{pad},{H-pad-12} v24" stroke="{banner_bg}" stroke-width="2"/>
+  <path d="M{W-pad-12},{H-pad} h24 M{W-pad},{H-pad-12} v24" stroke="{banner_bg}" stroke-width="2"/>
+
+  <!-- Vector Icon Sheet -->
+  <g id="stockIconSheet">
+    {paths_svg_group}
+  </g>
+
+  <!-- Top Centered Header -->
+  <text x="{W / 2}" y="{pad + 68}" font-size="14" font-weight="800" letter-spacing="4" fill="#64748b" text-anchor="middle" class="mono">
+    &#8212; VECTOR ICON COLLECTION &#8212;
+  </text>
+  <text x="{W / 2}" y="{pad + 116}" font-size="38" font-weight="900" letter-spacing="4" fill="{c['icon_stroke']}" text-anchor="middle">
+    {sanitize_text(c['title'])}
+  </text>
+
+  <!-- Bottom Centered Badge Pill -->
+  <rect x="{(W - 680) / 2}" y="{H - pad - 68}" width="680" height="52" rx="26" fill="{banner_bg}"/>
+  <text x="{W / 2}" y="{H - pad - 35}" font-size="16" font-weight="900" letter-spacing="2" fill="{banner_text}" text-anchor="middle" class="mono">
+    [ {sanitize_text(count_val)} EDITABLE LINE ICONS &#8226; 100% VECTOR ]
+  </text>
+</svg>"""
+
+
+# =========================================================================
+# Layout Builder 8: Hero Spotlight (Large Highlight Icon Circle)
+# =========================================================================
+def _build_hero_spotlight(model: Model, icons_meta: list[dict], c: dict, W: int, H: int) -> str:
+    count_val = str(c.get("count") or (len(icons_meta) if icons_meta else "24"))
+    mW, mH = max(10, model.width), max(10, model.height)
+
+    panel_w = int(round(W * 0.32))
+    sheet_x = panel_w
+    sheet_w = W - panel_w
+    sheet_h = H
+
+    avail_w = sheet_w * 0.88
+    avail_h = sheet_h * 0.88
+    scale = min(avail_w / mW, avail_h / mH)
+    target_w = mW * scale
+    target_h = mH * scale
+    off_x = sheet_x + (sheet_w - target_w) / 2
+    off_y = (sheet_h - target_h) / 2
+
+    stroke_color = c["icon_stroke"]
+    stroke_scale = float(c["stroke_scale"])
+    paths_svg_group = _render_paths_svg(model.paths, stroke_color, stroke_scale, scale, off_x, off_y)
+
+    artboard_bg = c.get("artboard_bg", "checkered")
+    defs_svg = ""
+    if artboard_bg == "checkered":
+        d_svg, sheet_bg_fill = _get_checkered_defs(W)
+        defs_svg = d_svg
+    else:
+        sheet_bg_fill = artboard_bg
+
+    banner_bg = c["banner_bg"]
+    banner_text = c["banner_text"]
+    banner_sub = c["banner_sub"]
+    hl_bg = c["highlight_bg"]
+    hl_stroke = c["highlight_stroke"]
+
+    # Giant circular showcase badge
+    circle_r = int(panel_w * 0.32)
+    circle_cx = panel_w // 2
+    circle_cy = int(H * 0.44)
+
+    hero_paths = _extract_highlight_svg(
+        model, icons_meta, "hero_1", 1, hl_stroke, stroke_scale,
+        circle_r * 1.35, circle_r * 1.35,
+        circle_cx - circle_r * 0.675, circle_cy - circle_r * 0.675, cols=1
+    )
+
+    return f"""<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {W} {H}" width="{W}" height="{H}">
+  <defs>
+    <style>
+      @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@700;800;900&amp;family=JetBrains+Mono:wght@600;700&amp;display=swap');
+      text {{ font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif; }}
+      .mono {{ font-family: 'JetBrains Mono', monospace; }}
+    </style>{defs_svg}
+  </defs>
+
+  <!-- Right Artboard Background -->
+  <rect x="{sheet_x}" y="0" width="{sheet_w}" height="{sheet_h}" fill="{sheet_bg_fill}"/>
+
+  <!-- Vector Icon Sheet -->
+  <g id="stockIconSheet">
+    {paths_svg_group}
+  </g>
+
+  <!-- Left Spotlight Panel -->
+  <g id="spotlightPanel">
+    <rect x="0" y="0" width="{panel_w}" height="{H}" fill="{banner_bg}"/>
+
+    <!-- Top Title & Subtitle -->
+    <text x="{panel_w / 2}" y="{int(H * 0.12)}" font-size="{max(26, int(panel_w * 0.08))}" font-weight="900" letter-spacing="3" fill="{banner_text}" text-anchor="middle">
+      {sanitize_text(c['title'])}
+    </text>
+    <text x="{panel_w / 2}" y="{int(H * 0.16)}" font-size="{max(14, int(panel_w * 0.04))}" font-weight="700" letter-spacing="1" fill="{banner_sub}" text-anchor="middle">
+      {sanitize_text(c['subtitle'])}
+    </text>
+
+    <!-- Spotlight Circle & Hero Icon -->
+    <circle cx="{circle_cx}" cy="{circle_cy}" r="{circle_r}" fill="{hl_bg}" stroke="#ffffff" stroke-width="4"/>
+    {hero_paths}
+    <text x="{circle_cx}" y="{circle_cy + circle_r + 34}" font-size="12" font-weight="800" letter-spacing="2" fill="{banner_text}" text-anchor="middle" class="mono">
+      FEATURED HERO ICON
+    </text>
+
+    <!-- Bottom Giant Count -->
+    <text x="{panel_w / 2}" y="{int(H * 0.82)}" font-size="{max(68, int(panel_w * 0.26))}" font-weight="900" letter-spacing="-2" fill="{banner_text}" text-anchor="middle">
+      {sanitize_text(count_val)}
+    </text>
+    <text x="{panel_w / 2}" y="{int(H * 0.87)}" font-size="18" font-weight="800" letter-spacing="3" fill="{banner_sub}" text-anchor="middle">
+      EDITABLE ICONS
+    </text>
+  </g>
+</svg>"""
+
+
+# =========================================================================
+# Master SVG Dispatcher
+# =========================================================================
+def build_template_svg(model: Model, icons_meta: list[dict] | None = None, config: dict | None = None) -> str:
+    """Generate high-resolution SVG presentation sheet supporting 8 distinct microstock designs."""
+    c = resolve_config(config)
+    icons_meta = icons_meta or []
+    design = str(c.get("design") or "vectuz_sidebar").lower()
+
+    mW, mH = max(10, model.width), max(10, model.height)
+    layout = c.get("layout", "landscape_16_9")
+    W, H, banner_w = _calc_dims(layout, mW, mH)
+
+    if design == "vectuz_right":
+        return _build_vectuz_sidebar(model, icons_meta, c, W, H, banner_w, is_right=True)
+    elif design == "top_banner":
+        return _build_top_banner(model, icons_meta, c, W, H)
+    elif design == "bottom_dock":
+        return _build_bottom_dock(model, icons_meta, c, W, H)
+    elif design == "split_duo":
+        return _build_split_duo(model, icons_meta, c, W, H)
+    elif design == "floating_card":
+        return _build_floating_card(model, icons_meta, c, W, H)
+    elif design == "framed_editorial":
+        return _build_framed_editorial(model, icons_meta, c, W, H)
+    elif design == "hero_spotlight":
+        return _build_hero_spotlight(model, icons_meta, c, W, H)
+    else:  # "vectuz_sidebar" (default Adobe Stock standard)
+        return _build_vectuz_sidebar(model, icons_meta, c, W, H, banner_w, is_right=False)
+
+
+# =========================================================================
+# EPS 3.0 Export
+# =========================================================================
 def build_template_eps(model: Model, icons_meta: list[dict] | None = None, config: dict | None = None) -> str:
     """Generate professional Adobe-standard Encapsulated PostScript (EPS 3.0) presentation template."""
     c = resolve_config(config)
     icons_meta = icons_meta or []
-    count_val = str(c.get("count") or (len(icons_meta) if icons_meta else "15"))
+    count_val = str(c.get("count") or (len(icons_meta) if icons_meta else "24"))
 
     mW, mH = max(10, model.width), max(10, model.height)
     layout = c.get("layout", "landscape_16_9")
-
-    if layout == "auto_dock":
-        H = mH
-        banner_w = max(380, int(round(H * 0.35)))
-        W = banner_w + mW
-    elif layout == "square":
-        W, H = 2400, 2400
-        banner_w = 640
-    elif layout == "landscape_4_3":
-        W, H = 2400, 1800
-        banner_w = 620
-    elif layout == "landscape_16_10":
-        W, H = 1920, 1200
-        banner_w = 480
-    else:  # landscape_16_9
-        W, H = 3840, 2160
-        banner_w = 960
+    W, H, banner_w = _calc_dims(layout, mW, mH)
 
     sheet_x = banner_w
     sheet_w = W - banner_w
@@ -473,7 +1053,6 @@ def build_template_eps(model: Model, icons_meta: list[dict] | None = None, confi
     off_x = sheet_x + (sheet_w - target_w) / 2
     off_y = (sheet_h - target_h) / 2
 
-    # RGB values
     bbg_r, bbg_g, bbg_b = hex_to_rgb(c["banner_bg"])
     btxt_r, btxt_g, btxt_b = hex_to_rgb(c["banner_text"])
     hlbg_r, hlbg_g, hlbg_b = hex_to_rgb(c["highlight_bg"])
@@ -483,16 +1062,7 @@ def build_template_eps(model: Model, icons_meta: list[dict] | None = None, confi
 
     banner_pad = int(banner_w * 0.10)
     inner_w = banner_w - (banner_pad * 2)
-    show_highlight = c.get("show_highlight", True)
-
-    if show_highlight:
-        top_h = int(round(H * 0.54))
-        box_y = top_h + int(round(H * 0.025))
-        box_h = H - box_y - int(round(H * 0.035))
-    else:
-        top_h = H - int(round(H * 0.06))
-        box_y = 0
-        box_h = 0
+    top_h = int(round(H * 0.54))
 
     lines = [
         "%!PS-Adobe-3.0 EPSF-3.0",
@@ -514,83 +1084,54 @@ def build_template_eps(model: Model, icons_meta: list[dict] | None = None, confi
         "/LC { setlinecap } bind def",
         "/LJ { setlinejoin } bind def",
         "",
-        "/roundrect {",
-        "  /r exch def /h exch def /w exch def /y exch def /x exch def",
-        "  newpath",
-        "  x r add y M",
-        "  x w add y x w add y h add r arcto 4 {pop} repeat",
-        "  x w add y h add x y h add r arcto 4 {pop} repeat",
-        "  x y h add x y r arcto 4 {pop} repeat",
-        "  x y x w add y r arcto 4 {pop} repeat",
-        "  CP",
-        "} bind def",
-        "",
         f"0 {H} translate",
         "1 -1 scale",
         "",
-        "% Right Artboard Background (Clean Stock White)",
-        "1.0 1.0 1.0 RGB",
-        f"{sheet_x} 0 {sheet_w} {sheet_h} rectfill",
-        "",
-        "% Top Colored Banner",
+        "1 1 1 RGB",
+        f"0 0 {W} {H} rectfill",
         f"{bbg_r:.3f} {bbg_g:.3f} {bbg_b:.3f} RGB",
-        f"{banner_pad} {int(round(H * 0.035))} {inner_w} {top_h - int(round(H * 0.035))} 24 roundrect F",
-    ]
-
-    if show_highlight and box_h > 100:
-        lines += [
-            "",
-            "% Bottom Dark Showcase Card",
-            f"{hlbg_r:.3f} {hlbg_g:.3f} {hlbg_b:.3f} RGB",
-            f"{banner_pad} {box_y} {inner_w} {box_h} 24 roundrect F",
-        ]
-
-    # Render vector paths in EPS
-    lines += [
+        f"{banner_pad} {int(round(H * 0.035))} {inner_w} {top_h} rectfill",
+        f"{hlbg_r:.3f} {hlbg_g:.3f} {hlbg_b:.3f} RGB",
+        f"{banner_pad} {top_h + int(round(H * 0.025))} {inner_w} {H - top_h - int(round(H * 0.06))} rectfill",
         "",
-        "% Vector Icons on Sheet",
         "1 LC 1 LJ",
         f"{stk_r:.3f} {stk_g:.3f} {stk_b:.3f} RGB",
-        "gsave",
-        f"{off_x:.2f} {off_y:.2f} translate",
-        f"{scale:.4f} {scale:.4f} scale",
     ]
 
     for p in model.paths:
-        sw = max(0.5, p.w * stroke_scale)
+        sw = max(0.5, p.w * stroke_scale * scale)
         lines.append(f"{sw:.2f} LW")
         lines.append("newpath")
         s = p.segs()
         if not s:
             continue
-        lines.append(f"{s[0][0][0]:.2f} {s[0][0][1]:.2f} M")
+        p0 = s[0][0] * scale + np.array([off_x, off_y])
+        lines.append(f"{p0[0]:.2f} {p0[1]:.2f} M")
         for c_seg in s:
-            lines.append(
-                f"{c_seg[1][0]:.2f} {c_seg[1][1]:.2f} "
-                f"{c_seg[2][0]:.2f} {c_seg[2][1]:.2f} "
-                f"{c_seg[3][0]:.2f} {c_seg[3][1]:.2f} C"
-            )
+            p1 = c_seg[1] * scale + np.array([off_x, off_y])
+            p2 = c_seg[2] * scale + np.array([off_x, off_y])
+            p3 = c_seg[3] * scale + np.array([off_x, off_y])
+            lines.append(f"{p1[0]:.2f} {p1[1]:.2f} {p2[0]:.2f} {p2[1]:.2f} {p3[0]:.2f} {p3[1]:.2f} C")
         if p.closed:
             lines.append("CP")
         lines.append("S")
 
-    lines.append("grestore")
     lines.append("%%EOF")
     return "\n".join(lines)
 
 
 def build_model_eps(model: Model, stroke_color: str = "#000000", stroke_scale: float = 1.0, bg: str | None = None) -> str:
-    """Export a standalone Model directly to Adobe PostScript EPS 3.0 format."""
-    W = max(1, model.width)
-    H = max(1, model.height)
+    """Generate clean Adobe Illustrator compatible EPS 3.0 vector file from a Model."""
+    W = int(model.width) or 1000
+    H = int(model.height) or 1000
     stk_r, stk_g, stk_b = hex_to_rgb(stroke_color)
     lines = [
-        "%%!PS-Adobe-3.0 EPSF-3.0",
-        "%%%%Creator: Linework AI Vector Precision Engine",
-        f"%%%%BoundingBox: 0 0 {W} {H}",
-        f"%%%%HiResBoundingBox: 0 0 {float(W)} {float(H)}",
-        "%%%%Pages: 1",
-        "%%%%EndComments",
+        "%!PS-Adobe-3.0 EPSF-3.0",
+        "%%Creator: Linework AI Vector Precision Engine",
+        f"%%BoundingBox: 0 0 {W} {H}",
+        f"%%HiResBoundingBox: 0 0 {float(W)} {float(H)}",
+        "%%Pages: 1",
+        "%%EndComments",
         "",
         "/M { moveto } bind def",
         "/L { lineto } bind def",
@@ -633,6 +1174,9 @@ def build_model_eps(model: Model, stroke_color: str = "#000000", stroke_scale: f
     return "\n".join(lines)
 
 
+# =========================================================================
+# 24-Icon Live Demo Vector Sheet
+# =========================================================================
 def make_line_path(points, w=4.0, closed=False):
     pts = np.asarray(points, float)
     N = len(pts)
