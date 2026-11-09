@@ -12,10 +12,10 @@ def estimate_width(D):
     if max(mask.shape) > 900:
         ys, xs = np.where(mask > 0)
         vals = []
-        for frac in (0.2, 0.5, 0.8):
+        for frac in (0.3, 0.7):
             idx = int(len(ys) * frac)
             y0, x0 = int(ys[idx]), int(xs[idx])
-            sub = mask[max(0, y0 - 300):y0 + 300, max(0, x0 - 300):x0 + 300]
+            sub = mask[max(0, y0 - 160):y0 + 160, max(0, x0 - 160):x0 + 160]
             if int(sub.sum()) >= 30:
                 sk_s = skeletonize(sub > 0)
                 dt_s = cv2.distanceTransform(sub, cv2.DIST_L2, 5)
@@ -39,7 +39,12 @@ def find_icons(D, merge=1.15, min_area_w2=6.0):
     w = estimate_width(D)
     k = int(max(3, round(2 * merge * w)))
     k += (k + 1) % 2
-    dil = cv2.dilate(mask, cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (k, k)))
+    if k > 15 and max(mask.shape) > 900:
+        kr = int(max(3, round(1.82 * merge * w)))
+        kr += (kr + 1) % 2
+        dil = cv2.dilate(mask, cv2.getStructuringElement(cv2.MORPH_RECT, (kr, kr)))
+    else:
+        dil = cv2.dilate(mask, cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (k, k)))
     n, lab, st, _ = cv2.connectedComponentsWithStats(dil)
     del dil
     icons = []

@@ -179,17 +179,27 @@
     fd.append('clean', cVal);
     const isFresh = $('#freshRun') ? $('#freshRun').checked : true;
     fd.append('fresh', isFresh ? 'true' : 'false');
+
+    // Instant 0ms UI transition: open canvas immediately using local file memory before network upload completes!
+    const localUrl = URL.createObjectURL(f);
+    begin('__uploading__', f.name || 'Pasted Line Art', localUrl);
+
     try {
       const r = await api('/api/jobs', { method: 'POST', body: fd });
-      begin((await r.json()).id, f.name || 'Pasted Line Art');
+      const data = await r.json();
+      if (S.job === '__uploading__') {
+        S.job = data.id;
+        poll();
+      }
     } catch (e) {
+      cancelCurrentJob();
       toast(e.message, 1);
     }
     if (file) file.value = '';
   }
 
   // ---------------------------------------------------------------- workspace lifecycle
-  function begin(id, name) {
+  function begin(id, name, localPreviewUrl = null) {
     Object.assign(S, {
       job: id,
       name: name,
@@ -210,16 +220,20 @@
     const meta = $('#jobMeta');
     if (meta) meta.textContent = 'Analyzing image...';
 
-    const log = $('#log'); if (log) log.innerHTML = '';
+    const log = $('#log');
+    if (log) {
+      log.innerHTML = '<li><s>split</s><span>Image loaded on canvas — detecting icon grid...</span></li>';
+      S.logN = 1;
+    }
     const icons = $('#icons'); if (icons) icons.innerHTML = '';
     const summary = $('#summary'); if (summary) summary.hidden = true;
 
     // Reset progress and indicators
     $('#prog').classList.remove('done');
-    $('#prog i').style.width = '3%';
-    const pFill = $('#procBarFill'); if (pFill) pFill.style.width = '3%';
-    const pPct = $('#procPercent'); if (pPct) pPct.textContent = '3%';
-    const miniFill = $('#miniProgFill'); if (miniFill) miniFill.style.width = '3%';
+    $('#prog i').style.width = '4%';
+    const pFill = $('#procBarFill'); if (pFill) pFill.style.width = '4%';
+    const pPct = $('#procPercent'); if (pPct) pPct.textContent = '4%';
+    const miniFill = $('#miniProgFill'); if (miniFill) miniFill.style.width = '4%';
 
     // Start live processing animation on canvas
     const stg = $('#stage');
@@ -227,10 +241,11 @@
 
     const pTitle = $('#procTitle'); if (pTitle) pTitle.textContent = 'Processing...';
     const pSub = $('#procSub'); if (pSub) pSub.textContent = 'AI is analyzing and redrawing your image into clean vector paths.';
-    const cMsg = $('#canvasStatusMsg'); if (cMsg) cMsg.textContent = 'Analyzing raster image...';
+    const cMsg = $('#canvasStatusMsg'); if (cMsg) cMsg.textContent = 'Analyzing & splitting icon sheet...';
 
-    // Reset stages
+    // Reset stages and immediately highlight stage 1
     resetStages();
+    setStageActive('stageImageAnalysis');
 
     // Reset metrics
     updateMetricsUI(0, '--', '--', 0);
@@ -258,10 +273,10 @@
       if (meta && S.icons.length) {
         meta.textContent = `${S.icons.length} icons · ${S.W} × ${S.H}`;
       } else if (meta) {
-        meta.textContent = `${S.W} × ${S.H} px`;
+        meta.textContent = `Detecting icons · ${S.W} × ${S.H} px`;
       }
     };
-    o.src = `/api/jobs/${id}/original.png`;
+    o.src = localPreviewUrl || `/api/jobs/${id}/original.png`;
 
     setArtboardBg('#ffffff');
     setView('vector');
@@ -272,20 +287,43 @@
         clearInterval(S.clockTimer);
         return;
       }
+      const sec = Math.max(0, (Date.now() - S.startTime) / 1000);
       const mTime = $('#metricTime');
       if (mTime && S.startTime) {
-        const sec = Math.max(0, (Date.now() - S.startTime) / 1000);
         mTime.textContent = sec.toFixed(1) + 's';
       }
+      // Smooth live progress & stage feedback while initial icons are in flight
+      const doneN = (S.icons || []).filter(i => i.status === 'done').length;
+      if (doneN === 0) {
+        const warmPct = Math.min(22, Math.max(4, Math.round(4 + sec * 2.2)));
+        const progI = $('#prog i'); if (progI) progI.style.width = warmPct + '%';
+        if (pFill) pFill.style.width = warmPct + '%';
+        if (pPct) pPct.textContent = warmPct + '%';
+        if (miniFill) miniFill.style.width = warmPct + '%';
+        if (S.icons && S.icons.length > 0) {
+          setStageDone('stageImageAnalysis');
+          setStageActive('stagePathTracing');
+          setStageTime('timeTracing', sec.toFixed(1) + 's');
+          if (sec > 3.0) {
+            setStageActive('stageCurveOpt');
+          }
+        } else {
+          setStageTime('timeAnalysis', sec.toFixed(1) + 's');
+        }
+      }
     }, 100);
-    poll();
+    if (id && id !== '__uploading__') {
+      poll();
+    }
   }
 
   function cancelCurrentJob() {
     clearTimeout(S.timer);
     clearInterval(S.clockTimer);
     if (S.job) {
-      api('/api/jobs/' + S.job + '/cancel', { method: 'POST' }).catch(() => {});
+      if (S.job !== '__uploading__') {
+        api('/api/jobs/' + S.job + '/cancel', { method: 'POST' }).catch(() => {});
+      }
       S.job = null;
     }
     $('#work').hidden = true;
@@ -346,7 +384,8 @@
     } catch (e) {
       /* transient network poll */
     }
-    S.timer = setTimeout(poll, 650);
+    const fastPoll = S.startTime && (Date.now() - S.startTime) < 8000;
+    S.timer = setTimeout(poll, fastPoll ? 350 : 650);
   }
 
   // ---------------------------------------------------------------- state -> UI
@@ -371,7 +410,11 @@
   function ingest(j) {
     S.icons = j.icons || [];
     const total = S.icons.length, done = S.icons.filter(i => i.status === 'done').length;
-    const pct = total ? Math.min(100, Math.max(4, Math.round((done / total) * 100))) : 4;
+    const running = S.icons.filter(i => i.status === 'running').length;
+    const secElapsed = S.startTime ? Math.max(0, (Date.now() - S.startTime) / 1000) : 0;
+    const warmPct = Math.min(22, Math.round(4 + secElapsed * 2.2));
+    const workPct = total ? Math.round(((done + running * 0.25) / total) * 100) : 4;
+    const pct = Math.min(100, Math.max(4, done === 0 ? Math.max(warmPct, workPct) : Math.round((done / total) * 100)));
 
     // Progress updates
     const progI = $('#prog i'); if (progI) progI.style.width = pct + '%';
@@ -775,8 +818,9 @@
     // 2. Fit the entire artboard so all icons are crisp and in view!
     fit();
 
-    // 3. Ensure the artboard is pure white with black vector lines!
+    // 3. Ensure the artboard is pure white with black vector lines and hide ghost original!
     setArtboardBg('#ffffff');
+    setView(S.view || 'vector');
 
     // 4. Update the bottom comparison preview card with the first icon, without putting any box on the artboard
     if (j.icons.length > 0) {
@@ -1046,7 +1090,7 @@
   }
 
   function updateLinks() {
-    if (!S.job) return;
+    if (!S.job || S.job === '__uploading__') return;
     const dlSvg = $('#dlSvg');
     if (dlSvg) dlSvg.href = `/api/jobs/${S.job}/result.svg?${qs('&download=1')}`;
 
@@ -1078,9 +1122,10 @@
     $$('#view button').forEach(b => b.classList.toggle('on', b.dataset.v === v));
     const o = $('#imgOrig'), d = $('#imgDiff'), vec = $('#vec');
     if (o) {
-      o.style.display = (v === 'original' || v === 'overlay') ? 'block' : 'none';
-      o.style.opacity = v === 'overlay' ? '0.5' : '1';
-      o.style.filter = v === 'overlay' ? 'grayscale(1)' : 'none';
+      const showGhost = (v === 'vector' && !S.done);
+      o.style.display = (v === 'original' || v === 'overlay' || showGhost) ? 'block' : 'none';
+      o.style.opacity = v === 'overlay' ? '0.5' : (showGhost ? '0.28' : '1');
+      o.style.filter = (v === 'overlay' || showGhost) ? 'grayscale(1)' : 'none';
     }
     if (vec) vec.style.display = (v === 'vector' || v === 'overlay') ? 'block' : 'none';
     if (d) {

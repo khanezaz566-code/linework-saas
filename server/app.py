@@ -680,7 +680,7 @@ def _dispatch_single_icon(args):
         return res
 
 
-def _run_job(job_id):
+def _run_job(job_id, raw_data: bytes = None, raw_name: str = "upload"):
     job = JOBS.get(job_id)
     if job is None or is_job_cancelled(job_id):
         return
@@ -688,7 +688,13 @@ def _run_job(job_id):
     try:
         job["status"] = "splitting"
         with _SPLIT_SEMAPHORE:
-            gray = cv2.imread(str(d / "original.png"), 0)
+            if raw_data is not None:
+                gray = _decode_upload(raw_data, raw_name)
+                del raw_data
+                cv2.imwrite(str(d / "original.png"), gray, [cv2.IMWRITE_PNG_COMPRESSION, 1])
+                job["width"], job["height"] = int(gray.shape[1]), int(gray.shape[0])
+            else:
+                gray = cv2.imread(str(d / "original.png"), 0)
             opts = Options(**job["options"])
             W, H, jobs = process_sheet(gray, opts)
             del gray
@@ -696,19 +702,31 @@ def _run_job(job_id):
                 del jobs
                 _trim_os_heap()
                 raise RuntimeError(f"Too many icons; limit is {MAX_ICONS}")
-            icon_meta = []
-            for k_c, crop_c, off_c in jobs:
-                try:
-                    cv2.imwrite(str(d / f"icon_crop_{k_c}.png"), crop_c)
-                    (d / f"icon_crop_{k_c}.json").write_text(json.dumps([int(off_c[0]), int(off_c[1])]))
-                except Exception:
-                    pass
-                icon_meta.append((
+            icon_meta = [
+                (
                     int(k_c),
                     (int(off_c[0]), int(off_c[1])),
                     [int(off_c[0]), int(off_c[1]), int(off_c[0] + crop_c.shape[1]), int(off_c[1] + crop_c.shape[0])],
                     int(crop_c.size),
-                ))
+                )
+                for k_c, crop_c, off_c in jobs
+            ]
+            # Expose detected icon boxes to the frontend immediately so the canvas focus & cards appear in <1s!
+            job["width"], job["height"] = W, H
+            job["icons"] = [
+                dict(k=k_m, box=box_m, status="queued", stage="queued")
+                for k_m, _, box_m, _ in icon_meta
+            ]
+            job["status"] = "running"
+            job["events"].append(dict(engine="split", msg=f"Found {len(icon_meta)} icon(s)", t=round(time.time() - job["created"], 2), n=len(job["events"])))
+            job["events"].append(dict(engine="trace", msg=f"Dispatching {len(icon_meta)} icon(s) to vector engine...", t=round(time.time() - job["created"], 2), n=len(job["events"])))
+
+            for k_c, crop_c, off_c in jobs:
+                try:
+                    cv2.imwrite(str(d / f"icon_crop_{k_c}.png"), crop_c, [cv2.IMWRITE_PNG_COMPRESSION, 1])
+                    (d / f"icon_crop_{k_c}.json").write_text(json.dumps([int(off_c[0]), int(off_c[1])]))
+                except Exception:
+                    pass
             # Free all numpy crops IMMEDIATELY after saving to disk so multi-user concurrent sheets use 0 MB crop RAM!
             jobs.clear()
             del jobs
@@ -718,13 +736,6 @@ def _run_job(job_id):
             job["status"] = "cancelled"
             return
 
-        job["width"], job["height"] = W, H
-        job["icons"] = [
-            dict(k=k_m, box=box_m, status="queued", stage="queued")
-            for k_m, _, box_m, _ in icon_meta
-        ]
-        job["status"] = "running"
-        job["events"].append(dict(engine="split", msg=f"Found {len(icon_meta)} icon(s)", t=0, n=len(job["events"])))
         _log_ops_event("info", f"Sheet #{job_id[:6]} started ({len(icon_meta)} icons, {remote_worker.get_active_nodes_count()} cluster nodes)")
         order = sorted(icon_meta, key=lambda item: -item[3])
         off_map = {k_m: off_m for k_m, off_m, _, _ in icon_meta}
@@ -1015,14 +1026,35 @@ async def create_job(
     data = await file.read()
     if len(data) > MAX_BYTES:
         raise HTTPException(413, "File too large (15 MB max)")
-    with _SPLIT_SEMAPHORE:
-        gray = _decode_upload(data, file.filename or "")
-        del data
-        res = _start(gray, file.filename or "upload", quality, clean, target, fresh=fresh, user_id=user["id"])
-        del gray
-        if _SYSTEM_RAM_MB < 2000:
-            _trim_os_heap()
-        return res
+    return _start_async_raw(data, file.filename or "upload", quality, clean, target, fresh=fresh, user_id=user["id"])
+
+
+def _start_async_raw(raw_data: bytes, name: str, quality: str, clean: float, target: float, fresh: bool = True, user_id: int = None):
+    if quality not in PRESETS:
+        quality = "standard"
+    job_id = uuid.uuid4().hex[:12]
+    d = _jobdir(job_id)
+    d.mkdir(parents=True, exist_ok=True)
+    clean = float(np.clip(clean, 0, 1))
+    p_cfg = PRESETS.get(quality, PRESETS["standard"])
+    opts = dict(
+        quality=quality,
+        target_iou=float(np.clip(target, 90, 99.9)) / 100,
+        dedupe_tol=0.0005 + 0.006 * clean,
+        fresh=bool(fresh),
+        max_rounds=p_cfg["max_rounds"],
+        time_budget=p_cfg["time_budget"],
+        region_edits=p_cfg["region_edits"],
+        decision_budget=3.5,
+    )
+    job = dict(
+        id=job_id, user_id=user_id, name=name, status="splitting", options=opts, created=time.time(), icons=[],
+        events=[dict(engine="split", msg="Image received — detecting icon grid...", t=0.1, n=0)],
+        width=0, height=0, version=0, done=0, iou=None,
+    )
+    JOBS[job_id] = job
+    threading.Thread(target=_run_job, args=(job_id, raw_data, name), daemon=True).start()
+    return dict(id=job_id)
 
 
 def _start(gray, name, quality, clean, target, fresh: bool = True, user_id: int = None):
