@@ -53,7 +53,7 @@ class Options:
     dedupe_tol: float = 0.0025  # fraction of ink area we will sacrifice to remove a duplicate centerline
     decision: bool = True  # Decision engine: per-icon decision + verification of the last few percent
     decision_budget: float = 3.5
-    tip_patches: bool = True  # Tip patches: allow sharp corner apex stubs
+    tip_patches: bool = False  # Pure single-centerline vector mode: never append overlapping corner stub paths
 
     def resolved(self):
         p = dict(PRESETS.get(self.quality, PRESETS["standard"]))
@@ -165,15 +165,10 @@ def _process_icon_scaled(gray, opts, emit, name):
     D = ink_map(gray)
     doc = Doctor(D)
     try:
-        from . import opt
-        cur_s = doc.soft(ink_of(m))
-        cur_i = doc.iou(ink_of(m))
-        m_ref = opt.refine(m, D, taus=(0.6, 0.35), iters=18, lam_pos=0.05, lam_w=0.02, fit_width=True)
-        ink_ref = ink_of(m_ref)
-        s_ref = doc.soft(ink_ref)
-        iou_ref = doc.iou(ink_ref)
-        if s_ref <= cur_s + 2.0 and iou_ref >= cur_i - 0.0005:
-            m = m_ref
+        m_lock = JN.lock_joints(m)
+        ink_lock = ink_of(m_lock)
+        if doc.soft(ink_lock) <= doc.soft(ink_of(m)) + 4.0:
+            m = m_lock
     except Exception:
         pass
     iou = doc.iou(ink_of(m))  # at the full source resolution: stricter (a 1 px shift of a 45 px stroke counts), kept as iou_full
@@ -491,6 +486,20 @@ def _process_icon(gray, opts: Options = None, emit=_noop, name="icon", set_w=Non
             break
     model, ink = state["model"], state["ink"]
     try:
+        from . import opt
+        cur_soft = doctor.soft(ink)
+        cur_iou = doctor.iou(ink)
+        m_ref = opt.refine(model, D, taus=(0.6, 0.35), iters=14, lam_pos=0.08, lam_w=0.03, fit_width=True)
+        ink_ref = ink_of(m_ref)
+        s_ref = doctor.soft(ink_ref)
+        iou_ref = doctor.iou(ink_ref)
+        if s_ref <= cur_soft + 1.0 and iou_ref >= cur_iou - 0.0002:
+            model, ink = m_ref, ink_ref
+            state.update(model=model, ink=ink, cur=s_ref)
+            ev("edit", f"Subpixel Alignment: refined stroke width & coordinates to {iou_ref*100:.2f}% match", iou=iou_ref)
+    except Exception:
+        pass
+    try:
         from .craft import craft_model
         iou_pre_craft = doctor.iou(ink)
         soft_pre_craft = doctor.soft(ink)
@@ -518,20 +527,16 @@ def _process_icon(gray, opts: Options = None, emit=_noop, name="icon", set_w=Non
     except Exception as e:
         import traceback
         traceback.print_exc()
-    try:
-        from . import opt
-        cur_soft = doctor.soft(ink)
-        cur_iou = doctor.iou(ink)
-        m_ref = opt.refine(model, D, taus=(0.6, 0.35), iters=18, lam_pos=0.05, lam_w=0.02, fit_width=True)
-        ink_ref = ink_of(m_ref)
-        s_ref = doctor.soft(ink_ref)
-        iou_ref = doctor.iou(ink_ref)
-        if s_ref <= cur_soft + 1.0 and iou_ref >= cur_iou - 0.0002:
-            model, ink = m_ref, ink_ref
-            state.update(model=model, ink=ink, cur=s_ref)
-            ev("edit", f"Subpixel Alignment: refined stroke width & coordinates to {iou_ref*100:.2f}% match", iou=iou_ref)
-    except Exception:
-        pass
+    if opts.joins:
+        try:
+            m_lock_final = JN.lock_joints(model)
+            ink_lock_final = ink_of(m_lock_final)
+            s_lock_final = doctor.soft(ink_lock_final)
+            if s_lock_final <= state["cur"] + max(6.0, 0.004 * max(doctor.area, 1)):
+                model, ink = m_lock_final, ink_lock_final
+                state.update(model=model, ink=ink, cur=s_lock_final)
+        except Exception:
+            pass
     rep = doctor.diagnose(model, ink)
     open_all(rep)
     iou = doctor.iou(ink)

@@ -556,16 +556,11 @@ def _fix_tip(i, V, d1, d2, ratio, D):
     def fix(m):
         base = measure(m, D)
         best, best_h = None, base.hard
-        w = m.paths[i].w
         for join, ml in (("miter", min(MAX_ML, ratio * 1.03 + 0.05)), ("bevel", 4.0)):
+            if m.paths[i].join == join:
+                continue
             t = m.copy()
-            t.paths.append(_tip_patch(w, V, d1, d2, join, ml))
-            h = measure(t, D).hard
-            if h < best_h:
-                best, best_h = t, h
-        if m.paths[i].join != "miter":                      # whole-path miter: right when every corner of the path is pointed
-            t = m.copy()
-            t.paths[i].join, t.paths[i].ml = "miter", min(MAX_ML, ratio * 1.03 + 0.05)
+            t.paths[i].join, t.paths[i].ml = join, ml
             h = measure(t, D).hard
             if h < best_h:
                 best, best_h = t, h
@@ -661,7 +656,15 @@ def find_residual(model: Model, D, ink):
 
 
 def _fix_region(box, D):
-    return lambda m: E.refine_region(m, D, box)
+    def fix(m):
+        from . import joints as JN
+        m_ref = E.refine_region(m, D, box)
+        try:
+            m_ref = JN.lock_joints(m_ref)
+        except Exception:
+            pass
+        return m_ref
+    return fix
 
 
 # ----------------------------------------------------------------------------------------------- audit
@@ -766,6 +769,17 @@ def decide(model: Model, D, max_rounds=6, time_budget=None, emit=lambda **k: Non
         emit(engine="decision", msg="round %d: IoU %.4f hard %d" % (rnd + 1, sc.iou, sc.hard), icon=name, t=round(time.time() - t0, 2))
         if not progressed:
             break
+
+    if log:
+        try:
+            from . import joints as JN
+            cand_lock = JN.lock_joints(cur)
+            cand_ink = _ink(cand_lock)
+            ns_lock = measure(cand_lock, D, cand_ink)
+            if ns_lock.hard <= sc.hard and ns_lock.iou >= sc.iou - 0.0008:
+                cur, ink, sc = cand_lock, cand_ink, ns_lock
+        except Exception:
+            pass
 
     final = audit(cur, D, ink, tip_patches=tip_patches)
     open_f, waived = [], []

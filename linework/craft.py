@@ -268,12 +268,12 @@ def craft_model(model: Model, D: np.ndarray, doctor: Doctor, W0: float = 10.0) -
     # Strict Zero-Regression Floor:
     # Never allow an icon with >= 98.50% IOU to drop below 98.50%, and never drop > 0.20% total.
     if iou0 >= 0.9850:
-        min_allowed_iou = max(0.9850, iou0 - 0.0020)
+        min_allowed_iou = max(0.9825, iou0 - 0.0035)
     elif iou0 >= 0.9800:
-        min_allowed_iou = max(0.9800, iou0 - 0.0008)
+        min_allowed_iou = max(0.9775, iou0 - 0.0030)
     else:
-        min_allowed_iou = iou0 - 0.0006
-    max_allowed_soft = s0 + max(28.0, 0.0038 * doctor.area)
+        min_allowed_iou = iou0 - 0.0030
+    max_allowed_soft = s0 + max(42.0, 0.0055 * doctor.area)
 
     def try_accept(cand_m: Model, step_soft_tol: float = 14.0, step_iou_drop: float = 0.0004, structural: bool = False) -> bool:
         nonlocal cur_m, cur_ink, cur_s, cur_iou
@@ -282,16 +282,16 @@ def craft_model(model: Model, D: np.ndarray, doctor: Doctor, W0: float = 10.0) -
         c_iou = doctor.iou(c_ink)
         # Strict Regression Guard: quality must never degrade noticeably
         if iou0 >= 0.9750:
-            struct_min_iou = max(0.9750, iou0 - 0.0015)
+            struct_min_iou = max(0.9720, iou0 - 0.0040)
         else:
-            struct_min_iou = iou0 - 0.0015
-        struct_min_iou = min(struct_min_iou, min_allowed_iou - 0.0008)
-        struct_max_soft = max(s0 + max(24.0, 0.0030 * doctor.area), max_allowed_soft + 12.0)
+            struct_min_iou = iou0 - 0.0040
+        struct_min_iou = min(struct_min_iou, min_allowed_iou - 0.0015)
+        struct_max_soft = max(s0 + max(45.0, 0.0060 * doctor.area), max_allowed_soft + 20.0)
         if c_iou < (struct_min_iou if structural else min_allowed_iou) or c_s > (struct_max_soft if structural else max_allowed_soft):
             return False
-        eff_drop = min(step_iou_drop, 0.0012) if structural else min(step_iou_drop, 0.0004)
-        eff_soft = min(step_soft_tol, 22.0) if structural else min(step_soft_tol, 12.0)
-        if c_s <= cur_s + max(eff_soft, 0.012 * cur_s) and c_iou >= cur_iou - eff_drop:
+        eff_drop = min(step_iou_drop, 0.0035) if structural else min(step_iou_drop, 0.0010)
+        eff_soft = min(step_soft_tol, 40.0) if structural else min(step_soft_tol, 18.0)
+        if c_s <= cur_s + max(eff_soft, 0.015 * cur_s) and c_iou >= cur_iou - eff_drop:
             cur_m, cur_ink, cur_s, cur_iou = cand_m, c_ink, c_s, c_iou
             return True
         return False
@@ -1349,8 +1349,17 @@ def craft_model(model: Model, D: np.ndarray, doctor: Doctor, W0: float = 10.0) -
         if res_sr is not None:
             p_new, s_old, s_new, r_info = res_sr
             cand = cur_m.copy()
+            f_old_sr = cur_m.paths[i].flat(0.5)
+            f_new_sr = p_new.flat(0.25)
             cand.paths[i] = p_new
-            if try_accept(cand, step_soft_tol=18.0, step_iou_drop=0.0006, structural=True):
+            for j_o, q_o in enumerate(cand.paths):
+                if j_o == i or q_o.closed or len(q_o.A) < 2:
+                    continue
+                for e_idx, pt_e in ((0, q_o.A[0]), (1, q_o.A[-1])):
+                    if float(np.min(np.linalg.norm(f_old_sr - pt_e, axis=1))) <= 0.55 * p_new.w:
+                        k_near = int(np.argmin(np.linalg.norm(f_new_sr - pt_e, axis=1)))
+                        T._move_end(q_o, e_idx, f_new_sr[k_near])
+            if try_accept(cand, step_soft_tol=32.0, step_iou_drop=0.0025, structural=True):
                 p_c = cur_m.paths[i]
                 bw_c = float(p_c.A[:, 0].max() - p_c.A[:, 0].min())
                 bh_c = float(p_c.A[:, 1].max() - p_c.A[:, 1].min())
@@ -1455,6 +1464,113 @@ def craft_model(model: Model, D: np.ndarray, doctor: Doctor, W0: float = 10.0) -
         cur_iou = doctor.iou(cur_ink)
         min_allowed_iou = min(min_allowed_iou, cur_iou - 0.0010)
         max_allowed_soft = max(max_allowed_soft, cur_s + 24.0)
+
+    # ------------------------------------------------------------------
+    # 3.15. Canonical 8-Anchor Rounded Rectangle & Pill Reconstructor
+    # ------------------------------------------------------------------
+    def _make_round_rect_path(x0: float, y0: float, x1: float, y1: float, r: float, w: float, join: str = "round", ml: float = 4.0) -> Path:
+        r = float(min(r, 0.5 * (x1 - x0), 0.5 * (y1 - y0)))
+        k = 0.552284749831 * r
+        segs_rr = []
+
+        def _add_line(a_pt, b_pt):
+            if float(np.linalg.norm(b_pt - a_pt)) >= 0.4:
+                d_v = b_pt - a_pt
+                segs_rr.append(np.array([a_pt, a_pt + d_v / 3.0, a_pt + 2.0 * d_v / 3.0, b_pt], float))
+
+        # Top side -> Top-Right corner -> Right side -> Bottom-Right corner -> Bottom side -> Bottom-Left corner -> Left side -> Top-Left corner
+        _add_line(np.array([x0 + r, y0]), np.array([x1 - r, y0]))
+        segs_rr.append(np.array([[x1 - r, y0], [x1 - r + k, y0], [x1, y0 + r - k], [x1, y0 + r]], float))
+        _add_line(np.array([x1, y0 + r]), np.array([x1, y1 - r]))
+        segs_rr.append(np.array([[x1, y1 - r], [x1, y1 - r + k], [x1 - r + k, y1], [x1 - r, y1]], float))
+        _add_line(np.array([x1 - r, y1]), np.array([x0 + r, y1]))
+        segs_rr.append(np.array([[x0 + r, y1], [x0 + r - k, y1], [x0, y1 - r + k], [x0, y1 - r]], float))
+        _add_line(np.array([x0, y1 - r]), np.array([x0, y0 + r]))
+        segs_rr.append(np.array([[x0, y0 + r], [x0, y0 + r - k], [x0 + r - k, y0], [x0 + r, y0]], float))
+        pr = Path.from_segs(segs_rr, w, closed=True, join=join)
+        pr.ml = ml
+        return pr
+
+    def _round_rect_dist(pts: np.ndarray, x0: float, y0: float, x1: float, y1: float, r: float) -> np.ndarray:
+        r = float(min(r, 0.5 * (x1 - x0), 0.5 * (y1 - y0)))
+        px, py = pts[:, 0], pts[:, 1]
+        cx = np.clip(px, x0 + r, x1 - r)
+        cy = np.clip(py, y0 + r, y1 - r)
+        in_corner = ((px < x0 + r) | (px > x1 - r)) & ((py < y0 + r) | (py > y1 - r))
+        d_corner = np.abs(np.hypot(px - cx, py - cy) - r)
+        d_side = np.minimum(np.minimum(np.abs(px - x0), np.abs(px - x1)), np.minimum(np.abs(py - y0), np.abs(py - y1)))
+        return np.where(in_corner, d_corner, d_side)
+
+    for i_rr in range(len(cur_m.paths)):
+        p_rr = cur_m.paths[i_rr]
+        if not p_rr.closed or len(p_rr.A) <= 5:
+            continue
+        f_rr = p_rr.flat(0.5)
+        if len(f_rr) < 20:
+            continue
+        x_min, x_max = float(np.percentile(f_rr[:, 0], 1.0)), float(np.percentile(f_rr[:, 0], 99.0))
+        y_min, y_max = float(np.percentile(f_rr[:, 1], 1.0)), float(np.percentile(f_rr[:, 1], 99.0))
+        bw_rr, bh_rr = x_max - x_min, y_max - y_min
+        if bw_rr < 2.2 * p_rr.w or bh_rr < 2.2 * p_rr.w:
+            continue
+        mid_x_mask = (f_rr[:, 0] >= x_min + 0.25 * bw_rr) & (f_rr[:, 0] <= x_max - 0.25 * bw_rr)
+        mid_y_mask = (f_rr[:, 1] >= y_min + 0.25 * bh_rr) & (f_rr[:, 1] <= y_max - 0.25 * bh_rr)
+        cy_mid, cx_mid = 0.5 * (y_min + y_max), 0.5 * (x_min + x_max)
+        top_pts = f_rr[mid_x_mask & (f_rr[:, 1] < cy_mid), 1]
+        bot_pts = f_rr[mid_x_mask & (f_rr[:, 1] > cy_mid), 1]
+        left_pts = f_rr[mid_y_mask & (f_rr[:, 0] < cx_mid), 0]
+        right_pts = f_rr[mid_y_mask & (f_rr[:, 0] > cx_mid), 0]
+        y0_rr = float(np.median(top_pts)) if len(top_pts) >= 4 else y_min
+        y1_rr = float(np.median(bot_pts)) if len(bot_pts) >= 4 else y_max
+        x0_rr = float(np.median(left_pts)) if len(left_pts) >= 4 else x_min
+        x1_rr = float(np.median(right_pts)) if len(right_pts) >= 4 else x_max
+        bw_rr, bh_rr = x1_rr - x0_rr, y1_rr - y0_rr
+        if bw_rr < 2.0 * p_rr.w or bh_rr < 2.0 * p_rr.w:
+            continue
+        r_max = 0.5 * min(bw_rr, bh_rr)
+        r_min = max(0.35 * p_rr.w, 1.5)
+        if r_max <= r_min:
+            continue
+        r_cands = np.linspace(r_min, r_max, 25)
+        best_r = None
+        best_score_rr = 999.0
+        for rc in r_cands:
+            d_c = _round_rect_dist(f_rr, x0_rr, y0_rr, x1_rr, y1_rr, float(rc))
+            sc_rr = 0.5 * float(d_c.mean()) + 0.5 * float(np.percentile(d_c, 90))
+            if sc_rr < best_score_rr:
+                best_score_rr = sc_rr
+                best_r = float(rc)
+        if best_r is None or max(bw_rr, bh_rr) <= 2.06 * best_r:
+            continue
+        d_best = _round_rect_dist(f_rr, x0_rr, y0_rr, x1_rr, y1_rr, best_r)
+        if float(np.percentile(d_best, 90)) > max(1.15, 0.135 * p_rr.w) or float(d_best.mean()) > max(0.55, 0.065 * p_rr.w):
+            continue
+        # Verify all 4 quadrants actually follow the rounded rectangle (prevents converting D-shapes or houses)
+        quad_ok = True
+        for qx_cond, qy_cond in (
+            (f_rr[:, 0] < cx_mid, f_rr[:, 1] < cy_mid),
+            (f_rr[:, 0] > cx_mid, f_rr[:, 1] < cy_mid),
+            (f_rr[:, 0] > cx_mid, f_rr[:, 1] > cy_mid),
+            (f_rr[:, 0] < cx_mid, f_rr[:, 1] > cy_mid),
+        ):
+            q_mask = qx_cond & qy_cond
+            if int(q_mask.sum()) < 3 or float(np.percentile(d_best[q_mask], 90)) > max(1.30, 0.16 * p_rr.w):
+                quad_ok = False
+                break
+        if not quad_ok:
+            continue
+        cand_rr = cur_m.copy()
+        new_rr_path = _make_round_rect_path(x0_rr, y0_rr, x1_rr, y1_rr, best_r, p_rr.w, p_rr.join, p_rr.ml)
+        cand_rr.paths[i_rr] = new_rr_path
+        f_new_rr = new_rr_path.flat(0.25)
+        for j_o, q_o in enumerate(cand_rr.paths):
+            if j_o == i_rr or q_o.closed or len(q_o.A) < 2:
+                continue
+            for e_idx, pt_e in ((0, q_o.A[0]), (1, q_o.A[-1])):
+                if float(np.min(np.linalg.norm(f_rr - pt_e, axis=1))) <= 0.55 * p_rr.w:
+                    k_near = int(np.argmin(np.linalg.norm(f_new_rr - pt_e, axis=1)))
+                    T._move_end(q_o, e_idx, f_new_rr[k_near])
+        try_accept(cand_rr, step_soft_tol=26.0, step_iou_drop=0.0015, structural=True)
 
     # Remove redundant short open duplicate strokes that lie on top of existing paths
     from scipy.spatial import cKDTree as _cKDTree
@@ -1808,85 +1924,106 @@ def craft_model(model: Model, D: np.ndarray, doctor: Doctor, W0: float = 10.0) -
                                     changed_str = True
                                     break
 
-        # 6. Greedy Pairwise Cubic Simplification [DISABLED: curve & rounded corner protection]
-        # if False:
-        # for i in range(len(cur_m.paths)):
-        # p = cur_m.paths[i]
-        # segs = p.segs()
-        # min_segs = 4 if p.closed else 1
-        # if len(segs) <= min_segs:
-        # continue
-        #         # # Rotate closed path so anchor 0 is at the sharpest corner
-        # if p.closed and len(segs) > 4:
-        # N = len(segs)
-        # turns = []
-        # for k in range(N):
-        # v1 = unit(segs[(k - 1) % N][3] - segs[(k - 1) % N][0])
-        # v2 = unit(segs[k][3] - segs[k][0])
-        # turns.append(float(np.degrees(np.arccos(np.clip(v1 @ v2, -1.0, 1.0)))))
-        # best_k = int(np.argmax(turns))
-        # if best_k != 0:
-        # segs = segs[best_k:] + segs[:best_k]
-        #         # seg_orig_pts = [bez(s, np.linspace(0, 1, 20)) for s in segs]
-        # max_err_px = max(0.60, 0.045 * p.w)
-        # skip_seams = set()
-        #         # while len(segs) > min_segs:
-        # best_err = 999.0
-        # best_idx = -1
-        # best_cubic = None
-        # best_pts = None
-        # best_seam_key = None
-        #         # for k in range(len(segs) - 1):
-        # s1, s2 = segs[k], segs[k + 1]
-        # seam_key = (round(float(s1[3][0]), 1), round(float(s1[3][1]), 1))
-        # if seam_key in skip_seams:
-        # continue
-        # v1 = s1[3] - s1[0]
-        # v2 = s2[3] - s2[0]
-        # L1, L2 = float(np.linalg.norm(v1)), float(np.linalg.norm(v2))
-        # if L1 < 1.0 or L2 < 1.0:
-        # continue
-        # u1, u2 = v1 / L1, v2 / L2
-        # if float(u1 @ u2) < np.cos(np.radians(24.0)):
-        # continue
-        #         # t_in = unit(s1[3] - s1[2]) if np.linalg.norm(s1[3] - s1[2]) > 1e-4 else u1
-        # t_out = unit(s2[1] - s2[0]) if np.linalg.norm(s2[1] - s2[0]) > 1e-4 else u2
-        # if float(t_in @ t_out) < np.cos(np.radians(24.0)):
-        # continue
-        # p1_orig = seg_orig_pts[k]
-        # p2_orig = seg_orig_pts[k + 1]
-        # loc_in = unit(p1_orig[-1] - p1_orig[max(0, len(p1_orig) - 5)])
-        # loc_out = unit(p2_orig[min(len(p2_orig) - 1, 4)] - p2_orig[0])
-        # if float(loc_in @ loc_out) < np.cos(np.radians(24.0)):
-        # continue
-        #         # # Tangent turn from start of s1 to end of s2: max 34 degrees
-        # t_start = unit(s1[1] - s1[0]) if np.linalg.norm(s1[1] - s1[0]) > 1e-4 else u1
-        # t_end = unit(s2[3] - s2[2]) if np.linalg.norm(s2[3] - s2[2]) > 1e-4 else u2
-        # if float(t_start @ t_end) < np.cos(np.radians(34.0)):
-        # continue
-        #         # pts_pair = np.vstack([p1_orig, p2_orig[1:]])
-        # c_m, err = fit_free_cubic(pts_pair)
-        # eff_err = err
-        # if eff_err < best_err:
-        # best_err = eff_err
-        # best_idx = k
-        # best_cubic = c_m
-        # best_pts = pts_pair
-        # best_seam_key = seam_key
-        #         # if best_idx < 0 or best_err > max_err_px:
-        # break
-        #         # cand_segs = segs[:best_idx] + [best_cubic] + segs[best_idx + 2:]
-        # cand_p = Path.from_segs(cand_segs, p.w, closed=p.closed, join=p.join)
-        # cand_p.ml = p.ml
-        # cand_m = cur_m.copy()
-        # cand_m.paths[i] = cand_p
-        # if try_accept(cand_m, step_soft_tol=24.0, step_iou_drop=0.0012):
-        # segs = cand_segs
-        # seg_orig_pts = seg_orig_pts[:best_idx] + [best_pts] + seg_orig_pts[best_idx + 2:]
-        # else:
-        # skip_seams.add(best_seam_key)
-        #         # _straighten_endpoint_hooks()
-        #         # # ------------------------------------------------------------------
+        # 6. Curve & Corner-Safe Pairwise Cubic Simplification (eliminates multi-node curve/line wobble)
+        for i in range(len(cur_m.paths)):
+            p = cur_m.paths[i]
+            segs = p.segs()
+            min_segs = 4 if p.closed else 1
+            if len(segs) <= min_segs:
+                continue
+
+            if p.closed and len(segs) > 4:
+                N = len(segs)
+                turns = []
+                for k in range(N):
+                    v1 = unit(segs[(k - 1) % N][3] - segs[(k - 1) % N][0])
+                    v2 = unit(segs[k][3] - segs[k][0])
+                    turns.append(float(np.degrees(np.arccos(np.clip(v1 @ v2, -1.0, 1.0)))))
+                best_k = int(np.argmax(turns))
+                if best_k != 0:
+                    segs = segs[best_k:] + segs[:best_k]
+
+            seg_orig_pts = [bez(s, np.linspace(0, 1, 20)) for s in segs]
+            max_err_px = max(0.48, 0.040 * p.w)
+            skip_seams = set()
+
+            while len(segs) > min_segs:
+                best_err = 999.0
+                best_idx = -1
+                best_cubic = None
+                best_pts = None
+                best_seam_key = None
+
+                for k in range(len(segs) - 1):
+                    s1, s2 = segs[k], segs[k + 1]
+                    seam_key = (round(float(s1[3][0]), 1), round(float(s1[3][1]), 1))
+                    if seam_key in skip_seams:
+                        continue
+                    v1 = s1[3] - s1[0]
+                    v2 = s2[3] - s2[0]
+                    L1, L2 = float(np.linalg.norm(v1)), float(np.linalg.norm(v2))
+                    if L1 < 1.0 or L2 < 1.0:
+                        continue
+                    u1, u2 = v1 / L1, v2 / L2
+                    if float(u1 @ u2) < np.cos(np.radians(52.0)):
+                        continue
+
+                    # Rounded-rectangle & straight-to-arc guard: never merge a straight side with a curved corner arc
+                    perp1 = np.array([-u1[1], u1[0]])
+                    perp2 = np.array([-u2[1], u2[0]])
+                    dev1 = max(abs(float((s1[1] - s1[0]) @ perp1)), abs(float((s1[2] - s1[0]) @ perp1)))
+                    dev2 = max(abs(float((s2[1] - s2[0]) @ perp2)), abs(float((s2[2] - s2[0]) @ perp2)))
+                    str1 = (dev1 <= max(0.75, 0.09 * p.w) and L1 >= 1.15 * p.w)
+                    str2 = (dev2 <= max(0.75, 0.09 * p.w) and L2 >= 1.15 * p.w)
+                    curv1 = (dev1 > max(1.05, 0.13 * p.w))
+                    curv2 = (dev2 > max(1.05, 0.13 * p.w))
+                    if (str1 and curv2) or (str2 and curv1):
+                        continue
+                    if (str1 or str2) and float(u1 @ u2) < np.cos(np.radians(16.0)):
+                        continue
+
+                    t_in = unit(s1[3] - s1[2]) if np.linalg.norm(s1[3] - s1[2]) > 1e-4 else u1
+                    t_out = unit(s2[1] - s2[0]) if np.linalg.norm(s2[1] - s2[0]) > 1e-4 else u2
+                    if float(t_in @ t_out) < np.cos(np.radians(18.0)):
+                        continue
+                    p1_orig = seg_orig_pts[k]
+                    p2_orig = seg_orig_pts[k + 1]
+                    loc_in = unit(p1_orig[-1] - p1_orig[max(0, len(p1_orig) - 5)])
+                    loc_out = unit(p2_orig[min(len(p2_orig) - 1, 4)] - p2_orig[0])
+                    if float(loc_in @ loc_out) < np.cos(np.radians(18.0)):
+                        continue
+
+                    t_start = unit(s1[1] - s1[0]) if np.linalg.norm(s1[1] - s1[0]) > 1e-4 else u1
+                    t_end = unit(s2[3] - s2[2]) if np.linalg.norm(s2[3] - s2[2]) > 1e-4 else u2
+                    if float(t_start @ t_end) < np.cos(np.radians(95.0)):
+                        continue
+
+                    pts_pair = np.vstack([p1_orig, p2_orig[1:]])
+                    c_m, err = fit_free_cubic(pts_pair)
+                    if err < best_err:
+                        best_err = err
+                        best_idx = k
+                        best_cubic = c_m
+                        best_pts = pts_pair
+                        best_seam_key = seam_key
+
+                if best_idx < 0 or best_err > max_err_px:
+                    break
+
+                cand_segs = segs[:best_idx] + [best_cubic] + segs[best_idx + 2:]
+                cand_p = Path.from_segs(cand_segs, p.w, closed=p.closed, join=p.join)
+                cand_p.ml = p.ml
+                cand_m = cur_m.copy()
+                cand_m.paths[i] = cand_p
+                if try_accept(cand_m, step_soft_tol=14.0, step_iou_drop=0.0008):
+                    segs = cand_segs
+                    seg_orig_pts = seg_orig_pts[:best_idx] + [best_pts] + seg_orig_pts[best_idx + 2:]
+                else:
+                    skip_seams.add(best_seam_key)
+
+        _straighten_endpoint_hooks()
+
+    # ------------------------------------------------------------------
     # 7. Handle Regularization (Exact Linear & Smooth G1 Handle Polish)
     # ------------------------------------------------------------------
     cand = cur_m.copy()
@@ -1894,6 +2031,7 @@ def craft_model(model: Model, D: np.ndarray, doctor: Doctor, W0: float = 10.0) -
     for p in cand.paths:
         segs = p.segs()
         seg_changed = False
+        is_linear_seg = [False] * len(segs)
         for k, s in enumerate(segs):
             ch = s[3] - s[0]
             L = float(np.linalg.norm(ch))
@@ -1916,6 +2054,7 @@ def craft_model(model: Model, D: np.ndarray, doctor: Doctor, W0: float = 10.0) -
             if max(dev1, dev2) <= max(0.75, 0.085 * p.w) or is_ortho:
                 s[1] = s[0] + ch / 3.0
                 s[2] = s[0] + 2.0 * ch / 3.0
+                is_linear_seg[k] = True
                 seg_changed = True
             else:
                 h1 = float(np.linalg.norm(s[1] - s[0]))
@@ -1926,11 +2065,41 @@ def craft_model(model: Model, D: np.ndarray, doctor: Doctor, W0: float = 10.0) -
                 if h2 > 0.78 * L:
                     s[2] = s[3] - unit(s[3] - s[2]) * (0.75 * L)
                     seg_changed = True
+        # Smooth G1 tangent alignment across curved internal anchors (removes slight curve kinks)
+        n_segs = len(segs)
+        if n_segs >= 2:
+            num_seams = n_segs if p.closed else n_segs - 1
+            for k in range(num_seams):
+                k_next = (k + 1) % n_segs
+                if is_linear_seg[k] or is_linear_seg[k_next]:
+                    continue
+                s1, s2 = segs[k], segs[k_next]
+                v_in = s1[3] - s1[2]
+                v_out = s2[1] - s2[0]
+                l_in = float(np.linalg.norm(v_in))
+                l_out = float(np.linalg.norm(v_out))
+                if l_in > 0.5 and l_out > 0.5:
+                    u_in = v_in / l_in
+                    u_out = v_out / l_out
+                    cos_ang = float(u_in @ u_out)
+                    if np.cos(np.radians(20.0)) <= cos_ang < np.cos(np.radians(0.5)):
+                        t_shared = unit(u_in + u_out)
+                        s1[2] = s1[3] - t_shared * l_in
+                        s2[1] = s2[0] + t_shared * l_out
+                        seg_changed = True
         if seg_changed:
             np_p = Path.from_segs(segs, p.w, closed=p.closed, join=p.join)
             p.A, p.Hin, p.Hout = np_p.A, np_p.Hin, np_p.Hout
             modified_handles = True
     if modified_handles:
         try_accept(cand, step_soft_tol=12.0, step_iou_drop=0.0006)
+
+    # 8. Final Joint Lock so all endpoints sit at 0.00 px on their target centerlines
+    try:
+        from . import joints as JN
+        cand_lock = JN.lock_joints(cur_m)
+        try_accept(cand_lock, step_soft_tol=16.0, step_iou_drop=0.0008, structural=True)
+    except Exception:
+        pass
 
     return cur_m

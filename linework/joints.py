@@ -190,12 +190,53 @@ def _end_pt(p: Path, e):
     return p.A[0] if e == 0 else p.A[-1]
 
 
+def _set_end_clean_handles(p: Path, e: int, X: np.ndarray, d: np.ndarray, was_str: bool):
+    if e == 0:
+        v = p.A[1] - p.A[0]
+        L = float(np.linalg.norm(v))
+        if L > 1e-4:
+            u = v / L
+            perp = np.array([-u[1], u[0]])
+            dev0 = float((p.Hout[0] - p.A[0]) @ perp)
+            dev1 = float((p.Hin[1] - p.A[0]) @ perp)
+            is_scurve = (dev0 * dev1 < 0) and (abs(dev0) + abs(dev1) < 0.45 * p.w)
+            is_shallow = max(abs(dev0), abs(dev1)) <= max(0.95, 0.16 * p.w)
+        else:
+            is_scurve, is_shallow = True, True
+        if was_str or is_scurve or is_shallow or np.linalg.norm(p.Hout[0] - p.A[0]) < 0.22 * p.w:
+            p.Hout[0] = p.A[0] + v / 3.0
+            p.Hin[1] = p.A[0] + 2.0 * v / 3.0
+        else:
+            p.Hout[0] += d
+    else:
+        v = p.A[-1] - p.A[-2]
+        L = float(np.linalg.norm(v))
+        if L > 1e-4:
+            u = v / L
+            perp = np.array([-u[1], u[0]])
+            dev0 = float((p.Hout[-2] - p.A[-2]) @ perp)
+            dev1 = float((p.Hin[-1] - p.A[-2]) @ perp)
+            is_scurve = (dev0 * dev1 < 0) and (abs(dev0) + abs(dev1) < 0.45 * p.w)
+            is_shallow = max(abs(dev0), abs(dev1)) <= max(0.95, 0.16 * p.w)
+        else:
+            is_scurve, is_shallow = True, True
+        if was_str or is_scurve or is_shallow or np.linalg.norm(p.Hin[-1] - p.A[-1]) < 0.22 * p.w:
+            p.Hout[-2] = p.A[-2] + v / 3.0
+            p.Hin[-1] = p.A[-2] + 2.0 * v / 3.0
+        else:
+            p.Hin[-1] += d
+
+
 def _set_end(p: Path, e, X):
     X = np.asarray(X, float)
     if e == 0:
-        if len(p.A) > 2 and np.linalg.norm(p.A[1] - p.A[0]) < 1.2 * p.w:
+        if len(p.A) > 2 and np.linalg.norm(p.A[1] - p.A[0]) < 1.35 * p.w:
             v_next = p.A[1] - p.A[2]
-            if np.linalg.norm(p.A[1] - X) < 0.45 * p.w or (np.linalg.norm(v_next) > 1e-4 and (X - p.A[1]) @ v_next < 0):
+            l_next = float(np.linalg.norm(v_next))
+            v_tip = X - p.A[1]
+            l_tip = float(np.linalg.norm(v_tip))
+            is_hook = l_next > 1e-4 and l_tip > 1e-4 and float((v_tip / l_tip) @ (v_next / l_next)) < np.cos(np.radians(16.0))
+            if np.linalg.norm(p.A[1] - X) < 0.55 * p.w or (l_next > 1e-4 and v_tip @ v_next < 0) or is_hook:
                 p.A = p.A[1:]
                 p.Hin = p.Hin[1:]
                 p.Hout = p.Hout[1:]
@@ -204,16 +245,15 @@ def _set_end(p: Path, e, X):
         d = X - p.A[0]
         p.A[0] = X.copy()
         p.Hin[0] = X.copy()
-        if was_str or np.linalg.norm(p.Hout[0] - p.A[0]) < 0.2 * p.w or (len(p.A) >= 2 and np.linalg.norm(p.Hout[0] - (p.A[0] + (p.A[1] - p.A[0]) / 3.0)) < 0.35 * p.w):
-            v = p.A[1] - p.A[0]
-            p.Hout[0] = p.A[0] + v / 3.0
-            p.Hin[1] = p.A[0] + 2.0 * v / 3.0
-        else:
-            p.Hout[0] += d
+        _set_end_clean_handles(p, 0, X, d, was_str)
     else:
-        if len(p.A) > 2 and np.linalg.norm(p.A[-1] - p.A[-2]) < 1.2 * p.w:
+        if len(p.A) > 2 and np.linalg.norm(p.A[-1] - p.A[-2]) < 1.35 * p.w:
             v_prev = p.A[-2] - p.A[-3]
-            if np.linalg.norm(p.A[-2] - X) < 0.45 * p.w or (np.linalg.norm(v_prev) > 1e-4 and (X - p.A[-2]) @ v_prev < 0):
+            l_prev = float(np.linalg.norm(v_prev))
+            v_tip = X - p.A[-2]
+            l_tip = float(np.linalg.norm(v_tip))
+            is_hook = l_prev > 1e-4 and l_tip > 1e-4 and float((v_tip / l_tip) @ (v_prev / l_prev)) < np.cos(np.radians(16.0))
+            if np.linalg.norm(p.A[-2] - X) < 0.55 * p.w or (l_prev > 1e-4 and v_tip @ v_prev < 0) or is_hook:
                 p.A = p.A[:-1]
                 p.Hin = p.Hin[:-1]
                 p.Hout = p.Hout[:-1]
@@ -222,18 +262,14 @@ def _set_end(p: Path, e, X):
         d = X - p.A[-1]
         p.A[-1] = X.copy()
         p.Hout[-1] = X.copy()
-        if was_str or np.linalg.norm(p.Hin[-1] - p.A[-1]) < 0.2 * p.w or (len(p.A) >= 2 and np.linalg.norm(p.Hin[-1] - (p.A[-1] - (p.A[-1] - p.A[-2]) / 3.0)) < 0.35 * p.w):
-            v = p.A[-1] - p.A[-2]
-            p.Hout[-2] = p.A[-2] + v / 3.0
-            p.Hin[-1] = p.A[-2] + 2.0 * v / 3.0
-        else:
-            p.Hin[-1] += d
+        _set_end_clean_handles(p, 1, X, d, was_str)
 
 
 def _nearest_on(p: Path, X):
-    f = p.flat(0.25)
-    k = int(np.argmin(np.linalg.norm(f - X, axis=1)))
-    return f[k], float(np.linalg.norm(f[k] - X))
+    f = p.flat(0.20)
+    d_arr = np.linalg.norm(f - X, axis=1)
+    k = int(np.argmin(d_arr))
+    return f[k].copy(), float(d_arr[k])
 
 
 def insert_anchor(p: Path, X, snap=0.6):
@@ -388,11 +424,7 @@ def tool_pen(m: Model, J: Joint, merge_l=True):
                 continue
             j, X, d = best
             q = m.paths[j]
-            if q.closed and len(q.A) == 4 and np.linalg.norm((q.A[0] + q.A[2]) - (q.A[1] + q.A[3])) < 0.25:
-                X, _ = _nearest_on(q, X)
-            else:
-                k = insert_anchor(q, X)
-                X = q.A[k].copy()
+            X, _ = _nearest_on(q, X)
             _set_end(p, e, X)
     else:
         if len(J.ends) == 2 and J.ends[0][0] != J.ends[1][0]:
