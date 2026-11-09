@@ -278,7 +278,10 @@ def resolve_config(cfg: dict | None) -> dict[str, Any]:
         "layout": "landscape_16_9",
         "stroke_scale": 1.0,
         "show_highlight": True,
-        "highlight_mode": "mini_4"
+        "highlight_mode": "mini_4",
+        "font_family": "bebas",
+        "title_highlight": "pill",
+        "showcase_shape": "card"
     })
     if cfg:
         p_name = cfg.get("preset")
@@ -352,6 +355,276 @@ def _get_checkered_defs(W: int) -> tuple[str, str]:
       <rect x="{chk_half}" y="{chk_half}" width="{chk_half}" height="{chk_half}" fill="#f1f3f6"/>
     </pattern>"""
     return defs, 'url(#stockCheckeredPattern)'
+
+
+def _get_font_css(font_family: str = "bebas") -> tuple[str, str, str, str]:
+    font_family = str(font_family or "bebas").lower()
+    fonts_import = """
+      @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&amp;family=Montserrat:wght@700;800;900&amp;family=Plus+Jakarta+Sans:wght@700;800;900&amp;family=Space+Grotesk:wght@700&amp;family=Playfair+Display:wght@700;900&amp;family=JetBrains+Mono:wght@700;800&amp;display=swap');
+    """
+    if font_family == "montserrat":
+        title_font = "'Montserrat', 'Arial Black', sans-serif"
+        count_font = "'Montserrat', 'Arial Black', sans-serif"
+        sub_font = "'Montserrat', 'Segoe UI', sans-serif"
+    elif font_family == "jakarta":
+        title_font = "'Plus Jakarta Sans', 'Segoe UI', sans-serif"
+        count_font = "'Plus Jakarta Sans', 'Segoe UI', sans-serif"
+        sub_font = "'Plus Jakarta Sans', 'Segoe UI', sans-serif"
+    elif font_family == "space":
+        title_font = "'Space Grotesk', 'Century Gothic', 'Segoe UI', sans-serif"
+        count_font = "'Space Grotesk', 'Century Gothic', 'Segoe UI', sans-serif"
+        sub_font = "'Space Grotesk', 'Century Gothic', sans-serif"
+    elif font_family == "playfair":
+        title_font = "'Playfair Display', 'Georgia', serif"
+        count_font = "'Playfair Display', 'Georgia', serif"
+        sub_font = "'Plus Jakarta Sans', 'Segoe UI', sans-serif"
+    elif font_family == "mono":
+        title_font = "'JetBrains Mono', 'Consolas', monospace"
+        count_font = "'JetBrains Mono', 'Consolas', monospace"
+        sub_font = "'JetBrains Mono', 'Consolas', monospace"
+    else:  # default "bebas"
+        title_font = "'Bebas Neue', 'Impact', 'Arial Black', sans-serif"
+        count_font = "'Bebas Neue', 'Impact', 'Arial Black', sans-serif"
+        sub_font = "'Montserrat', 'Trebuchet MS', 'Segoe UI', sans-serif"
+    return fonts_import, title_font, count_font, sub_font
+
+
+def _render_title_highlight(
+    title: str, subtitle: str,
+    cx: float, cy: float,
+    title_fs: int, sub_fs: int,
+    banner_text: str, banner_sub: str,
+    title_font: str, sub_font: str,
+    style: str = "pill",
+    is_centered: bool = True,
+    max_w: float = 600
+) -> str:
+    title_clean = sanitize_text(title)
+    sub_clean = sanitize_text(subtitle)
+    anchor = "middle" if is_centered else "start"
+    
+    est_w = min(max_w, max(280, int(len(title) * title_fs * 0.65) + 60))
+    rect_x = cx - est_w / 2 if is_centered else cx
+
+    if style == "pill":
+        pill_h = int(title_fs * 1.55)
+        pill_y = cy - int(title_fs * 0.95)
+        rx = pill_h // 2
+        return f"""
+    <!-- Title Highlight: Frosted Pill Plate -->
+    <g id="titleHighlightPill">
+      <rect x="{rect_x}" y="{pill_y}" width="{est_w}" height="{pill_h}" rx="{rx}"
+            fill="rgba(0,0,0,0.22)" stroke="rgba(255,255,255,0.25)" stroke-width="2"/>
+      <text x="{cx}" y="{pill_y - 12}" font-size="{max(11, int(title_fs * 0.28))}" font-weight="800" 
+            letter-spacing="3" fill="{banner_sub}" text-anchor="{anchor}" class="mono">
+        &#9679; 100% VECTOR ICON SET &#9679;
+      </text>
+      <text x="{cx}" y="{cy}" font-size="{title_fs}" font-weight="900" letter-spacing="3" 
+            fill="{banner_text}" text-anchor="{anchor}" style="font-family:{title_font};">
+        {title_clean}
+      </text>
+      <text x="{cx}" y="{cy + int(sub_fs * 1.6)}" font-size="{sub_fs}" font-weight="700" letter-spacing="1" 
+            fill="{banner_sub}" text-anchor="{anchor}" style="font-family:{sub_font};">
+        {sub_clean}
+      </text>
+    </g>"""
+    elif style == "glow_bar":
+        bar_w = min(est_w, 420)
+        bar_x = cx - bar_w / 2 if is_centered else cx
+        return f"""
+    <!-- Title Highlight: Glow Accent Bar -->
+    <g id="titleHighlightGlowBar">
+      <text x="{cx}" y="{cy - 14}" font-size="{max(11, int(title_fs * 0.26))}" font-weight="800" 
+            letter-spacing="2.5" fill="{banner_sub}" text-anchor="{anchor}" class="mono">
+        PREMIUM COLLECTION
+      </text>
+      <text x="{cx}" y="{cy}" font-size="{title_fs}" font-weight="900" letter-spacing="3" 
+            fill="{banner_text}" text-anchor="{anchor}" style="font-family:{title_font};">
+        {title_clean}
+      </text>
+      <rect x="{bar_x}" y="{cy + 10}" width="{bar_w}" height="4.5" rx="2.25" fill="{banner_text}" opacity="0.9"/>
+      <circle cx="{cx if is_centered else cx + 20}" cy="{cy + 12}" r="4" fill="{banner_sub}"/>
+      <text x="{cx}" y="{cy + int(sub_fs * 1.8) + 14}" font-size="{sub_fs}" font-weight="700" letter-spacing="1" 
+            fill="{banner_sub}" text-anchor="{anchor}" style="font-family:{sub_font};">
+        {sub_clean}
+      </text>
+    </g>"""
+    elif style == "brackets":
+        b_pad = 20
+        b_x1 = (cx - est_w / 2) if is_centered else cx
+        b_x2 = b_x1 + est_w
+        b_y1 = cy - int(title_fs * 0.9) - b_pad
+        b_y2 = cy + int(sub_fs * 1.6) + b_pad
+        tick = 22
+        return f"""
+    <!-- Title Highlight: Architectural Brackets -->
+    <g id="titleHighlightBrackets">
+      <path d="M {b_x1 + tick} {b_y1} L {b_x1} {b_y1} L {b_x1} {b_y1 + tick}" fill="none" stroke="rgba(255,255,255,0.45)" stroke-width="2.5"/>
+      <path d="M {b_x2 - tick} {b_y1} L {b_x2} {b_y1} L {b_x2} {b_y1 + tick}" fill="none" stroke="rgba(255,255,255,0.45)" stroke-width="2.5"/>
+      <path d="M {b_x1 + tick} {b_y2} L {b_x1} {b_y2} L {b_x1} {b_y2 - tick}" fill="none" stroke="rgba(255,255,255,0.45)" stroke-width="2.5"/>
+      <path d="M {b_x2 - tick} {b_y2} L {b_x2} {b_y2} L {b_x2} {b_y2 - tick}" fill="none" stroke="rgba(255,255,255,0.45)" stroke-width="2.5"/>
+      <text x="{cx}" y="{cy}" font-size="{title_fs}" font-weight="900" letter-spacing="3" 
+            fill="{banner_text}" text-anchor="{anchor}" style="font-family:{title_font};">
+        {title_clean}
+      </text>
+      <text x="{cx}" y="{cy + int(sub_fs * 1.6)}" font-size="{sub_fs}" font-weight="700" letter-spacing="1" 
+            fill="{banner_sub}" text-anchor="{anchor}" style="font-family:{sub_font};">
+        {sub_clean}
+      </text>
+    </g>"""
+    elif style == "ribbon":
+        rib_w = min(est_w, 360)
+        rib_x = cx - rib_w / 2 if is_centered else cx
+        return f"""
+    <!-- Title Highlight: Ribbon Tag -->
+    <g id="titleHighlightRibbon">
+      <rect x="{rib_x}" y="{cy - title_fs - 24}" width="{rib_w}" height="28" rx="14"
+            fill="rgba(255,255,255,0.18)" stroke="rgba(255,255,255,0.3)" stroke-width="1.5"/>
+      <text x="{cx}" y="{cy - title_fs - 5}" font-size="12" font-weight="800" letter-spacing="2.5" 
+            fill="{banner_text}" text-anchor="{anchor}" class="mono">
+        &#9733; PREMIUM MICROSTOCK &#9733;
+      </text>
+      <text x="{cx}" y="{cy}" font-size="{title_fs}" font-weight="900" letter-spacing="3" 
+            fill="{banner_text}" text-anchor="{anchor}" style="font-family:{title_font};">
+        {title_clean}
+      </text>
+      <text x="{cx}" y="{cy + int(sub_fs * 1.6)}" font-size="{sub_fs}" font-weight="700" letter-spacing="1" 
+            fill="{banner_sub}" text-anchor="{anchor}" style="font-family:{sub_font};">
+        {sub_clean}
+      </text>
+    </g>"""
+    else:  # "clean"
+        return f"""
+    <!-- Title Highlight: Clean Minimal -->
+    <g id="titleHighlightClean">
+      <text x="{cx}" y="{cy}" font-size="{title_fs}" font-weight="900" letter-spacing="3" 
+            fill="{banner_text}" text-anchor="{anchor}" style="font-family:{title_font};">
+        {title_clean}
+      </text>
+      <text x="{cx}" y="{cy + int(sub_fs * 1.6)}" font-size="{sub_fs}" font-weight="700" letter-spacing="1" 
+            fill="{banner_sub}" text-anchor="{anchor}" style="font-family:{sub_font};">
+        {sub_clean}
+      </text>
+    </g>"""
+
+
+def _render_showcase_box(
+    model: Model, icons_meta: list[dict], c: dict,
+    cx: float, cy: float, w: float, h: float,
+    stroke_scale: float
+) -> str:
+    shape = str(c.get("showcase_shape") or "card").lower()
+    hl_bg = c["highlight_bg"]
+    hl_stroke = c["highlight_stroke"]
+    hl_mode = c.get("highlight_mode", "hero_1")
+    num_hl = 1 if hl_mode == "hero_1" else (6 if hl_mode == "mini_6" else 4)
+    cols = 1 if hl_mode == "hero_1" else 2
+
+    if shape == "circle":
+        r = int(min(w, h) * 0.44)
+        hero_paths = _extract_highlight_svg(
+            model, icons_meta, hl_mode, num_hl, hl_stroke, stroke_scale,
+            r * 1.35, r * 1.35,
+            cx - r * 0.675, cy - r * 0.675, cols=cols
+        )
+        return f"""
+    <!-- Redesigned Showcase: Luxury Orbital Ring -->
+    <g id="showcaseOrbitalRing">
+      <!-- Outer Dashed Ring -->
+      <circle cx="{cx}" cy="{cy}" r="{r + 28}" fill="none" 
+              stroke="rgba(255,255,255,0.22)" stroke-width="1.5" stroke-dasharray="6,6"/>
+      <!-- Cardinal Crosshairs -->
+      <line x1="{cx}" y1="{cy - r - 36}" x2="{cx}" y2="{cy - r - 20}" stroke="rgba(255,255,255,0.4)" stroke-width="2"/>
+      <line x1="{cx}" y1="{cy + r + 20}" x2="{cx}" y2="{cy + r + 36}" stroke="rgba(255,255,255,0.4)" stroke-width="2"/>
+      <line x1="{cx - r - 36}" y1="{cy}" x2="{cx - r - 20}" y2="{cy}" stroke="rgba(255,255,255,0.4)" stroke-width="2"/>
+      <line x1="{cx + r + 20}" y1="{cy}" x2="{cx + r + 36}" y2="{cy}" stroke="rgba(255,255,255,0.4)" stroke-width="2"/>
+      <!-- Mid Glow Ring -->
+      <circle cx="{cx}" cy="{cy}" r="{r + 8}" fill="none" 
+              stroke="rgba(255,255,255,0.35)" stroke-width="2"/>
+      <!-- Dark Glass Base Circle -->
+      <circle cx="{cx}" cy="{cy}" r="{r}" fill="{hl_bg}" 
+              stroke="rgba(255,255,255,0.18)" stroke-width="2"/>
+      {hero_paths}
+      <!-- Bottom Capsule Tag -->
+      <rect x="{cx - 100}" y="{cy + r + 14}" width="200" height="30" rx="15"
+            fill="rgba(0,0,0,0.35)" stroke="rgba(255,255,255,0.22)" stroke-width="1.5"/>
+      <text x="{cx}" y="{cy + r + 34}" font-size="12" font-weight="800" 
+            letter-spacing="2" fill="#38bdf8" text-anchor="middle" class="mono">
+        &#9733; FEATURED HERO ICON
+      </text>
+    </g>"""
+    elif shape == "hexagon":
+        hex_r = int(min(w, h) * 0.44)
+        hero_paths = _extract_highlight_svg(
+            model, icons_meta, hl_mode, num_hl, hl_stroke, stroke_scale,
+            hex_r * 1.35, hex_r * 1.35,
+            cx - hex_r * 0.675, cy - hex_r * 0.675, cols=cols
+        )
+        return f"""
+    <!-- Redesigned Showcase: Cyber Hexagon Shield -->
+    <g id="showcaseCyberHexagon">
+      <polygon points="{cx},{cy - hex_r - 18} {cx + hex_r + 16},{cy - (hex_r+18)//2} {cx + hex_r + 16},{cy + (hex_r+18)//2} {cx},{cy + hex_r + 18} {cx - hex_r - 16},{cy + (hex_r+18)//2} {cx - hex_r - 16},{cy - (hex_r+18)//2}"
+               fill="none" stroke="rgba(255,255,255,0.25)" stroke-width="2" stroke-dasharray="8,6"/>
+      <polygon points="{cx},{cy - hex_r} {cx + hex_r},{cy - hex_r//2} {cx + hex_r},{cy + hex_r//2} {cx},{cy + hex_r} {cx - hex_r},{cy + hex_r//2} {cx - hex_r},{cy - hex_r//2}"
+               fill="{hl_bg}" stroke="rgba(255,255,255,0.25)" stroke-width="2.5"/>
+      {hero_paths}
+      <rect x="{cx - 90}" y="{cy + hex_r + 14}" width="180" height="28" rx="14"
+            fill="rgba(0,0,0,0.35)" stroke="rgba(255,255,255,0.22)" stroke-width="1.5"/>
+      <text x="{cx}" y="{cy + hex_r + 32}" font-size="11" font-weight="800" 
+            letter-spacing="2" fill="#38bdf8" text-anchor="middle" class="mono">
+        &#9679; CYBER SHIELD HERO
+      </text>
+    </g>"""
+    else:  # "card" (Modern Squircle Card - Default)
+        card_w = int(w * 0.94)
+        card_h = int(h * 0.94)
+        card_x = int(cx - card_w / 2)
+        card_y = int(cy - card_h / 2)
+        rx = min(32, int(card_w * 0.08))
+
+        hero_paths = _extract_highlight_svg(
+            model, icons_meta, hl_mode, num_hl, hl_stroke, stroke_scale,
+            card_w * 0.78, card_h * 0.65,
+            card_x + card_w * 0.11, card_y + card_h * 0.18, cols=cols
+        )
+        return f"""
+    <!-- Redesigned Showcase: Modern Squircle Luxury Card -->
+    <g id="showcaseSquircleCard">
+      <!-- Outer Ambient Border Glow -->
+      <rect x="{card_x - 6}" y="{card_y - 6}" width="{card_w + 12}" height="{card_h + 12}" rx="{rx + 4}"
+            fill="rgba(0,0,0,0.2)" stroke="rgba(255,255,255,0.22)" stroke-width="2" stroke-dasharray="12,8"/>
+
+      <!-- Main Dark Glass Card -->
+      <rect x="{card_x}" y="{card_y}" width="{card_w}" height="{card_h}" rx="{rx}"
+            fill="{hl_bg}" stroke="rgba(255,255,255,0.2)" stroke-width="2"/>
+
+      <!-- Corner Crosshairs / Precision Ticks -->
+      <path d="M {card_x + 18} {card_y + 32} L {card_x + 18} {card_y + 18} L {card_x + 32} {card_y + 18}" 
+            fill="none" stroke="rgba(255,255,255,0.4)" stroke-width="2"/>
+      <path d="M {card_x + card_w - 32} {card_y + 18} L {card_x + card_w - 18} {card_y + 18} L {card_x + card_w - 18} {card_y + 32}" 
+            fill="none" stroke="rgba(255,255,255,0.4)" stroke-width="2"/>
+      <path d="M {card_x + 18} {card_y + card_h - 32} L {card_x + 18} {card_y + card_h - 18} L {card_x + 32} {card_y + card_h - 18}" 
+            fill="none" stroke="rgba(255,255,255,0.4)" stroke-width="2"/>
+      <path d="M {card_x + card_w - 32} {card_y + card_h - 18} L {card_x + card_w - 18} {card_y + card_h - 18} L {card_x + card_w - 18} {card_y + card_h - 32}" 
+            fill="none" stroke="rgba(255,255,255,0.4)" stroke-width="2"/>
+
+      <!-- Top Badge Pill -->
+      <rect x="{cx - 105}" y="{card_y + 18}" width="210" height="30" rx="15"
+            fill="rgba(255,255,255,0.08)" stroke="rgba(255,255,255,0.18)" stroke-width="1.5"/>
+      <text x="{cx}" y="{card_y + 38}" font-size="12" font-weight="800" 
+            letter-spacing="2" fill="#38bdf8" text-anchor="middle" class="mono">
+        &#9733; FEATURED HERO ICON
+      </text>
+
+      {hero_paths}
+
+      <!-- Bottom Specs Line -->
+      <text x="{cx}" y="{card_y + card_h - 18}" font-size="13" font-weight="700" 
+            letter-spacing="2" fill="#94a3b8" text-anchor="middle" class="mono">
+        &#9679; 100% VECTOR &#8226; EDITABLE STROKE
+      </text>
+    </g>"""
+
 
 def _extract_highlight_svg(model: Model, icons_meta: list[dict], hl_mode: str, count: int, hl_stroke: str, stroke_scale: float,
                            inner_w: float, inner_h: float, ox: float, oy: float, cols: int = 2) -> str:
@@ -427,8 +700,6 @@ def _build_vectuz_sidebar(model: Model, icons_meta: list[dict], c: dict, W: int,
     banner_bg = c["banner_bg"]
     banner_text = c["banner_text"]
     banner_sub = c["banner_sub"]
-    hl_bg = c["highlight_bg"]
-    hl_stroke = c["highlight_stroke"]
 
     banner_pad = banner_x_offset + int(banner_w * 0.10)
     inner_w = banner_w - int(banner_w * 0.20)
@@ -442,52 +713,41 @@ def _build_vectuz_sidebar(model: Model, icons_meta: list[dict], c: dict, W: int,
         box_y = 0
         box_h = 0
 
-    title_fs = max(24, int(round(banner_w * 0.068)))
-    count_fs = max(72, int(round(banner_w * 0.28)))
-    sub_fs = max(14, int(round(banner_w * 0.042)))
+    fonts_import, title_font, count_font, sub_font = _get_font_css(c.get("font_family", "bebas"))
+    title_hl_style = str(c.get("title_highlight", "pill"))
 
-    raw_sub = str(c.get("subtitle") or "Editable Line Icons")
-    sub_words = raw_sub.replace("\\n", "\n").split()
-    if len(sub_words) >= 3 and "\n" not in raw_sub:
-        sub_lines = [" ".join(sub_words[:2]), " ".join(sub_words[2:])]
-    else:
-        sub_lines = raw_sub.split("\n") if "\n" in raw_sub else [raw_sub]
+    title_fs = max(32, int(round(banner_w * 0.082)))
+    count_fs = max(88, int(round(banner_w * 0.32)))
+    sub_fs = max(16, int(round(banner_w * 0.046)))
 
-    sub_tspan_svg = ""
-    for idx, s_line in enumerate(sub_lines):
-        dy_attr = f' dy="{int(sub_fs * 1.3)}"' if idx > 0 else ""
-        sub_tspan_svg += f'<tspan x="{banner_pad + int(inner_w * 0.08)}"{dy_attr}>{sanitize_text(s_line)}</tspan>'
+    title_svg = _render_title_highlight(
+        title=c['title'], subtitle=c['subtitle'],
+        cx=banner_pad + inner_w / 2, cy=int(round(H * 0.035)) + int(top_h * 0.18),
+        title_fs=title_fs, sub_fs=sub_fs,
+        banner_text=banner_text, banner_sub=banner_sub,
+        title_font=title_font, sub_font=sub_font,
+        style=title_hl_style, is_centered=True,
+        max_w=inner_w * 0.94
+    )
 
     hl_svg = ""
     if show_highlight and box_h > 100:
-        box_rx = max(16, int(round(banner_w * 0.04)))
-        hl_mode = c.get("highlight_mode", "mini_4")
-        num_hl = 1 if hl_mode == "hero_1" else (6 if hl_mode == "mini_6" else 4)
-        cols = 1 if hl_mode == "hero_1" else 2
-        hl_paths = _extract_highlight_svg(
-            model, icons_meta, hl_mode, num_hl, hl_stroke, stroke_scale,
-            inner_w * 0.88, box_h * 0.72,
-            banner_pad + inner_w * 0.06, box_y + int(banner_w * 0.04), cols=cols
+        hl_svg = _render_showcase_box(
+            model, icons_meta, c,
+            cx=banner_pad + inner_w / 2, cy=box_y + box_h / 2,
+            w=inner_w, h=box_h,
+            stroke_scale=stroke_scale
         )
-        hl_tag_fs = max(11, int(round(banner_w * 0.030)))
-        hl_svg = f"""
-    <g id="highlightShowcaseBox">
-      <rect x="{banner_pad}" y="{box_y}" width="{inner_w}" height="{box_h}" rx="{box_rx}"
-            fill="{hl_bg}" stroke="#333a4d" stroke-width="1.5" stroke-opacity="0.3"/>
-      {hl_paths}
-      <text x="{banner_pad + inner_w / 2}" y="{box_y + box_h - int(banner_w * 0.045)}" 
-            font-size="{hl_tag_fs}" font-weight="700" letter-spacing="1.5" fill="#94a3b8" 
-            text-anchor="middle" class="mono">
-        DARK THEME PREVIEW
-      </text>
-    </g>"""
 
     return f"""<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {W} {H}" width="{W}" height="{H}">
   <defs>
     <style>
-      @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;700;800;900&amp;family=JetBrains+Mono:wght@600;700&amp;display=swap');
-      text {{ font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif; }}
-      .mono {{ font-family: 'JetBrains Mono', monospace; }}
+      {fonts_import}
+      text {{ font-family: {sub_font}; }}
+      .title {{ font-family: {title_font}; }}
+      .count {{ font-family: {count_font}; }}
+      .sub {{ font-family: {sub_font}; }}
+      .mono {{ font-family: 'JetBrains Mono', 'Consolas', monospace; }}
     </style>{defs_svg}
   </defs>
 
@@ -499,21 +759,14 @@ def _build_vectuz_sidebar(model: Model, icons_meta: list[dict], c: dict, W: int,
 
   <g id="stockSideBanner">
     <rect x="{banner_pad}" y="{int(round(H * 0.035))}" width="{inner_w}" height="{top_h - int(round(H * 0.035))}" 
-          rx="{max(16, int(round(banner_w * 0.04)))}" fill="{banner_bg}"/>
+          rx="{max(18, int(round(banner_w * 0.045)))}" fill="{banner_bg}"/>
 
-    <text x="{banner_pad + int(inner_w * 0.08)}" y="{int(round(H * 0.035)) + int(top_h * 0.16)}" 
-          font-size="{title_fs}" font-weight="900" letter-spacing="2" fill="{banner_text}">
-      {sanitize_text(c['title'])}
-    </text>
+    {title_svg}
 
-    <text x="{banner_pad + int(inner_w * 0.08)}" y="{int(round(H * 0.035)) + int(top_h * 0.52)}" 
-          font-size="{count_fs}" font-weight="900" fill="{banner_text}" letter-spacing="-2">
+    <text x="{banner_pad + inner_w / 2}" y="{int(round(H * 0.035)) + int(top_h * 0.62)}" 
+          font-size="{count_fs}" font-weight="900" fill="{banner_text}" letter-spacing="-3" 
+          text-anchor="middle" class="count">
       {sanitize_text(count_val)}
-    </text>
-
-    <text x="{banner_pad + int(inner_w * 0.08)}" y="{int(round(H * 0.035)) + int(top_h * 0.68)}" 
-          font-size="{sub_fs}" font-weight="700" fill="{banner_sub}" letter-spacing="0.5">
-      {sub_tspan_svg}
     </text>
 
     {hl_svg}
@@ -1677,25 +1930,45 @@ def _build_hero_spotlight(model: Model, icons_meta: list[dict], c: dict, W: int,
     banner_bg = c["banner_bg"]
     banner_text = c["banner_text"]
     banner_sub = c["banner_sub"]
-    hl_bg = c["highlight_bg"]
-    hl_stroke = c["highlight_stroke"]
 
-    circle_r = int(panel_w * 0.32)
-    circle_cx = panel_w // 2
-    circle_cy = int(H * 0.44)
+    fonts_import, title_font, count_font, sub_font = _get_font_css(c.get("font_family", "bebas"))
+    title_hl_style = str(c.get("title_highlight", "pill"))
 
-    hero_paths = _extract_highlight_svg(
-        model, icons_meta, "hero_1", 1, hl_stroke, stroke_scale,
-        circle_r * 1.35, circle_r * 1.35,
-        circle_cx - circle_r * 0.675, circle_cy - circle_r * 0.675, cols=1
+    # Title with highlight element (matching template)
+    title_svg = _render_title_highlight(
+        title=c['title'], subtitle=c['subtitle'],
+        cx=panel_w / 2, cy=int(H * 0.13),
+        title_fs=max(36, int(panel_w * 0.082)),
+        sub_fs=max(16, int(panel_w * 0.038)),
+        banner_text=banner_text, banner_sub=banner_sub,
+        title_font=title_font, sub_font=sub_font,
+        style=title_hl_style, is_centered=True,
+        max_w=panel_w * 0.88
     )
+
+    # Redesigned Showcase Box (replacing the raw black circle)
+    sc_cx = panel_w / 2
+    sc_cy = int(H * 0.47)
+    sc_w = int(panel_w * 0.84)
+    sc_h = int(panel_w * 0.84)
+    showcase_svg = _render_showcase_box(
+        model, icons_meta, c,
+        cx=sc_cx, cy=sc_cy, w=sc_w, h=sc_h,
+        stroke_scale=stroke_scale
+    )
+
+    # Big punchy count number with bottom pill badge
+    count_fs = max(96, int(panel_w * 0.28))
 
     return f"""<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {W} {H}" width="{W}" height="{H}">
   <defs>
     <style>
-      @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@700;800;900&amp;family=JetBrains+Mono:wght@600;700&amp;display=swap');
-      text {{ font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif; }}
-      .mono {{ font-family: 'JetBrains Mono', monospace; }}
+      {fonts_import}
+      text {{ font-family: {sub_font}; }}
+      .title {{ font-family: {title_font}; }}
+      .count {{ font-family: {count_font}; }}
+      .sub {{ font-family: {sub_font}; }}
+      .mono {{ font-family: 'JetBrains Mono', 'Consolas', monospace; }}
     </style>{defs_svg}
   </defs>
 
@@ -1708,25 +1981,23 @@ def _build_hero_spotlight(model: Model, icons_meta: list[dict], c: dict, W: int,
   <g id="spotlightPanel">
     <rect x="0" y="0" width="{panel_w}" height="{H}" fill="{banner_bg}"/>
 
-    <text x="{panel_w / 2}" y="{int(H * 0.12)}" font-size="{max(26, int(panel_w * 0.08))}" font-weight="900" letter-spacing="3" fill="{banner_text}" text-anchor="middle">
-      {sanitize_text(c['title'])}
-    </text>
-    <text x="{panel_w / 2}" y="{int(H * 0.16)}" font-size="{max(14, int(panel_w * 0.04))}" font-weight="700" letter-spacing="1" fill="{banner_sub}" text-anchor="middle">
-      {sanitize_text(c['subtitle'])}
-    </text>
+    {title_svg}
 
-    <circle cx="{circle_cx}" cy="{circle_cy}" r="{circle_r}" fill="{hl_bg}" stroke="#ffffff" stroke-width="4"/>
-    {hero_paths}
-    <text x="{circle_cx}" y="{circle_cy + circle_r + 34}" font-size="12" font-weight="800" letter-spacing="2" fill="{banner_text}" text-anchor="middle" class="mono">
-      FEATURED HERO ICON
-    </text>
+    {showcase_svg}
 
-    <text x="{panel_w / 2}" y="{int(H * 0.82)}" font-size="{max(68, int(panel_w * 0.26))}" font-weight="900" letter-spacing="-2" fill="{banner_text}" text-anchor="middle">
-      {sanitize_text(count_val)}
-    </text>
-    <text x="{panel_w / 2}" y="{int(H * 0.87)}" font-size="18" font-weight="800" letter-spacing="3" fill="{banner_sub}" text-anchor="middle">
-      EDITABLE ICONS
-    </text>
+    <!-- Bottom Big Count Badge -->
+    <g id="spotlightCountBadge">
+      <text x="{panel_w / 2}" y="{int(H * 0.835)}" font-size="{count_fs}" font-weight="900" 
+            letter-spacing="-3" fill="{banner_text}" text-anchor="middle" class="count">
+        {sanitize_text(count_val)}
+      </text>
+      <rect x="{panel_w/2 - 130}" y="{int(H * 0.865)}" width="260" height="38" rx="19" 
+            fill="rgba(0,0,0,0.22)" stroke="rgba(255,255,255,0.22)" stroke-width="1.5"/>
+      <text x="{panel_w / 2}" y="{int(H * 0.865) + 25}" font-size="16" font-weight="800" 
+            letter-spacing="3" fill="{banner_sub}" text-anchor="middle" class="mono">
+        EDITABLE ICONS
+      </text>
+    </g>
   </g>
 </svg>"""
 

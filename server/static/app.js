@@ -1595,6 +1595,9 @@
     artboard_bg: 'checkered',
     highlight_mode: 'mini_4',
     show_highlight: true,
+    font_family: 'bebas',
+    title_highlight: 'pill',
+    showcase_shape: 'card',
   };
 
   let activeDesignFamily = 'all';
@@ -1731,6 +1734,9 @@
       layout: S.template.layout || 'landscape_16_9',
       show_highlight: $('#tplShowHighlight') ? $('#tplShowHighlight').checked : true,
       highlight_mode: S.template.highlight_mode || 'mini_4',
+      font_family: S.template.font_family || 'bebas',
+      title_highlight: S.template.title_highlight || 'pill',
+      showcase_shape: S.template.showcase_shape || 'card',
       title: $('#tplTitle') ? $('#tplTitle').value : 'TECHNOLOGY',
       subtitle: $('#tplSubtitle') ? $('#tplSubtitle').value : 'Editable Line Icons',
       count: $('#tplCount') ? $('#tplCount').value : '24',
@@ -1796,6 +1802,18 @@
     if (item.highlight_mode) {
       S.template.highlight_mode = item.highlight_mode;
       $$('#tplHighlightModeSeg button').forEach(b => b.classList.toggle('on', b.dataset.v === item.highlight_mode));
+    }
+    if (item.font_family) {
+      S.template.font_family = item.font_family;
+      $$('#tplFontSeg button').forEach(b => b.classList.toggle('on', b.dataset.v === item.font_family));
+    }
+    if (item.title_highlight) {
+      S.template.title_highlight = item.title_highlight;
+      $$('#tplTitleHlSeg button').forEach(b => b.classList.toggle('on', b.dataset.v === item.title_highlight));
+    }
+    if (item.showcase_shape) {
+      S.template.showcase_shape = item.showcase_shape;
+      $$('#tplShowcaseShapeSeg button').forEach(b => b.classList.toggle('on', b.dataset.v === item.showcase_shape));
     }
 
     $$('#presetList .preset-card').forEach(c => c.classList.remove('active'));
@@ -1946,6 +1964,9 @@
       layout: layout,
       show_highlight: showHighlight,
       highlight_mode: highlightMode,
+      font_family: S.template.font_family || 'bebas',
+      title_highlight: S.template.title_highlight || 'pill',
+      showcase_shape: S.template.showcase_shape || 'card',
     });
 
     // Update download links
@@ -2139,6 +2160,36 @@
       $$('#tplHighlightModeSeg button').forEach(x => x.classList.toggle('on', x === b));
       S.template.highlight_mode = b.dataset.v;
       scheduleTemplateUpdate();
+    });
+  });
+
+  // Font family selector
+  $$('#tplFontSeg button').forEach(b => {
+    b.addEventListener('click', () => {
+      $$('#tplFontSeg button').forEach(x => x.classList.toggle('on', x === b));
+      S.template.font_family = b.dataset.v;
+      scheduleTemplateUpdate();
+      toast(`Font family: ${b.textContent}`);
+    });
+  });
+
+  // Title highlight element
+  $$('#tplTitleHlSeg button').forEach(b => {
+    b.addEventListener('click', () => {
+      $$('#tplTitleHlSeg button').forEach(x => x.classList.toggle('on', x === b));
+      S.template.title_highlight = b.dataset.v;
+      scheduleTemplateUpdate();
+      toast(`Title highlight: ${b.textContent}`);
+    });
+  });
+
+  // Showcase card design
+  $$('#tplShowcaseShapeSeg button').forEach(b => {
+    b.addEventListener('click', () => {
+      $$('#tplShowcaseShapeSeg button').forEach(x => x.classList.toggle('on', x === b));
+      S.template.showcase_shape = b.dataset.v;
+      scheduleTemplateUpdate();
+      toast(`Showcase design: ${b.textContent}`);
     });
   });
 
