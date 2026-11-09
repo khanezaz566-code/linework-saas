@@ -500,9 +500,16 @@ def _clean_seam(p: Path) -> Path:
         changed = False
         for k in range(len(A) - 1):
             if np.linalg.norm(A[k + 1] - A[k]) < 0.25 * p.w:
-                A.pop(k)
-                Hin.pop(k)
-                Hout.pop(k)
+                if k + 1 == len(A) - 1:
+                    Hin[k + 1] = Hin[k]
+                    A.pop(k)
+                    Hin.pop(k)
+                    Hout.pop(k)
+                else:
+                    Hout[k] = Hout[k + 1]
+                    A.pop(k + 1)
+                    Hin.pop(k + 1)
+                    Hout.pop(k + 1)
                 changed = True
                 break
     return Path(np.array(A), np.array(Hin), np.array(Hout), p.w, p.join, p.ml, p.closed)
@@ -521,12 +528,12 @@ def join_pairs(m: Model, pairs):
         w_merged = (P.w * LP + Q.w * LQ) / (LP + LQ)
         f_p, f_q = P.flat(1.0), Q.flat(1.0)
         f_all = np.vstack([f_p, f_q])
-        if len(f_all) >= 12:
+        if len(f_all) >= 10:
             cx, cy, r = _kasa(f_all)
-            if 1.5 * w_merged <= r <= 50.0 * w_merged and (LP + LQ) >= 1.15 * r:
+            if 1.2 * w_merged <= r <= 50.0 * w_merged and (LP + LQ) >= 0.55 * r:
                 rad_err = np.abs(np.hypot(f_all[:, 0] - cx, f_all[:, 1] - cy) - r)
                 if float(np.percentile(rad_err, 95)) <= 0.22 * w_merged and float(rad_err.max()) <= 0.35 * w_merged:
-                    if np.linalg.norm(f_all[0] - f_all[-1]) <= 1.8 * w_merged and (LP + LQ) >= 5.0 * r:
+                    if np.linalg.norm(f_all[0] - f_all[-1]) <= 1.8 * w_merged and (LP + LQ) >= 4.8 * r:
                         A, Hin, Hout = E.ellipse_beziers(np.array([cx, cy]), r, r, 0.0)
                         m.paths[i] = Path(A, Hin, Hout, w_merged, P.join, P.ml, True)
                         dead.add(j)
@@ -560,8 +567,11 @@ def join_pairs(m: Model, pairs):
             A = np.vstack([P.A, Q.A])
             Hin = np.vstack([P.Hin, Q.Hin])
             Hout = np.vstack([P.Hout, Q.Hout])
-            Hout[len(P.A) - 1] = a + (b - a) / 3
-            Hin[len(P.A)] = a + 2 * (b - a) / 3
+            d_ab = float(np.linalg.norm(b - a))
+            t_p = unit(P.A[-1] - P.Hin[-1]) if np.linalg.norm(P.A[-1] - P.Hin[-1]) > 1e-4 else unit(b - a)
+            t_q = unit(Q.Hout[0] - Q.A[0]) if np.linalg.norm(Q.Hout[0] - Q.A[0]) > 1e-4 else unit(b - a)
+            Hout[len(P.A) - 1] = a + t_p * (d_ab / 3.0)
+            Hin[len(P.A)] = b - t_q * (d_ab / 3.0)
         closed = False
         if np.linalg.norm(A[0] - A[-1]) <= max(1.5, 0.22 * w_merged) and (LP + LQ) >= 3.5 * w_merged and len(A) >= 4:
             A[-1] = A[0].copy()
@@ -1139,8 +1149,6 @@ def merge_corners(m: Model, pairs, joint_ends=None, D=None):
             if d_on <= 1.5 * p_merged.w:
                 from . import joints as J_mod
                 J_mod._set_end(pk, e_k, pt_on)
-                ak = J_mod.insert_anchor(p_merged, pt_on)
-                J_mod._set_end(pk, e_k, p_merged.A[ak])
     m.paths = [p for k, p in enumerate(m.paths) if k not in dead]
     return m
 

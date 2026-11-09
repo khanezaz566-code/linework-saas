@@ -109,11 +109,11 @@ def find_joints(m: Model):
         qp = m.paths[j_path]
         if qp.closed:
             return True
-        return min(float(np.linalg.norm(pt - qp.A[0])), float(np.linalg.norm(pt - qp.A[-1]))) > 0.65 * min(w_ref, qp.w)
+        return min(float(np.linalg.norm(pt - qp.A[0])), float(np.linalg.norm(pt - qp.A[-1]))) > 0.35 * min(w_ref, qp.w)
 
     on_thr = [False] * n
     for k, (pi, pe, pt, pw) in enumerate(ends):
-        idxs = tree.query_ball_point(pt, 0.30 * pw)
+        idxs = tree.query_ball_point(pt, 0.45 * pw)
         if any(own[q] != pi and is_interior(int(own[q]), pt, pw) for q in idxs):
             on_thr[k] = True
 
@@ -128,16 +128,29 @@ def find_joints(m: Model):
     for a, b in cKDTree(E).query_pairs(0.85 * wmax):
         if ends[a][0] == ends[b][0]:
             continue
-        cos_t = tangs[a] @ tangs[b]
-        den = abs(tangs[a][0] * tangs[b][1] - tangs[a][1] * tangs[b][0])
-        if cos_t > 0.65 and den < 0.15:
-            continue
+        cos_t = float(tangs[a] @ tangs[b])
+        den = abs(float(tangs[a][0] * tangs[b][1] - tangs[a][1] * tangs[b][0]))
         d_ab = float(np.linalg.norm(E[a] - E[b]))
         w_min = min(ends[a][3], ends[b][3])
         w_max = max(ends[a][3], ends[b][3])
         if w_max > 1.8 * w_min:
             continue
-        limit = 0.30 * w_min if (on_thr[a] and on_thr[b]) else 0.85 * w_min
+        # Never group two parallel side-by-side strokes (e.g. parallel straps or legs) into the same joint
+        if cos_t > 0.50 and d_ab > 0.24 * w_min:
+            continue
+        if cos_t > 0.65 and den < 0.15:
+            continue
+        if (on_thr[a] or on_thr[b]) and d_ab > 0.32 * w_min:
+            continue
+        if d_ab > 0.35 * w_min:
+            if den < 0.20:
+                continue
+            diff = E[b] - E[a]
+            sa = float(diff[0] * tangs[b][1] - diff[1] * tangs[b][0]) / (tangs[a][0] * tangs[b][1] - tangs[a][1] * tangs[b][0])
+            sb = float(diff[0] * tangs[a][1] - diff[1] * tangs[a][0]) / (tangs[a][0] * tangs[b][1] - tangs[a][1] * tangs[b][0])
+            if not (-0.25 * w_min <= sa <= 0.85 * w_min and -0.25 * w_min <= sb <= 0.85 * w_min):
+                continue
+        limit = 0.30 * w_min if (on_thr[a] or on_thr[b]) else 0.85 * w_min
         if d_ab <= limit:
             par[f(a)] = f(b)
 
@@ -160,22 +173,36 @@ def find_joints(m: Model):
         else:
             k = g[0]
             pt, pw = ends[k][2], ends[k][3]
+            t_k = tangs[k]
             for q_idx in tree.query_ball_point(pt, 0.45 * pw):
                 j_path = int(own[q_idx])
                 if j_path not in mem_paths and pw <= 1.8 * m.paths[j_path].w and is_interior(j_path, pt, pw):
-                    if _nearest_on(m.paths[j_path], pt)[1] <= 0.35 * min(pw, m.paths[j_path].w):
+                    pt_on, d_on = _nearest_on(m.paths[j_path], pt)
+                    if d_on <= 0.35 * min(pw, m.paths[j_path].w):
+                        fj = m.paths[j_path].flat(0.5)
+                        kj = int(np.argmin(np.linalg.norm(fj - pt_on, axis=1)))
+                        tau_j = unit(fj[min(kj + 1, len(fj) - 1)] - fj[max(kj - 1, 0)])
+                        if d_on > 0.16 * min(pw, m.paths[j_path].w):
+                            if abs(float(t_k @ tau_j)) > np.cos(np.radians(16.0)):
+                                continue
+                            if float(unit(pt_on - pt) @ t_k) < np.cos(np.radians(48.0)):
+                                continue
                         thr.add(j_path)
             if not thr:
-                s_steps = np.arange(-0.55 * pw, 0.85 * pw, 0.25)
+                s_steps = np.arange(-0.42 * pw, 0.42 * pw, 0.20)
                 ray = pt[None, :] + s_steps[:, None] * tangs[k][None, :]
                 d_ray, idx_ray = tree.query(ray)
                 order = np.argsort(np.abs(s_steps))
                 for m_idx in order:
                     dr, ir = float(d_ray[m_idx]), int(idx_ray[m_idx])
                     j_path = int(own[ir])
-                    if dr <= 0.25 * min(pw, m.paths[j_path].w) and j_path not in mem_paths and pw <= 1.8 * m.paths[j_path].w and is_interior(j_path, P[ir], pw):
-                        thr.add(j_path)
-                        break
+                    if dr <= 0.25 * min(pw, m.paths[j_path].w) and float(np.linalg.norm(P[ir] - pt)) <= 0.42 * min(pw, m.paths[j_path].w) and j_path not in mem_paths and pw <= 1.8 * m.paths[j_path].w and is_interior(j_path, P[ir], pw):
+                        fj = m.paths[j_path].flat(0.5)
+                        kj = int(np.argmin(np.linalg.norm(fj - P[ir], axis=1)))
+                        tau_j = unit(fj[min(kj + 1, len(fj) - 1)] - fj[max(kj - 1, 0)])
+                        if abs(float(t_k @ tau_j)) <= np.cos(np.radians(16.0)):
+                            thr.add(j_path)
+                            break
         if len(g) >= 3 and not thr:
             out.append(Joint("Y", mids, members, sorted(mem_paths), w))
         elif len(g) >= 2 and not thr:
@@ -190,7 +217,41 @@ def _end_pt(p: Path, e):
     return p.A[0] if e == 0 else p.A[-1]
 
 
+def _is_part_of_curve(p: Path, e: int) -> bool:
+    """Return True if the end segment at `e` is part of a continuous curve/arc with its neighbor segment."""
+    if len(p.A) < 3:
+        return False
+    if e == 0:
+        v0 = p.A[1] - p.A[0]
+        v1 = p.A[2] - p.A[1]
+        L0, L1 = float(np.linalg.norm(v0)), float(np.linalg.norm(v1))
+        if L0 < 1e-4 or L1 < 1e-4:
+            return False
+        u0, u1 = v0 / L0, v1 / L1
+        perp1 = np.array([-u1[1], u1[0]])
+        dev_nb = max(abs(float((p.Hout[1] - p.A[1]) @ perp1)), abs(float((p.Hin[2] - p.A[1]) @ perp1)))
+        if dev_nb > max(0.45, 0.055 * p.w):
+            return True
+        if L0 < 2.2 * p.w and np.cos(np.radians(48.0)) <= float(u0 @ u1) < np.cos(np.radians(5.0)):
+            return True
+    else:
+        v0 = p.A[-1] - p.A[-2]
+        v1 = p.A[-2] - p.A[-3]
+        L0, L1 = float(np.linalg.norm(v0)), float(np.linalg.norm(v1))
+        if L0 < 1e-4 or L1 < 1e-4:
+            return False
+        u0, u1 = v0 / L0, v1 / L1
+        perp1 = np.array([-u1[1], u1[0]])
+        dev_nb = max(abs(float((p.Hout[-3] - p.A[-3]) @ perp1)), abs(float((p.Hin[-2] - p.A[-3]) @ perp1)))
+        if dev_nb > max(0.45, 0.055 * p.w):
+            return True
+        if L0 < 2.2 * p.w and np.cos(np.radians(48.0)) <= float(u0 @ u1) < np.cos(np.radians(5.0)):
+            return True
+    return False
+
+
 def _set_end_clean_handles(p: Path, e: int, X: np.ndarray, d: np.ndarray, was_str: bool):
+    part_of_curve = _is_part_of_curve(p, e)
     if e == 0:
         v = p.A[1] - p.A[0]
         L = float(np.linalg.norm(v))
@@ -199,11 +260,12 @@ def _set_end_clean_handles(p: Path, e: int, X: np.ndarray, d: np.ndarray, was_st
             perp = np.array([-u[1], u[0]])
             dev0 = float((p.Hout[0] - p.A[0]) @ perp)
             dev1 = float((p.Hin[1] - p.A[0]) @ perp)
-            is_scurve = (dev0 * dev1 < 0) and (abs(dev0) + abs(dev1) < 0.45 * p.w)
-            is_shallow = max(abs(dev0), abs(dev1)) <= max(0.95, 0.16 * p.w)
+            is_scurve = (dev0 * dev1 < 0) and (abs(dev0) + abs(dev1) < 0.40 * p.w)
+            tol_sh = max(0.35, 0.045 * p.w) if part_of_curve else max(0.85, 0.12 * p.w)
+            is_shallow = (max(abs(dev0), abs(dev1)) <= tol_sh) and (not part_of_curve or L >= 2.2 * p.w)
         else:
             is_scurve, is_shallow = True, True
-        if was_str or is_scurve or is_shallow or np.linalg.norm(p.Hout[0] - p.A[0]) < 0.22 * p.w:
+        if (was_str and not part_of_curve) or is_scurve or is_shallow or np.linalg.norm(p.Hout[0] - p.A[0]) < 0.12 * min(p.w, max(L, 1.0)):
             p.Hout[0] = p.A[0] + v / 3.0
             p.Hin[1] = p.A[0] + 2.0 * v / 3.0
         else:
@@ -216,11 +278,12 @@ def _set_end_clean_handles(p: Path, e: int, X: np.ndarray, d: np.ndarray, was_st
             perp = np.array([-u[1], u[0]])
             dev0 = float((p.Hout[-2] - p.A[-2]) @ perp)
             dev1 = float((p.Hin[-1] - p.A[-2]) @ perp)
-            is_scurve = (dev0 * dev1 < 0) and (abs(dev0) + abs(dev1) < 0.45 * p.w)
-            is_shallow = max(abs(dev0), abs(dev1)) <= max(0.95, 0.16 * p.w)
+            is_scurve = (dev0 * dev1 < 0) and (abs(dev0) + abs(dev1) < 0.40 * p.w)
+            tol_sh = max(0.35, 0.045 * p.w) if part_of_curve else max(0.85, 0.12 * p.w)
+            is_shallow = (max(abs(dev0), abs(dev1)) <= tol_sh) and (not part_of_curve or L >= 2.2 * p.w)
         else:
             is_scurve, is_shallow = True, True
-        if was_str or is_scurve or is_shallow or np.linalg.norm(p.Hin[-1] - p.A[-1]) < 0.22 * p.w:
+        if (was_str and not part_of_curve) or is_scurve or is_shallow or np.linalg.norm(p.Hin[-1] - p.A[-1]) < 0.12 * min(p.w, max(L, 1.0)):
             p.Hout[-2] = p.A[-2] + v / 3.0
             p.Hin[-1] = p.A[-2] + 2.0 * v / 3.0
         else:
@@ -235,13 +298,15 @@ def _set_end(p: Path, e, X):
             l_next = float(np.linalg.norm(v_next))
             v_tip = X - p.A[1]
             l_tip = float(np.linalg.norm(v_tip))
-            is_hook = l_next > 1e-4 and l_tip > 1e-4 and float((v_tip / l_tip) @ (v_next / l_next)) < np.cos(np.radians(16.0))
-            if np.linalg.norm(p.A[1] - X) < 0.55 * p.w or (l_next > 1e-4 and v_tip @ v_next < 0) or is_hook:
+            seg_next = np.array([p.A[1], p.Hout[1], p.Hin[2], p.A[2]])
+            next_is_str = FN._straight(seg_next, 0.55)
+            is_hook = next_is_str and l_next > 1e-4 and l_tip > 1e-4 and float((v_tip / l_tip) @ (v_next / l_next)) < np.cos(np.radians(16.0))
+            if np.linalg.norm(p.A[1] - X) < 0.45 * p.w or (l_next > 1e-4 and v_tip @ v_next < 0) or is_hook:
                 p.A = p.A[1:]
                 p.Hin = p.Hin[1:]
                 p.Hout = p.Hout[1:]
         seg0 = np.array([p.A[0], p.Hout[0], p.Hin[1], p.A[1]])
-        was_str = FN._straight(seg0, 1.0)
+        was_str = FN._straight(seg0, 0.55)
         d = X - p.A[0]
         p.A[0] = X.copy()
         p.Hin[0] = X.copy()
@@ -252,13 +317,15 @@ def _set_end(p: Path, e, X):
             l_prev = float(np.linalg.norm(v_prev))
             v_tip = X - p.A[-2]
             l_tip = float(np.linalg.norm(v_tip))
-            is_hook = l_prev > 1e-4 and l_tip > 1e-4 and float((v_tip / l_tip) @ (v_prev / l_prev)) < np.cos(np.radians(16.0))
-            if np.linalg.norm(p.A[-2] - X) < 0.55 * p.w or (l_prev > 1e-4 and v_tip @ v_prev < 0) or is_hook:
+            seg_prev = np.array([p.A[-3], p.Hout[-3], p.Hin[-2], p.A[-2]])
+            prev_is_str = FN._straight(seg_prev, 0.55)
+            is_hook = prev_is_str and l_prev > 1e-4 and l_tip > 1e-4 and float((v_tip / l_tip) @ (v_prev / l_prev)) < np.cos(np.radians(16.0))
+            if np.linalg.norm(p.A[-2] - X) < 0.45 * p.w or (l_prev > 1e-4 and v_tip @ v_prev < 0) or is_hook:
                 p.A = p.A[:-1]
                 p.Hin = p.Hin[:-1]
                 p.Hout = p.Hout[:-1]
         seg_last = np.array([p.A[-2], p.Hout[-2], p.Hin[-1], p.A[-1]])
-        was_str = FN._straight(seg_last, 1.0)
+        was_str = FN._straight(seg_last, 0.55)
         d = X - p.A[-1]
         p.A[-1] = X.copy()
         p.Hout[-1] = X.copy()
@@ -399,18 +466,31 @@ def tool_pen(m: Model, J: Joint, merge_l=True):
             p = m.paths[i]
             end = _end_pt(p, e)
             g = FN.end_geometry(p, e)
-            t = g[1] if g is not None else None
+            t = g[1] if g is not None else _local_end_dir(p, e)
             best = None
+            f_p = p.flat(0.25)
+            f_p_rev = f_p if e == 0 else f_p[::-1]
+            cum_p = np.r_[0.0, np.cumsum(np.linalg.norm(np.diff(f_p_rev, axis=0), axis=1))]
+            max_back_k = int(np.searchsorted(cum_p, min(0.95 * p.w, 0.45 * float(cum_p[-1]))))
             for j in ext_thr:
                 if j >= len(m.paths) or j == i:
                     continue
                 q = m.paths[j]
+                f = q.flat(0.25)
+                tree_q = cKDTree(f)
                 X_cand, d_cand = _nearest_on(q, end)
-                if t is not None and (d_cand > 0.15 * min(p.w, q.w) or FN._straight_before_end(p, e, t)):
+                s_retract = 0.0
+                # Check if stroke p already crossed q's centerline slightly before its end (overshoot nub)
+                if max_back_k >= 3:
+                    d_sub, idx_sub = tree_q.query(f_p_rev[:max_back_k + 1])
+                    k_cross = int(np.argmin(d_sub))
+                    if k_cross >= 1 and float(d_sub[k_cross]) <= 0.18 * min(p.w, q.w) and float(d_sub[0]) > float(d_sub[k_cross]) + 0.08 * p.w:
+                        s_retract = float(cum_p[k_cross])
+                        X_cand = f[int(idx_sub[k_cross])].copy()
+                        d_cand = float(d_sub[k_cross])
+                if s_retract == 0.0 and t is not None and (d_cand > 0.15 * min(p.w, q.w) or FN._straight_before_end(p, e, t)):
                     s_steps = np.arange(-0.85 * J.w, min(1.8 * J.w, 20.0), 0.25)
                     ray = end[None, :] + s_steps[:, None] * t[None, :]
-                    f = q.flat(0.25)
-                    tree_q = cKDTree(f)
                     d_ray, idx_ray = tree_q.query(ray)
                     min_idx = int(np.argmin(d_ray))
                     if d_ray[min_idx] < 0.35 * min(p.w, q.w):
@@ -419,10 +499,15 @@ def tool_pen(m: Model, J: Joint, merge_l=True):
                             X_cand = X_ray
                             d_cand = float(np.linalg.norm(X_cand - end))
                 if best is None or d_cand < best[2]:
-                    best = (j, X_cand, d_cand)
+                    best = (j, X_cand, d_cand, s_retract)
             if best is None or best[2] > 1.5 * J.w:
                 continue
-            j, X, d = best
+            j, X, d, s_retract = best
+            if s_retract >= 0.12 * p.w:
+                mm = FN.move_end(Model([p], 0, 0), 0, e, s_retract)
+                if mm is not None:
+                    p = mm.paths[0]
+                    m.paths[i] = p
             q = m.paths[j]
             X, _ = _nearest_on(q, X)
             _set_end(p, e, X)
@@ -563,9 +648,9 @@ def smooth_continuation_pairs(m: Model, J: Joint, D):
             LP, LQ = P.length(), Q.length()
             f_all = np.vstack([P.flat(1.0), Q.flat(1.0)])
             on_circle = False
-            if len(f_all) >= 12:
+            if len(f_all) >= 10:
                 cx, cy, r = _kasa(f_all)
-                if 1.5 * w <= r <= 50.0 * w and (LP + LQ) >= 1.15 * r:
+                if 1.2 * w <= r <= 50.0 * w and (LP + LQ) >= 0.55 * r:
                     rad_err = np.abs(np.hypot(f_all[:, 0] - cx, f_all[:, 1] - cy) - r)
                     if float(np.percentile(rad_err, 95)) <= 0.22 * w and float(rad_err.max()) <= 0.35 * w:
                         on_circle = True
@@ -581,7 +666,7 @@ def smooth_continuation_pairs(m: Model, J: Joint, D):
                 if dot > -0.85 or dot_loc > -0.82:
                     continue
             else:
-                if dot > -0.80 or dot_loc > -0.75:
+                if dot > -0.55 or dot_loc > -0.55:
                     continue
             n = max(3, int(dist))
             pts = a + (b - a) * np.linspace(0, 1, n)[:, None]

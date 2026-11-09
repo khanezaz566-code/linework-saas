@@ -1227,14 +1227,6 @@ def craft_model(model: Model, D: np.ndarray, doctor: Doctor, W0: float = 10.0) -
         if gi >= len(cur_m.paths) or gj >= len(cur_m.paths):
             continue
         p1, t1 = T._end(cur_m.paths[gi], ge)
-        # Verify continuous source ink between p1 and target
-        ts_s = np.linspace(0.0, 1.0, 12)[:, None]
-        line_pts = p1 * (1.0 - ts_s) + target * ts_s
-        xs_s = np.clip(np.round(line_pts[:, 0] - 0.5).astype(int), 0, W_im - 1)
-        ys_s = np.clip(np.round(line_pts[:, 1] - 0.5).astype(int), 0, H_im - 1)
-        if float((D[ys_s, xs_s] > 0.40).mean()) < 0.68:
-            continue
-        # For T-junctions, also check if extending along outward ray t1 hits path gj cleanly
         cand = cur_m.copy()
         best_target = target
         if kind == "tee" and gf is None:
@@ -1247,13 +1239,25 @@ def craft_model(model: Model, D: np.ndarray, doctor: Doctor, W0: float = 10.0) -
             if m_ray.any():
                 idx_r = int(np.where(m_ray)[0][np.argmin(ps_r[m_ray])])
                 best_target = fj[idx_r]
+            elif float(np.linalg.norm(best_target - p1)) > 0.22 * cur_m.paths[gi].w:
+                u_step = unit(best_target - p1)
+                if float(u_step @ t1) < np.cos(np.radians(40.0)):
+                    continue
+        # Verify continuous source ink between p1 and best_target without dipping into white space
+        ts_s = np.linspace(0.0, 1.0, 14)[:, None]
+        line_pts = p1 * (1.0 - ts_s) + best_target * ts_s
+        xs_s = np.clip(np.round(line_pts[:, 0] - 0.5).astype(int), 0, W_im - 1)
+        ys_s = np.clip(np.round(line_pts[:, 1] - 0.5).astype(int), 0, H_im - 1)
+        ink_vals = D[ys_s, xs_s]
+        if float((ink_vals > 0.42).mean()) < 0.72 or float(ink_vals.min()) < 0.28:
+            continue
         T._move_end(cand.paths[gi], ge, best_target)
         if gf is not None:
             T._move_end(cand.paths[gj], gf, best_target)
         try_accept(cand, step_soft_tol=32.0, step_iou_drop=0.0035, structural=True)
 
     # ------------------------------------------------------------------
-    # 3. Canonical 4-Anchor Circle / Ring Reconstruction
+    # 3. Canonical 4-Anchor Circle / Ring & Circular Arc Reconstruction
     # ------------------------------------------------------------------
     try:
         from . import rings as RG
@@ -1300,29 +1304,83 @@ def craft_model(model: Model, D: np.ndarray, doctor: Doctor, W0: float = 10.0) -
                     np.minimum(np.abs(f[:, 0] - rx0), np.abs(f[:, 0] - rx1)),
                     np.minimum(np.abs(f[:, 1] - ry0), np.abs(f[:, 1] - ry1)),
                 )
-                cx, cy, r = _kasa(f)
-                rad_err = np.abs(np.hypot(f[:, 0] - cx, f[:, 1] - cy) - r)
-                if float(d_rect.mean()) <= float(rad_err.mean()) * 1.12:
+                other_ends = [
+                    q.A[0 if e_o == 0 else -1]
+                    for j_o, q in enumerate(cur_m.paths)
+                    if j_o != i and not q.closed and len(q.A) >= 2
+                    for e_o in (0, 1)
+                ]
+                f_fit = f
+                if other_ends:
+                    oe_arr = np.array(other_ends)
+                    d_oe = np.min(np.linalg.norm(f[:, None, :] - oe_arr[None, :, :], axis=2), axis=1)
+                    inliers = f[d_oe > 1.05 * p.w]
+                    if len(inliers) >= max(10, int(0.55 * len(f))):
+                        f_fit = inliers
+                cx, cy, r = _kasa(f_fit)
+                rad_err = np.abs(np.hypot(f_fit[:, 0] - cx, f_fit[:, 1] - cy) - r)
+                rad_err_all = np.abs(np.hypot(f[:, 0] - cx, f[:, 1] - cy) - r)
+                if float(d_rect.mean()) <= float(rad_err_all.mean()) * 1.12:
                     continue
                 if float(np.percentile(d_rect, 85)) <= max(1.25, 0.13 * p.w) and max(rx1 - rx0, ry1 - ry0) <= 3.6 * p.w:
                     continue
                 if r >= 0.50 * p.w:
                     tol_rad = 0.22 * p.w if r >= 1.2 * p.w else 0.18 * p.w
-                    if float(np.percentile(rad_err, 90)) <= tol_rad:
+                    if float(np.percentile(rad_err, 90)) <= tol_rad and float(np.percentile(rad_err_all, 90)) <= 0.34 * p.w:
                         center = np.array([cx, cy])
                         A_c, Hi_c, Ho_c = E.ellipse_beziers(center, r, r, 0.0)
                         cand = cur_m.copy()
                         cand.paths[i] = Path(A_c, Hi_c, Ho_c, p.w, p.join, p.ml, True)
-                        if not try_accept(cand, step_soft_tol=24.0, step_iou_drop=0.0012, structural=True):
+                        if not try_accept(cand, step_soft_tol=28.0, step_iou_drop=0.0016, structural=True):
                             for j, q in enumerate(cand.paths):
                                 if j == i or q.closed:
                                     continue
                                 for e_idx, pt in ((0, q.A[0]), (1, q.A[-1])):
                                     d_old = float(np.min(np.linalg.norm(f - pt, axis=1)))
-                                    if d_old <= 0.35 * p.w:
+                                    if d_old <= 0.45 * p.w:
                                         u_rad = unit(pt - center)
                                         T._move_end(q, e_idx, center + r * u_rad)
-                            try_accept(cand, step_soft_tol=24.0, step_iou_drop=0.0012, structural=True)
+                            try_accept(cand, step_soft_tol=32.0, step_iou_drop=0.0020, structural=True)
+        elif not p.closed and len(p.A) >= 3 and p.length() >= 3.0 * p.w:
+            # Open circular arc reconstruction (removes polygonal facets caused by T-junctions on circular arcs)
+            f = p.flat(0.5)
+            if len(f) >= 14:
+                other_ends = [
+                    q.A[0 if e_o == 0 else -1]
+                    for j_o, q in enumerate(cur_m.paths)
+                    if j_o != i and not q.closed and len(q.A) >= 2
+                    for e_o in (0, 1)
+                ]
+                f_fit = f
+                if other_ends:
+                    oe_arr = np.array(other_ends)
+                    d_oe = np.min(np.linalg.norm(f[:, None, :] - oe_arr[None, :, :], axis=2), axis=1)
+                    inliers = f[d_oe > 1.05 * p.w]
+                    if len(inliers) >= max(10, int(0.50 * len(f))):
+                        f_fit = inliers
+                cx, cy, r = _kasa(f_fit)
+                if 1.3 * p.w <= r <= 45.0 * p.w:
+                    rad_err = np.abs(np.hypot(f_fit[:, 0] - cx, f_fit[:, 1] - cy) - r)
+                    rad_err_all = np.abs(np.hypot(f[:, 0] - cx, f[:, 1] - cy) - r)
+                    if float(np.percentile(rad_err, 90)) <= max(0.85, 0.18 * p.w) and float(rad_err_all.max()) <= 0.42 * p.w:
+                        ang = np.unwrap(np.arctan2(f[:, 1] - cy, f[:, 0] - cx))
+                        d_ang = np.diff(ang)
+                        span = float(ang[-1] - ang[0])
+                        if 1.05 <= abs(span) <= 6.15 and (np.sign(d_ang) == np.sign(span)).mean() >= 0.94:
+                            from . import finisher as FN
+                            q_arc = FN._make_arc_path(cx, cy, r, float(ang[0]), float(ang[-1]), p.w, p.join, p.ml)
+                            center = np.array([cx, cy])
+                            cand = cur_m.copy()
+                            cand.paths[i] = q_arc
+                            for j, q in enumerate(cand.paths):
+                                if j == i or q.closed:
+                                    continue
+                                for e_idx, pt in ((0, q.A[0]), (1, q.A[-1])):
+                                    if float(np.min(np.linalg.norm(f - pt, axis=1))) <= 0.45 * p.w:
+                                        f_arc = q_arc.flat(0.25)
+                                        k_n = int(np.argmin(np.linalg.norm(f_arc - pt, axis=1)))
+                                        T._move_end(q, e_idx, f_arc[k_n])
+                            try_accept(cand, step_soft_tol=32.0, step_iou_drop=0.0020, structural=True)
 
     # ------------------------------------------------------------------
     # 3.1. Smart Canonical Square / Rectangle Reconstructor & Grid Equalizer
@@ -1783,12 +1841,20 @@ def craft_model(model: Model, D: np.ndarray, doctor: Doctor, W0: float = 10.0) -
                 aligned_nb = False
                 if k > 0 or p.closed:
                     s_prev = segs[(k - 1) % len(segs)]
-                    if float(unit(s_prev[3] - s_prev[0]) @ u_c) >= np.cos(np.radians(12.0)):
-                        aligned_nb = True
+                    v_pr = s_prev[3] - s_prev[0]
+                    L_pr = float(np.linalg.norm(v_pr))
+                    if L_pr > 1.0 and float((v_pr / L_pr) @ u_c) >= np.cos(np.radians(10.0)):
+                        perp_pr = np.array([-v_pr[1], v_pr[0]]) / L_pr
+                        if max(abs(float((s_prev[1] - s_prev[0]) @ perp_pr)), abs(float((s_prev[2] - s_prev[0]) @ perp_pr))) <= 0.08 * p.w:
+                            aligned_nb = True
                 if k + 1 < len(segs) or p.closed:
                     s_next = segs[(k + 1) % len(segs)]
-                    if float(u_c @ unit(s_next[3] - s_next[0])) >= np.cos(np.radians(12.0)):
-                        aligned_nb = True
+                    v_nx = s_next[3] - s_next[0]
+                    L_nx = float(np.linalg.norm(v_nx))
+                    if L_nx > 1.0 and float(u_c @ (v_nx / L_nx)) >= np.cos(np.radians(10.0)):
+                        perp_nx = np.array([-v_nx[1], v_nx[0]]) / L_nx
+                        if max(abs(float((s_next[1] - s_next[0]) @ perp_nx)), abs(float((s_next[2] - s_next[0]) @ perp_nx))) <= 0.08 * p.w:
+                            aligned_nb = True
                 if aligned_nb and _has_ink_line(s[0], s[3], min_frac=0.90):
                     new_segs = [sg.copy() for sg in segs]
                     new_segs[k][1] = s[0] + ch / 3.0
@@ -1973,8 +2039,8 @@ def craft_model(model: Model, D: np.ndarray, doctor: Doctor, W0: float = 10.0) -
                     perp2 = np.array([-u2[1], u2[0]])
                     dev1 = max(abs(float((s1[1] - s1[0]) @ perp1)), abs(float((s1[2] - s1[0]) @ perp1)))
                     dev2 = max(abs(float((s2[1] - s2[0]) @ perp2)), abs(float((s2[2] - s2[0]) @ perp2)))
-                    str1 = (dev1 <= max(0.75, 0.09 * p.w) and L1 >= 1.15 * p.w)
-                    str2 = (dev2 <= max(0.75, 0.09 * p.w) and L2 >= 1.15 * p.w)
+                    str1 = (dev1 <= max(0.75, 0.09 * p.w) and L1 >= 2.15 * p.w)
+                    str2 = (dev2 <= max(0.75, 0.09 * p.w) and L2 >= 2.15 * p.w)
                     curv1 = (dev1 > max(1.05, 0.13 * p.w))
                     curv2 = (dev2 > max(1.05, 0.13 * p.w))
                     if (str1 and curv2) or (str2 and curv1):
@@ -2042,16 +2108,33 @@ def craft_model(model: Model, D: np.ndarray, doctor: Doctor, W0: float = 10.0) -
             dev1 = abs(float((s[1] - s[0]) @ perp))
             dev2 = abs(float((s[2] - s[0]) @ perp))
 
+            nb_curved = False
+            if L < 2.2 * p.w and len(segs) >= 2:
+                for kn in ((k - 1) % len(segs) if (k > 0 or p.closed) else -1, (k + 1) % len(segs) if (k + 1 < len(segs) or p.closed) else -1):
+                    if kn < 0 or kn == k:
+                        continue
+                    sn = segs[kn]
+                    vn = sn[3] - sn[0]
+                    Ln = float(np.linalg.norm(vn))
+                    if Ln > 1.0:
+                        un = vn / Ln
+                        perpn = np.array([-un[1], un[0]])
+                        devn = max(abs(float((sn[1] - sn[0]) @ perpn)), abs(float((sn[2] - sn[0]) @ perpn)))
+                        if devn > max(0.55, 0.065 * p.w) or np.cos(np.radians(45.0)) <= float(u_c @ un) < np.cos(np.radians(5.0)):
+                            nb_curved = True
+                            break
+
             dx = abs(ch[0])
             dy = abs(ch[1])
             is_ortho = False
-            if L >= 1.0 * p.w and _has_ink_line(s[0], s[3], min_frac=0.88):
-                if dy <= 0.28 * p.w and dx >= 1.0 * p.w and dy < 0.22 * dx:
+            if not nb_curved and L >= 1.4 * p.w and _has_ink_line(s[0], s[3], min_frac=0.88):
+                if dy <= 0.28 * p.w and dx >= 1.4 * p.w and dy < 0.22 * dx:
                     is_ortho = True
-                elif dx <= 0.28 * p.w and dy >= 1.0 * p.w and dx < 0.22 * dy:
+                elif dx <= 0.28 * p.w and dy >= 1.4 * p.w and dx < 0.22 * dy:
                     is_ortho = True
 
-            if max(dev1, dev2) <= max(0.75, 0.085 * p.w) or is_ortho:
+            lin_tol = max(0.28, 0.035 * p.w) if nb_curved else max(0.75, 0.085 * p.w)
+            if max(dev1, dev2) <= lin_tol or is_ortho:
                 s[1] = s[0] + ch / 3.0
                 s[2] = s[0] + 2.0 * ch / 3.0
                 is_linear_seg[k] = True
