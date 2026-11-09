@@ -42,6 +42,8 @@ jobs:
         env:
           MASTER_SERVER_URL: "https://linework-saas.onrender.com"
           LINEWORK_WORKER_SECRET: "linework_super_secret_2026"
+          MATRIX_NODE_ID: "${{ matrix.node }}"
+          GITHUB_REPOSITORY_OWNER: "${{ github.repository_owner }}"
           WORKER_MAX_SECONDS: "18600"
           WORKER_PORT: "5000"
         run: |

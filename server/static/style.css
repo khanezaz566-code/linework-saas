@@ -1796,12 +1796,12 @@ select {
 
 .bottom-analysis-row {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 330px;
+  grid-template-columns: minmax(0, 1fr) 365px;
   gap: 10px;
   align-items: stretch;
-  height: 128px;
-  min-height: 128px;
-  max-height: 128px;
+  height: 136px;
+  min-height: 136px;
+  max-height: 136px;
   flex-shrink: 0;
 }
 
@@ -1880,13 +1880,13 @@ select {
 /* Individual Icon Card (Compact, High-Precision Widget) */
 .ic {
   position: relative;
-  flex: 0 0 100px;
-  width: 100px;
-  height: 72px;
-  background: rgba(8, 14, 22, 0.75);
+  flex: 0 0 108px;
+  width: 108px;
+  height: 76px;
+  background: rgba(8, 14, 22, 0.78);
   border: 1px solid var(--line-subtle);
   border-radius: var(--radius-sm);
-  padding: 4px 6px;
+  padding: 5px 7px;
   display: flex;
   flex-direction: row;
   align-items: center;
@@ -1896,6 +1896,15 @@ select {
   overflow: hidden;
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   box-sizing: border-box;
+}
+
+.ic-stat-col {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  min-width: 0;
 }
 
 .ic:hover {
@@ -1991,14 +2000,33 @@ select {
 /* ================= Side-by-Side Comparison Card ================= */
 
 .comparison-card {
-  padding: 8px 12px;
+  padding: 7px 11px;
   display: flex;
-  align-items: center;
+  flex-direction: column;
   justify-content: space-between;
-  gap: 8px;
+  gap: 4px;
   height: 100%;
   min-width: 0;
   box-sizing: border-box;
+  overflow: visible;
+}
+
+.comp-boxes-row {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+  min-width: 0;
+}
+
+.comp-footer-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  width: 100%;
+  position: relative;
 }
 
 .comp-box {
@@ -2013,12 +2041,12 @@ select {
   font-size: 10px;
   font-weight: 600;
   color: var(--text-dim);
-  margin-bottom: 4px;
+  margin-bottom: 0;
 }
 
 .comp-preview-frame {
   width: 100%;
-  height: 74px;
+  height: 64px;
   border-radius: var(--radius-sm);
   background: rgba(5, 8, 12, 0.75);
   border: 1px solid var(--line-dim);
@@ -2044,27 +2072,25 @@ select {
   display: grid;
   place-items: center;
   flex-shrink: 0;
-  margin-top: 10px;
+  margin-bottom: 22px;
 }
 
 .comp-arrow svg {
-  width: 16px;
-  height: 16px;
+  width: 15px;
+  height: 15px;
 }
 
 .match-badge {
-  position: absolute;
-  top: -2px;
-  right: 0;
+  position: static;
   background: rgba(0, 245, 160, 0.16);
   border: 1px solid rgba(0, 245, 160, 0.4);
   color: var(--accent);
-  font-size: 9.5px;
+  font-size: 9px;
   font-family: var(--font-mono);
   font-weight: 700;
-  padding: 1px 6px;
+  padding: 1px 5px;
   border-radius: 9999px;
-  box-shadow: 0 0 10px rgba(0, 245, 160, 0.2);
+  white-space: nowrap;
 }
 
 /* Toast Message */
@@ -2568,62 +2594,46 @@ select {
 }
 
 .ic-clean-pill {
-  position: absolute;
-  top: 4px;
-  right: 4px;
-  font-size: 8px;
+  position: static;
+  font-size: 7.5px;
   font-weight: 700;
-  padding: 1px 4px;
+  padding: 1px 5px;
   border-radius: 4px;
   pointer-events: none;
+  white-space: nowrap;
+  line-height: 1.2;
 }
 .ic-clean-pill.clean-ok {
-  background: rgba(0, 245, 160, 0.25);
+  background: rgba(0, 245, 160, 0.18);
   color: var(--accent);
-  border: 1px solid rgba(0, 245, 160, 0.4);
+  border: 1px solid rgba(0, 245, 160, 0.38);
 }
 .ic-clean-pill.clean-warn {
-  background: rgba(239, 68, 68, 0.25);
+  background: rgba(239, 68, 68, 0.2);
   color: #ef4444;
   border: 1px solid rgba(239, 68, 68, 0.4);
-}
-
-.ic-score-row {
-  display: flex;
-  justify-content: space-between;
-  width: 100%;
-  font-size: 8.5px;
-  margin-top: 2px;
-}
-.clean-sub-label.clean-ok {
-  color: var(--accent);
-  font-weight: 600;
-}
-.clean-sub-label.clean-warn {
-  color: #ef4444;
-  font-weight: 600;
 }
 
 .comp-overlay-bar {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  margin-top: 6px;
-  gap: 8px;
+  gap: 6px;
+  margin-top: 0;
 }
 .comp-overlay-btn {
-  background: rgba(255, 255, 255, 0.06);
+  background: rgba(255, 255, 255, 0.05);
   border: 1px solid rgba(255, 255, 255, 0.12);
   color: var(--text-dim);
   border-radius: 6px;
-  font-size: 10px;
+  font-size: 9.5px;
   font-weight: 600;
-  padding: 3px 8px;
+  padding: 2px 7px;
   cursor: pointer;
   display: inline-flex;
   align-items: center;
-  gap: 5px;
+  gap: 4px;
   transition: all 0.2s ease;
+  white-space: nowrap;
 }
 .comp-overlay-btn:hover {
   background: rgba(255, 255, 255, 0.12);
@@ -2636,8 +2646,8 @@ select {
 }
 .comp-overlay-legend {
   display: flex;
-  gap: 8px;
-  font-size: 9.5px;
+  gap: 6px;
+  font-size: 9px;
   color: var(--text-dim);
 }
 .leg-item {
@@ -2656,25 +2666,26 @@ select {
 .dot-orange { background: #ff8a3d; }
 
 .why-panel {
-  margin-top: 6px;
-  background: rgba(10, 18, 28, 0.7);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  position: relative;
+  margin-top: 0;
+  background: rgba(10, 18, 28, 0.75);
+  border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 6px;
-  overflow: hidden;
+  overflow: visible;
 }
 .why-toggle-btn {
-  width: 100%;
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  justify-content: space-between;
-  padding: 4px 8px;
+  gap: 5px;
+  padding: 2px 7px;
   background: transparent;
   border: none;
   color: var(--text-dim);
-  font-size: 10px;
+  font-size: 9.5px;
   font-weight: 600;
   cursor: pointer;
   transition: all 0.2s ease;
+  white-space: nowrap;
 }
 .why-toggle-btn:hover {
   color: var(--accent);
@@ -2687,12 +2698,20 @@ select {
   transform: rotate(180deg);
 }
 .why-content {
-  padding: 6px 8px;
+  position: absolute;
+  bottom: calc(100% + 6px);
+  right: 0;
+  width: 265px;
+  background: rgba(10, 18, 28, 0.98);
+  border: 1px solid var(--line-glow);
+  border-radius: 8px;
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.85);
+  padding: 8px 10px;
   font-size: 9.5px;
-  line-height: 1.4;
-  border-top: 1px solid rgba(255, 255, 255, 0.06);
-  max-height: 150px;
+  line-height: 1.45;
+  max-height: 170px;
   overflow-y: auto;
+  z-index: 80;
 }
 .why-subhead {
   font-weight: 700;

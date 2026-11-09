@@ -1,8 +1,9 @@
 """High-Performance Multi-Core AI Worker for Linework AI
+Uses a 100% Stable Zero-Tunnel Direct Pull Engine over standard HTTPS (no cloudflared binary required!).
 Works everywhere (100% Free, No Credit Card):
-  1. Hugging Face Gradio Space (16 GB RAM, 2 vCPU - 24/7 Permanent, No Docker Needed)
-  2. Kaggle Notebooks (30 GB RAM, 4 vCPU - Background Commit Mode runs 12h with browser closed!)
-  3. GitHub Codespaces (16 GB RAM, 4 vCPU - Free 120 core-hours/month)
+  1. GitHub Actions Super-Cluster (40 CPU Cores / 160 GB RAM per GitHub Account)
+  2. Hugging Face Gradio Space (16 GB RAM, 2 vCPU - 24/7 Permanent)
+  3. Kaggle Notebooks (30 GB RAM, 4 vCPU)
   4. Your Own Windows PC / Laptop (4-16 CPU Cores via START_LOCAL_SUPER_WORKER.bat)
   5. Google Colab (12.7 GB RAM, 2 vCPU)
 """
@@ -10,6 +11,8 @@ import os
 import sys
 import time
 import json
+import uuid
+import socket
 import base64
 import threading
 import subprocess
@@ -40,6 +43,30 @@ WORKER_SECRET = os.environ.get("LINEWORK_WORKER_SECRET", "linework_super_secret_
 MASTER_URL = os.environ.get("MASTER_SERVER_URL", "https://linework-saas.onrender.com").rstrip("/")
 
 
+def _build_worker_id() -> str:
+    custom = os.environ.get("WORKER_NODE_ID", "").strip()
+    if custom:
+        return custom if custom.startswith("pull://") else f"pull://{custom}"
+    gh_actor = os.environ.get("GITHUB_REPOSITORY_OWNER") or os.environ.get("GITHUB_ACTOR") or ""
+    matrix_node = os.environ.get("MATRIX_NODE_ID") or ""
+    short_uid = uuid.uuid4().hex[:6]
+    if gh_actor:
+        tag = f"{gh_actor}-n{matrix_node}" if matrix_node else gh_actor
+        return f"pull://gh-{tag}-{short_uid}"
+    host = re.sub(r"[^a-zA-Z0-9\-]", "", socket.gethostname())[:16] or "node"
+    return f"pull://{host}-{short_uid}"
+
+
+WORKER_ID = _build_worker_id()
+WORKER_SPECS = {
+    "ram": "16GB+",
+    "type": "GitHub Actions 4-Core Node" if os.environ.get("GITHUB_ACTIONS") else "Multi-Core Super Worker",
+    "cpus": os.cpu_count() or 4,
+    "capacity": MAX_WORKERS,
+    "mode": "pull",
+}
+
+
 def _get_pool():
     global _EXEC_POOL
     with _POOL_LOCK:
@@ -68,10 +95,43 @@ def _solve_icon_in_subprocess(crop_bytes: bytes, opts_dict: dict, k: int):
     }
 
 
+def _execute_task_payload(payload: dict) -> dict:
+    crop_b64 = payload.get("crop_b64")
+    opts_dict = payload.get("options", {})
+    off = payload.get("off", [0, 0])
+    k = payload.get("k", 0)
+
+    img_bytes = base64.b64decode(crop_b64)
+    start_t = time.time()
+    try:
+        fut = _get_pool().submit(_solve_icon_in_subprocess, img_bytes, opts_dict, k)
+        res = fut.result(timeout=55)
+        elapsed = time.time() - start_t
+        iou_pct = round(res["metrics"]["iou"] * 100, 2)
+        print(f"  [⚡ {WORKER_ID}] Icon #{k+1} finished in {round(elapsed, 2)}s | IoU: {iou_pct}% | Clean: {res['clean']}", flush=True)
+        return {
+            "ok": True,
+            "elapsed": round(elapsed, 3),
+            "k": k,
+            "off": off,
+            "model_json": res["model_json"],
+            "metrics": res["metrics"]
+        }
+    except Exception as e:
+        import traceback
+        print(f"  [!] Error processing icon #{k+1}: {e}", flush=True)
+        return {
+            "ok": False,
+            "error": str(e),
+            "traceback": traceback.format_exc()
+        }
+
+
 @app.get("/health")
 def health():
     return {
         "ok": True,
+        "worker_id": WORKER_ID,
         "type": "multi_core_worker",
         "cpu_count": os.cpu_count(),
         "workers": MAX_WORKERS,
@@ -86,127 +146,87 @@ def process_icon_endpoint(
 ):
     if x_worker_secret != WORKER_SECRET:
         raise HTTPException(401, "Invalid worker secret")
-
-    crop_b64 = payload.get("crop_b64")
-    opts_dict = payload.get("options", {})
-    off = payload.get("off", [0, 0])
-    k = payload.get("k", 0)
-
-    img_bytes = base64.b64decode(crop_b64)
-    start_t = time.time()
-    try:
-        fut = _get_pool().submit(_solve_icon_in_subprocess, img_bytes, opts_dict, k)
-        res = fut.result(timeout=55)
-        elapsed = time.time() - start_t
-        iou_pct = round(res["metrics"]["iou"] * 100, 2)
-        print(f"  [⚡ Worker Node] Icon #{k+1} finished in {round(elapsed, 2)}s | IoU: {iou_pct}% | Clean: {res['clean']}")
-        return {
-            "ok": True,
-            "elapsed": round(elapsed, 3),
-            "k": k,
-            "off": off,
-            "model_json": res["model_json"],
-            "metrics": res["metrics"]
-        }
-    except Exception as e:
-        import traceback
-        print(f"  [!] Error processing icon #{k+1}: {e}")
-        return {
-            "ok": False,
-            "error": str(e),
-            "traceback": traceback.format_exc()
-        }
+    return _execute_task_payload(payload)
 
 
-def start_tunnel_and_register(local_port=5000):
-    direct_url = os.environ.get("SELF_WORKER_URL", "").strip().rstrip("/")
-    if not direct_url and os.environ.get("SPACE_HOST"):
-        direct_url = f"https://{os.environ['SPACE_HOST']}".rstrip("/")
+def start_direct_pull_cluster():
+    """100% Stable Zero-Tunnel Outbound Pull Loop + Heartbeat.
+    Requires ZERO external binaries (no cloudflared) and never suffers tunnel DNS drops.
+    """
+    print("\n" + "=" * 70, flush=True)
+    print(f"  🚀 ZERO-TUNNEL SUPER-WORKER ONLINE ({MAX_WORKERS} Parallel Cores)!", flush=True)
+    print(f"  🆔 Node ID   : {WORKER_ID}", flush=True)
+    print(f"  🛰️ Master URL: {MASTER_URL}", flush=True)
+    print("=" * 70 + "\n", flush=True)
 
-    active_url = [direct_url if direct_url else None]
-
-    def _ensure_tunnel():
-        if direct_url:
-            return
-        print("[+] Checking for cloudflared...")
-        is_win = sys.platform == "win32"
-        if is_win:
-            cf_path = ROOT / "cloudflared.exe"
-            if not cf_path.exists():
-                print("[+] Downloading cloudflared.exe for Windows...")
-                try:
-                    urllib.request.urlretrieve(
-                        "https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-windows-amd64.exe",
-                        str(cf_path)
-                    )
-                except Exception as e:
-                    print("[-] Failed to download cloudflared.exe:", e)
-                    return
-        else:
-            cf_path = Path("/usr/local/bin/cloudflared")
-            if not cf_path.exists():
-                cf_path = ROOT / "cloudflared"
-            if not cf_path.exists():
-                print("[+] Downloading cloudflared binary for Linux...")
-                try:
-                    target = ROOT / "cloudflared"
-                    urllib.request.urlretrieve(
-                        "https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64",
-                        str(target)
-                    )
-                    os.chmod(str(target), 0o755)
-                    cf_path = target
-                except Exception as e:
-                    print("[-] Failed to download cloudflared:", e)
-                    return
-
+    def _heartbeat_loop():
         while True:
-            print(f"[+] Starting Cloudflare Tunnel on port {local_port}...")
-            cmd = [str(cf_path), "tunnel", "--url", f"http://127.0.0.1:{local_port}"]
-            proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, bufsize=1)
-            for line in iter(proc.stdout.readline, ""):
-                match = re.search(r"https://[a-zA-Z0-9\-]+\.trycloudflare\.com", line)
-                if match:
-                    active_url[0] = match.group(0)
-                    print("\n" + "=" * 65)
-                    print(f"  🎉 MULTI-CORE SUPER-WORKER ACTIVE & READY ({MAX_WORKERS} Parallel Cores)!")
-                    print(f"  🔗 Worker URL: {active_url[0]}")
-                    print(f"  🛰️ Connected to Master: {MASTER_URL}")
-                    print("=" * 65 + "\n")
-            proc.wait()
-            print("[!] Cloudflare tunnel exited; auto-restarting in 3 seconds...")
-            time.sleep(3)
-
-    if not direct_url:
-        threading.Thread(target=_ensure_tunnel, daemon=True).start()
-
-    def heartbeat():
-        while True:
-            url = active_url[0]
-            if url:
-                try:
-                    reg_payload = json.dumps({
-                        "url": url,
-                        "secret": WORKER_SECRET,
-                        "specs": {
-                            "ram": "16GB+",
-                            "type": "Multi-Core Super Worker",
-                            "cpus": os.cpu_count() or 2,
-                            "capacity": MAX_WORKERS
-                        }
-                    }).encode("utf-8")
-                    req = urllib.request.Request(
-                        f"{MASTER_URL}/api/worker/register",
-                        data=reg_payload,
-                        headers={"Content-Type": "application/json"}
-                    )
-                    with urllib.request.urlopen(req, timeout=10):
-                        pass
-                except Exception:
+            try:
+                reg_payload = json.dumps({
+                    "url": WORKER_ID,
+                    "secret": WORKER_SECRET,
+                    "specs": WORKER_SPECS,
+                }).encode("utf-8")
+                req = urllib.request.Request(
+                    f"{MASTER_URL}/api/worker/register",
+                    data=reg_payload,
+                    headers={"Content-Type": "application/json"}
+                )
+                with urllib.request.urlopen(req, timeout=12):
                     pass
+            except Exception:
+                pass
             time.sleep(20)
 
-    threading.Thread(target=heartbeat, daemon=True).start()
+    threading.Thread(target=_heartbeat_loop, daemon=True).start()
+
+    def _pull_worker_slot(slot_idx: int):
+        # Stagger initial connection slightly
+        time.sleep(slot_idx * 0.4)
+        while True:
+            try:
+                pull_req_body = json.dumps({
+                    "worker_id": WORKER_ID,
+                    "secret": WORKER_SECRET,
+                    "specs": WORKER_SPECS,
+                    "slot": slot_idx,
+                }).encode("utf-8")
+                req = urllib.request.Request(
+                    f"{MASTER_URL}/api/worker/pull",
+                    data=pull_req_body,
+                    headers={"Content-Type": "application/json"}
+                )
+                with urllib.request.urlopen(req, timeout=30) as resp:
+                    data = json.loads(resp.read().decode("utf-8"))
+
+                if data.get("ok") and data.get("has_task") and data.get("task_id"):
+                    task_id = data["task_id"]
+                    payload = data.get("payload") or {}
+                    result = _execute_task_payload(payload)
+                    comp_body = json.dumps({
+                        "task_id": task_id,
+                        "worker_id": WORKER_ID,
+                        "secret": WORKER_SECRET,
+                        "result": result,
+                    }).encode("utf-8")
+                    creq = urllib.request.Request(
+                        f"{MASTER_URL}/api/worker/complete",
+                        data=comp_body,
+                        headers={"Content-Type": "application/json"}
+                    )
+                    with urllib.request.urlopen(creq, timeout=20):
+                        pass
+            except urllib.error.HTTPError as he:
+                if he.code == 404:
+                    # Master server hasn't updated to /api/worker/pull yet; wait briefly
+                    time.sleep(8)
+                else:
+                    time.sleep(3)
+            except Exception:
+                time.sleep(2.5)
+
+    for slot in range(MAX_WORKERS):
+        threading.Thread(target=_pull_worker_slot, args=(slot,), daemon=True).start()
 
 
 def main():
@@ -214,12 +234,16 @@ def main():
     if max_sec > 0:
         def _auto_exit():
             time.sleep(max_sec)
-            print(f"[+] Reached max scheduled shift ({max_sec}s); exiting cleanly for next shift.")
+            print(f"[+] Reached max scheduled shift ({max_sec}s); exiting cleanly for next shift.", flush=True)
             os._exit(0)
         threading.Thread(target=_auto_exit, daemon=True).start()
+
+    # Warm up the multiprocessing pool immediately
+    _get_pool()
+    start_direct_pull_cluster()
+
+    # In GitHub Actions headless mode, we don't even need uvicorn unless PORT is requested
     port = int(os.environ.get("WORKER_PORT", os.environ.get("PORT", 5000)))
-    t = threading.Thread(target=start_tunnel_and_register, args=(port,), daemon=True)
-    t.start()
     uvicorn.run(app, host="0.0.0.0", port=port, log_level="warning")
 
 

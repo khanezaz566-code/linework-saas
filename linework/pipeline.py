@@ -548,16 +548,20 @@ def _process_icon(gray, opts: Options = None, emit=_noop, name="icon", set_w=Non
     return dict(model=model, svg=model.svg(), metrics=metrics)
 
 
-def load_gray(data: bytes):
+def load_gray(data: bytes, max_side: int | None = None):
     arr = np.frombuffer(data, np.uint8)
     im = cv2.imdecode(arr, cv2.IMREAD_UNCHANGED)
     if im is None:
         raise ValueError("Unsupported image")
+    if max_side and max(im.shape[:2]) > max_side:
+        s = max_side / max(im.shape[:2])
+        im = cv2.resize(im, None, fx=s, fy=s, interpolation=cv2.INTER_AREA)
     if im.ndim == 3 and im.shape[2] == 4:
-        a = im[:, :, 3:4].astype(np.float32) / 255
-        rgb = im[:, :, :3].astype(np.float32) * a + 255 * (1 - a)
-        im = rgb.astype(np.uint8)
-    if im.ndim == 3:
+        g_bgr = cv2.cvtColor(im[:, :, :3], cv2.COLOR_BGR2GRAY).astype(np.uint16)
+        a = im[:, :, 3].astype(np.uint16)
+        del im
+        im = ((g_bgr * a + 255 * (255 - a)) // 255).astype(np.uint8)
+    elif im.ndim == 3:
         im = cv2.cvtColor(im, cv2.COLOR_BGR2GRAY)
     return im
 
@@ -567,6 +571,7 @@ def process_sheet(gray, opts: Options = None, emit=_noop, worker=None):
     opts = opts or Options()
     D = ink_map(gray)
     w, icons, lab = find_icons(D, merge=opts.merge)
+    del D
     H, W = gray.shape
     bg = int(np.median(np.r_[gray[0], gray[-1], gray[:, 0], gray[:, -1]]))
     emit(engine="split", msg=f"Found {len(icons)} icon(s), stroke ≈ {w:.1f}px", icons=[ic["box"] for ic in icons], width=w)
@@ -574,6 +579,7 @@ def process_sheet(gray, opts: Options = None, emit=_noop, worker=None):
     for k, ic in enumerate(icons):
         crop, off = crop_icon(gray, lab, ic, pad=int(max(2 * w, 14)), bg=bg)
         jobs.append((k, crop, off))
+    del lab
     return W, H, jobs
 
 

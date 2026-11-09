@@ -623,8 +623,31 @@
     </header>
 
     <main>
+      <!-- Admin Section Navigation Bar -->
+      <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:12px; background:var(--card-bg); border:1px solid var(--card-border); border-radius:12px; padding:10px 16px;">
+        <div class="filter-tabs" id="adminMainNavTabs">
+          <button class="filter-tab active" data-sec="all" onclick="switchAdminSection('all')">
+            📊 All Overview
+          </button>
+          <button class="filter-tab" data-sec="operations" onclick="switchAdminSection('operations')">
+            ⚙️ Operations & Super-Cluster <span class="tab-badge" id="navBadgeNodes">0 Nodes</span>
+          </button>
+          <button class="filter-tab" data-sec="payments" onclick="switchAdminSection('payments')">
+            💳 bKash Desk <span class="tab-badge" id="navBadgePayments">0</span>
+          </button>
+          <button class="filter-tab" data-sec="customers" onclick="switchAdminSection('customers')">
+            👥 Customer CRM
+          </button>
+        </div>
+        <div style="display:flex; align-items:center; gap:10px; font-size:12px; color:var(--text-muted); flex-wrap:wrap;">
+          <span class="badge active" id="opsHeaderClusterPill">🚀 Cluster: Loading...</span>
+          <span class="badge pro" id="opsHeaderRamPill">🖥️ Render RAM: -- MB / 512 MB</span>
+          <span class="badge" style="background:rgba(0,245,160,0.12); color:#00f5a0; border:1px solid rgba(0,245,160,0.3);">🧹 Auto-Cache Clean: ON</span>
+        </div>
+      </div>
+
       <!-- KPI Row (7 Key Commercial Metrics) -->
-      <section class="kpi-grid">
+      <section class="kpi-grid" id="sectionKpis">
         <div class="kpi-card glow-radar">
           <div class="kpi-label">
             <span>Live Active Users</span>
@@ -679,6 +702,93 @@
         </div>
       </section>
 
+      <!-- Section 0: ⚙️ Operations — Super-Cluster, Render Health & Auto-Cache Control (Admin-Only) -->
+      <section class="panel" id="panelOperations" style="border-color:rgba(0, 210, 255, 0.35);">
+        <div class="panel-head" style="background:linear-gradient(90deg, rgba(0,210,255,0.07) 0%, rgba(0,245,160,0.05) 100%);">
+          <div class="panel-title">
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="#00d2ff" stroke-width="2.2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+            ⚙️ Operations — GitHub Super-Cluster, Render RAM & SaaS Health (Hidden from Customers)
+            <span class="badge active" id="opsClusterStatusBadge">ONLINE</span>
+          </div>
+          <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+            <button class="btn btn-success btn-sm" onclick="adminClearCacheNow()" id="btnAdminClearCache">
+              🧹 Clear Cache & Free RAM Now
+            </button>
+            <button class="btn btn-outline btn-sm" onclick="adminResetQueueNow()" id="btnAdminResetQueue">
+              🔄 Reset Stuck Queue
+            </button>
+          </div>
+        </div>
+
+        <!-- 4 Operations Sub-KPIs -->
+        <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(220px, 1fr)); gap:14px; padding:18px 24px; border-bottom:1px solid var(--card-border);">
+          <div style="background:#090c12; border:1px solid var(--card-border); border-radius:10px; padding:14px;">
+            <div style="font-size:11px; color:var(--text-muted); font-weight:700; text-transform:uppercase;">Connected Super-Cluster</div>
+            <div style="font-size:24px; font-weight:800; color:#00f5a0; font-family:var(--mono); margin-top:4px;" id="opsNodesCount">0 Nodes</div>
+            <div style="font-size:12px; color:var(--cyan); font-family:var(--mono); margin-top:2px;" id="opsTotalCores">0 Parallel CPU Cores · 0 Done</div>
+          </div>
+
+          <div style="background:#090c12; border:1px solid var(--card-border); border-radius:10px; padding:14px;">
+            <div style="display:flex; justify-content:space-between; font-size:11px; color:var(--text-muted); font-weight:700; text-transform:uppercase;">
+              <span>Render Server RAM (502 Guard)</span>
+              <span id="opsRamPct" style="color:#00f5a0; font-family:var(--mono);">0%</span>
+            </div>
+            <div style="font-size:22px; font-weight:800; color:#fff; font-family:var(--mono); margin-top:4px;" id="opsRamText">-- MB / 512 MB</div>
+            <div style="width:100%; height:6px; background:#1b2233; border-radius:4px; overflow:hidden; margin-top:8px;">
+              <div id="opsRamBar" style="width:20%; height:100%; background:linear-gradient(90deg, #00f5a0, #00d2ff); transition:width 0.3s;"></div>
+            </div>
+          </div>
+
+          <div style="background:#090c12; border:1px solid var(--card-border); border-radius:10px; padding:14px;">
+            <div style="font-size:11px; color:var(--text-muted); font-weight:700; text-transform:uppercase;">Auto Cache & Memory Cleanup</div>
+            <div style="font-size:20px; font-weight:800; color:#00d2ff; font-family:var(--mono); margin-top:4px;">⚡ Auto After Every Sheet</div>
+            <div style="font-size:12px; color:var(--text-muted); font-family:var(--mono); margin-top:4px;" id="opsAutoCleanStats">0 auto-cleanups · Last: just now</div>
+          </div>
+
+          <div style="background:#090c12; border:1px solid var(--card-border); border-radius:10px; padding:14px;">
+            <div style="font-size:11px; color:var(--text-muted); font-weight:700; text-transform:uppercase;">SaaS Concurrency & Jobs</div>
+            <div style="font-size:20px; font-weight:800; color:#b388ff; font-family:var(--mono); margin-top:4px;" id="opsActiveJobsText">0 Active · 100-User Ready</div>
+            <div style="font-size:12px; color:var(--text-muted); font-family:var(--mono); margin-top:4px;" id="opsUptimeText">Uptime: -- · Queue: 0</div>
+          </div>
+        </div>
+
+        <!-- Two Columns: Cluster Nodes Table + Live Operational Event Log -->
+        <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(380px, 1fr)); gap:0; border-top:1px solid rgba(255,255,255,0.02);">
+          <div style="border-right:1px solid var(--card-border); overflow-x:auto; max-height:320px; overflow-y:auto;">
+            <div style="padding:12px 20px; font-size:12px; font-weight:700; color:var(--text-muted); border-bottom:1px solid var(--card-border); display:flex; justify-content:space-between;">
+              <span>🛰️ Connected GitHub & Colab Cluster Workers</span>
+              <span style="font-family:var(--mono); color:#00f5a0;">Zero-Tunnel Direct Pull + Hybrid</span>
+            </div>
+            <table>
+              <thead>
+                <tr>
+                  <th>Worker Node ID</th>
+                  <th>Mode</th>
+                  <th>Cores / Cap</th>
+                  <th>Active / Solved</th>
+                  <th>Last Ping</th>
+                </tr>
+              </thead>
+              <tbody id="opsNodesTableBody">
+                <tr>
+                  <td colspan="5" style="text-align:center; padding:22px; color:var(--text-muted);">Loading cluster nodes...</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div style="overflow-x:auto; max-height:320px; overflow-y:auto;">
+            <div style="padding:12px 20px; font-size:12px; font-weight:700; color:var(--text-muted); border-bottom:1px solid var(--card-border); display:flex; justify-content:space-between;">
+              <span>📋 Live SaaS Operations & Auto-Cache Log</span>
+              <span id="opsActiveSheetsBadge" style="font-family:var(--mono); color:var(--cyan);">0 Running</span>
+            </div>
+            <div id="opsLogsBody" style="padding:12px 18px; display:flex; flex-direction:column; gap:7px; font-family:var(--mono); font-size:11.5px;">
+              <div style="color:var(--text-muted);">Waiting for operational telemetry...</div>
+            </div>
+          </div>
+        </div>
+      </section>
+
       <!-- Section 1: bKash Payment Approval Desk -->
       <section class="panel" id="panelPayments">
         <div class="panel-head">
@@ -717,7 +827,7 @@
       </section>
 
       <!-- Section 2: Customer CRM & Access Controller -->
-      <section class="panel">
+      <section class="panel" id="panelCustomers">
         <div class="panel-head">
           <div class="panel-title">
             <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="#00f5a0" stroke-width="2.2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
@@ -1044,6 +1154,187 @@
         renderUsers(filterUsers(state.allUsers));
       } catch (err) {
         console.error('Users load failed:', err);
+      }
+
+      // 4. Operations & Super-Cluster Health (Admin-Only)
+      await loadOperationsData();
+    }
+
+    function switchAdminSection(sec) {
+      document.querySelectorAll('#adminMainNavTabs .filter-tab').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.sec === sec);
+      });
+      const kpis = document.getElementById('sectionKpis');
+      const ops = document.getElementById('panelOperations');
+      const pay = document.getElementById('panelPayments');
+      const cust = document.getElementById('panelCustomers');
+      if (sec === 'all') {
+        if (kpis) kpis.style.display = 'grid';
+        if (ops) ops.style.display = 'flex';
+        if (pay) pay.style.display = 'flex';
+        if (cust) cust.style.display = 'flex';
+      } else if (sec === 'operations') {
+        if (kpis) kpis.style.display = 'none';
+        if (ops) ops.style.display = 'flex';
+        if (pay) pay.style.display = 'none';
+        if (cust) cust.style.display = 'none';
+      } else if (sec === 'payments') {
+        if (kpis) kpis.style.display = 'grid';
+        if (ops) ops.style.display = 'none';
+        if (pay) pay.style.display = 'flex';
+        if (cust) cust.style.display = 'none';
+      } else if (sec === 'customers') {
+        if (kpis) kpis.style.display = 'grid';
+        if (ops) ops.style.display = 'none';
+        if (pay) pay.style.display = 'none';
+        if (cust) cust.style.display = 'flex';
+      }
+    }
+
+    function formatDuration(sec) {
+      if (!sec || sec < 60) return `${sec || 0}s`;
+      const m = Math.floor(sec / 60);
+      if (m < 60) return `${m}m ${sec % 60}s`;
+      const h = Math.floor(m / 60);
+      return `${h}h ${m % 60}m`;
+    }
+
+    async function loadOperationsData() {
+      try {
+        const ops = await apiCall('/api/admin/operations');
+        const cl = ops.cluster || {};
+        const sv = ops.server || {};
+        const nodesCount = cl.active_nodes_count || 0;
+        const totalCap = cl.total_capacity || 0;
+        const totalDone = cl.total_completed || 0;
+
+        const navBadge = document.getElementById('navBadgeNodes');
+        if (navBadge) navBadge.textContent = `${nodesCount} Nodes`;
+        const navPay = document.getElementById('navBadgePayments');
+        const pendEl = document.getElementById('kpiPendingPayments');
+        if (navPay && pendEl) navPay.textContent = pendEl.textContent || '0';
+
+        const hdrCluster = document.getElementById('opsHeaderClusterPill');
+        if (hdrCluster) {
+          hdrCluster.textContent = nodesCount > 0
+            ? `🚀 Super-Cluster: ${nodesCount} Nodes (${totalCap} Cores)`
+            : `⚡ Local Engine Ready (0 Remote Nodes)`;
+        }
+        const hdrRam = document.getElementById('opsHeaderRamPill');
+        if (hdrRam) {
+          hdrRam.textContent = `🖥️ Render RAM: ${sv.ram_used_mb || 0} / ${sv.ram_limit_mb || 512} MB (${sv.ram_pct || 0}%)`;
+        }
+
+        const stBadge = document.getElementById('opsClusterStatusBadge');
+        if (stBadge) {
+          stBadge.textContent = nodesCount > 0 ? `SUPER-CLUSTER ACTIVE (${nodesCount} NODES)` : 'LOCAL STANDBY';
+        }
+
+        document.getElementById('opsNodesCount').textContent = `${nodesCount} Active Nodes`;
+        document.getElementById('opsTotalCores').textContent = `${totalCap} Parallel CPU Cores · ${totalDone} Icons Solved`;
+
+        document.getElementById('opsRamPct').textContent = `${sv.ram_pct || 0}%`;
+        document.getElementById('opsRamText').textContent = `${sv.ram_used_mb || 0} MB / ${sv.ram_limit_mb || 512} MB`;
+        const ramBar = document.getElementById('opsRamBar');
+        if (ramBar) {
+          ramBar.style.width = `${Math.min(100, Math.max(5, sv.ram_pct || 15))}%`;
+          ramBar.style.background = (sv.ram_pct || 0) > 80
+            ? 'linear-gradient(90deg, #ffb703, #ff4757)'
+            : 'linear-gradient(90deg, #00f5a0, #00d2ff)';
+        }
+
+        document.getElementById('opsAutoCleanStats').textContent =
+          `${sv.auto_cache_cleanup_count || 0} auto-cleanups · Last: ${formatDuration(sv.last_auto_cleanup_ago_s)} ago`;
+
+        document.getElementById('opsActiveJobsText').textContent =
+          `${sv.active_jobs_count || 0} Active Sheets · 100-User Ready`;
+        document.getElementById('opsUptimeText').textContent =
+          `Uptime: ${formatDuration(sv.uptime_sec)} · Pull Queue: ${cl.pull_queue_depth || 0}`;
+
+        const actBadge = document.getElementById('opsActiveSheetsBadge');
+        if (actBadge) actBadge.textContent = `${sv.active_jobs_count || 0} Running`;
+
+        // Render Nodes Table
+        const nodesTbody = document.getElementById('opsNodesTableBody');
+        const nodes = cl.nodes || [];
+        if (nodes.length === 0) {
+          nodesTbody.innerHTML = '<tr><td colspan="5" style="text-align:center; padding:22px; color:var(--text-muted);">No external GitHub/Colab nodes registered right now. Running on protected local engine.</td></tr>';
+        } else {
+          nodesTbody.innerHTML = nodes.map(n => {
+            const shortId = n.id.replace('pull://', '').replace('https://', '');
+            const modeBadge = n.mode === 'pull'
+              ? '<span class="badge active" style="font-size:10px;">⚡ Zero-Tunnel Pull</span>'
+              : '<span class="badge pro" style="font-size:10px;">🔗 Direct Push</span>';
+            return `
+              <tr>
+                <td style="font-family:var(--mono); font-weight:700; color:#fff;">${escapeHtml(shortId)}</td>
+                <td>${modeBadge}</td>
+                <td style="font-family:var(--mono); color:var(--cyan);">${n.cpus} vCPU (${n.capacity} slots)</td>
+                <td style="font-family:var(--mono);">
+                  <b style="color:${n.active > 0 ? '#00f5a0' : 'var(--text-muted)'};">${n.active} active</b> · ${n.total_dispatched} done
+                </td>
+                <td style="font-family:var(--mono); color:var(--text-muted);">${n.last_ping_ago_s}s ago</td>
+              </tr>
+            `;
+          }).join('');
+        }
+
+        // Render Logs & Active Customer Jobs
+        const logsEl = document.getElementById('opsLogsBody');
+        const activeJobs = sv.active_jobs || [];
+        const logs = ops.recent_logs || [];
+        let html = '';
+        if (activeJobs.length > 0) {
+          html += activeJobs.map(aj => `
+            <div style="background:rgba(0,245,160,0.08); border:1px solid rgba(0,245,160,0.3); border-radius:6px; padding:6px 10px; color:#00f5a0;">
+              ⚙️ <b>Running Sheet #${escapeHtml(aj.id.slice(0,6))}</b> (${escapeHtml(aj.name)}) — ${aj.done}/${aj.total} icons (${aj.elapsed_s}s)
+            </div>
+          `).join('');
+        }
+        if (logs.length === 0 && activeJobs.length === 0) {
+          html = '<div style="color:var(--text-muted);">System healthy. All cache cleanups automatic.</div>';
+        } else {
+          html += logs.map(l => {
+            const col = l.level === 'error' ? '#ff4757' : l.level === 'warn' ? '#ffb703' : l.level === 'ok' ? '#00f5a0' : '#00d2ff';
+            return `<div style="display:flex; gap:8px; border-bottom:1px solid rgba(255,255,255,0.03); padding-bottom:4px;">
+              <span style="color:var(--text-dim);">[${escapeHtml(l.ts)}]</span>
+              <span style="color:${col}; font-weight:700;">●</span>
+              <span style="color:var(--text); white-space:normal;">${escapeHtml(l.msg)}</span>
+            </div>`;
+          }).join('');
+        }
+        logsEl.innerHTML = html;
+      } catch (err) {
+        console.error('Operations load failed:', err);
+      }
+    }
+
+    async function adminClearCacheNow() {
+      const btn = document.getElementById('btnAdminClearCache');
+      if (btn) btn.disabled = true;
+      try {
+        const res = await apiCall('/api/admin/operations/clear-cache', { method: 'POST' });
+        showToast(res.message || 'Cache & OS memory cleared!');
+        await loadOperationsData();
+      } catch (err) {
+        alert(err.message);
+      } finally {
+        if (btn) btn.disabled = false;
+      }
+    }
+
+    async function adminResetQueueNow() {
+      if (!confirm('Reset any stuck jobs and clear the worker dispatch queue?')) return;
+      const btn = document.getElementById('btnAdminResetQueue');
+      if (btn) btn.disabled = true;
+      try {
+        const res = await apiCall('/api/admin/operations/reset-queue', { method: 'POST' });
+        showToast(res.message || 'Worker queue reset!');
+        await loadOperationsData();
+      } catch (err) {
+        alert(err.message);
+      } finally {
+        if (btn) btn.disabled = false;
       }
     }
 

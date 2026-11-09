@@ -62,7 +62,7 @@
     return (iss.duplicates || 0) + (iss.kinks || 0) + (iss.gaps || 0) + (iss.notches || 0) + (iss.spurs || 0) + (iss.regions || 0);
   }
 
-  // Health check
+  // Health check (Customer-facing: clean status without internal cluster node counts)
   function updateClusterHealth() {
     fetch('/api/health')
       .then(r => r.json())
@@ -72,11 +72,7 @@
         p.className = 'status-pill ok';
         const txt = $('.status-text', p) || p.lastElementChild;
         if (txt) {
-          if (h.hybrid_worker && h.hybrid_nodes_count > 0) {
-            txt.textContent = `🚀 Super Cluster · ${h.hybrid_nodes_count} Colab Node${h.hybrid_nodes_count > 1 ? 's' : ''}`;
-          } else {
-            txt.textContent = `AI Engine Online · ${h.renderer}`;
-          }
+          txt.textContent = h && h.ok ? 'AI Engine Ready' : 'AI Engine Online';
         }
       })
       .catch(() => {
@@ -84,7 +80,7 @@
         if (!p) return;
         p.className = 'status-pill bad';
         const txt = $('.status-text', p) || p.lastElementChild;
-        if (txt) txt.textContent = 'Engine Offline';
+        if (txt) txt.textContent = 'Reconnecting...';
       });
   }
   updateClusterHealth();
@@ -485,23 +481,19 @@
         el.className = 'ic';
         el.dataset.k = ic.k;
         const isClean = ic.clean !== false && !ic.needs_review;
-        const cleanVal = ic.structural_match != null ? ic.structural_match : 1.0;
-        const cleanStr = (cleanVal * 100).toFixed(1) + '%';
         el.innerHTML = `
           <div class="ic-thumb-wrap">
             <img alt="icon-${ic.k + 1}">
-            ${done ? `<span class="ic-clean-pill ${isClean ? 'clean-ok' : 'clean-warn'}">${isClean ? 'Clean ✓' : 'Review ⚠'}</span>` : ''}
           </div>
-          <div class="gauge-cluster">
-            <svg class="gauge-svg" viewBox="0 0 44 44">
-              <circle class="gauge-bg" cx="22" cy="22" r="18" />
-              <circle class="gauge-bar" cx="22" cy="22" r="18" stroke-dasharray="${circ}" stroke-dashoffset="${offset}" />
-            </svg>
-            <span class="gauge-text">${pctStr}</span>
-          </div>
-          <div class="ic-score-row">
-            <span class="gauge-label">Match</span>
-            <span class="clean-sub-label ${isClean ? 'clean-ok' : 'clean-warn'}">${isClean ? 'Clean ✓' : 'Review ⚠'}</span>
+          <div class="ic-stat-col">
+            <div class="gauge-cluster">
+              <svg class="gauge-svg" viewBox="0 0 44 44">
+                <circle class="gauge-bg" cx="22" cy="22" r="18" />
+                <circle class="gauge-bar" cx="22" cy="22" r="18" stroke-dasharray="${circ}" stroke-dashoffset="${offset}" />
+              </svg>
+              <span class="gauge-text">${pctStr}</span>
+            </div>
+            <span class="ic-clean-pill ${isClean ? 'clean-ok' : 'clean-warn'}">${done ? (isClean ? 'Clean ✓' : 'Review') : 'Running'}</span>
           </div>
         `;
         el.addEventListener('click', () => selectIcon(ic.k));
@@ -515,20 +507,7 @@
         const pill = $('.ic-clean-pill', el);
         if (pill) {
           pill.className = `ic-clean-pill ${isClean ? 'clean-ok' : 'clean-warn'}`;
-          pill.textContent = isClean ? 'Clean ✓' : 'Review ⚠';
-        } else if (done) {
-          const wrap = $('.ic-thumb-wrap', el);
-          if (wrap) {
-            const p = document.createElement('span');
-            p.className = `ic-clean-pill ${isClean ? 'clean-ok' : 'clean-warn'}`;
-            p.textContent = isClean ? 'Clean ✓' : 'Review ⚠';
-            wrap.appendChild(p);
-          }
-        }
-        const cleanSub = $('.clean-sub-label', el);
-        if (cleanSub) {
-          cleanSub.className = `clean-sub-label ${isClean ? 'clean-ok' : 'clean-warn'}`;
-          cleanSub.textContent = isClean ? 'Clean ✓' : 'Review ⚠';
+          pill.textContent = done ? (isClean ? 'Clean ✓' : 'Review') : 'Running';
         }
       }
 
@@ -647,16 +626,15 @@
     const badge = $('#compMatchBadge');
     if (badge) {
       const p = ic.iou != null ? ic.iou : ic.live_iou;
-      badge.textContent = p != null ? `${fmt(p)} Match` : 'Processing...';
+      badge.textContent = p != null ? `${fmt(p)}` : '…';
     }
 
     // Clean badge
     const cleanBadge = $('#compCleanBadge');
     if (cleanBadge) {
       const isClean = ic.clean !== false && !ic.needs_review;
-      const sm = ic.structural_match != null ? (ic.structural_match * 100).toFixed(1) + '%' : '100%';
       cleanBadge.className = `clean-badge ${isClean ? 'clean-ok' : 'clean-warn'}`;
-      cleanBadge.textContent = isClean ? `${sm} Clean ✓` : `${sm} Review ⚠`;
+      cleanBadge.textContent = isClean ? `Clean ✓` : `Review ⚠`;
     }
 
     // Overlay toggle logic
@@ -767,9 +745,6 @@
   function finish(j) {
     S.done = true;
 
-    // Render the final verified vector onto the canvas now that match is 100% complete!
-    loadSvg();
-
     // Stop scanning beam
     const stg = $('#stage');
     if (stg) stg.classList.remove('processing');
@@ -858,7 +833,11 @@
     }
 
     const imgDiff = $('#imgDiff');
-    if (imgDiff) imgDiff.src = `/api/jobs/${S.job}/diff.png?v=${S.version}`;
+    if (imgDiff) {
+      const diffUrl = `/api/jobs/${S.job}/diff.png?v=${S.version}`;
+      imgDiff.dataset.src = diffUrl;
+      if (S.view === 'diff') imgDiff.src = diffUrl;
+    }
 
     updateLinks();
     ['dlSvg', 'dlZip', 'copy', 'dlEps', 'btnSendToTemplate'].forEach(i => {
@@ -1084,7 +1063,13 @@
       o.style.filter = v === 'overlay' ? 'grayscale(1)' : 'none';
     }
     if (vec) vec.style.display = (v === 'vector' || v === 'overlay') ? 'block' : 'none';
-    if (d) d.style.display = v === 'diff' ? 'block' : 'none';
+    if (d) {
+      d.style.display = v === 'diff' ? 'block' : 'none';
+      if (v === 'diff' && S.job) {
+        const targetSrc = d.dataset.src || `/api/jobs/${S.job}/diff.png?v=${S.version}`;
+        if (d.getAttribute('src') !== targetSrc) d.src = targetSrc;
+      }
+    }
     const leg = $('#legend'); if (leg) leg.hidden = v !== 'diff';
     applyStyle();
   }

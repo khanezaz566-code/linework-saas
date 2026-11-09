@@ -6,11 +6,27 @@ from scipy import ndimage as ndi
 
 
 def estimate_width(D):
-    mask = D > 0.5
-    if mask.sum() < 50:
+    mask = (D > 0.5).astype(np.uint8)
+    if int(mask.sum()) < 50:
         return 8.0
-    sk = skeletonize(mask)
-    dt = ndi.distance_transform_edt(mask)
+    if max(mask.shape) > 900:
+        ys, xs = np.where(mask > 0)
+        vals = []
+        for frac in (0.2, 0.5, 0.8):
+            idx = int(len(ys) * frac)
+            y0, x0 = int(ys[idx]), int(xs[idx])
+            sub = mask[max(0, y0 - 300):y0 + 300, max(0, x0 - 300):x0 + 300]
+            if int(sub.sum()) >= 30:
+                sk_s = skeletonize(sub > 0)
+                dt_s = cv2.distanceTransform(sub, cv2.DIST_L2, 5)
+                v_s = dt_s[sk_s]
+                if v_s.size:
+                    vals.append(v_s)
+        if vals:
+            v = np.concatenate(vals)
+            return float(2 * np.median(v))
+    sk = skeletonize(mask > 0)
+    dt = cv2.distanceTransform(mask, cv2.DIST_L2, 5)
     v = dt[sk]
     if v.size == 0:
         return 8.0

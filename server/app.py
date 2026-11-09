@@ -29,7 +29,7 @@ DATA = FsPath(os.environ.get("LINEWORK_DATA", ROOT / "data"))
 DATA.mkdir(parents=True, exist_ok=True)
 MAX_BYTES = 15 * 1024 * 1024
 is_cloud = bool(os.environ.get("RENDER") or os.environ.get("PORT"))
-MAX_SIDE = 2600 if is_cloud else 5000
+MAX_SIDE = 2000 if is_cloud else 5000
 MAX_ICONS = 96
 KEEP_SECONDS = 24 * 3600
 
@@ -230,15 +230,99 @@ def _get(job_id):
     return job
 
 
-def _sweep_old():
+_SERVER_START_TIME = time.time()
+_AUTO_CACHE_CLEANUP_COUNT = 0
+_LAST_AUTO_CLEANUP_TS = time.time()
+_OPS_LOGS: list[dict] = []
+
+
+def _log_ops_event(level: str, msg: str):
+    _OPS_LOGS.append({
+        "ts": time.strftime("%H:%M:%S"),
+        "epoch": round(time.time(), 1),
+        "level": level,
+        "msg": msg,
+    })
+    if len(_OPS_LOGS) > 50:
+        del _OPS_LOGS[:-50]
+
+
+def _get_process_ram_mb() -> float:
+    try:
+        p = FsPath("/proc/self/status")
+        if p.exists():
+            txt = p.read_text()
+            m = re.search(r"VmRSS:\s+(\d+)\s+kB", txt)
+            if m:
+                return round(int(m.group(1)) / 1024.0, 1)
+    except Exception:
+        pass
+    return 118.0
+
+
+def _sweep_old(max_keep: int = 15):
     now = time.time()
+    dirs = []
     for d in list(DATA.iterdir()):
         try:
-            if d.is_dir() and d.name != "lessons" and now - d.stat().st_mtime > KEEP_SECONDS:
-                shutil.rmtree(d, ignore_errors=True)
-                JOBS.pop(d.name, None)
+            if d.is_dir() and d.name not in ("lessons", "uploads"):
+                mtime = d.stat().st_mtime
+                if now - mtime > KEEP_SECONDS:
+                    shutil.rmtree(d, ignore_errors=True)
+                    JOBS.pop(d.name, None)
+                else:
+                    dirs.append((mtime, d))
         except Exception:
             pass
+    if len(dirs) > max_keep:
+        dirs.sort(key=lambda x: x[0])
+        for _, old_d in dirs[:-max_keep]:
+            jid = old_d.name
+            j = JOBS.get(jid)
+            if j and j.get("status") in ("queued", "splitting", "running"):
+                continue
+            shutil.rmtree(old_d, ignore_errors=True)
+            JOBS.pop(jid, None)
+
+
+def _release_os_memory(reason: str = "auto_after_sheet") -> dict:
+    """Automatic post-sheet cache & OS heap cleanup so Render 512MB RAM never fills up."""
+    global _AUTO_CACHE_CLEANUP_COUNT, _LAST_AUTO_CLEANUP_TS
+    ram_before = _get_process_ram_mb()
+    cleared_lessons = 0
+    try:
+        from linework import lessons as LS
+        cleared_lessons = LS.clear()
+    except Exception:
+        pass
+    try:
+        # Trim in-memory events from completed jobs while keeping active jobs untouched
+        for jid, j in list(JOBS.items()):
+            if j.get("status") in ("done", "error", "cancelled"):
+                if len(j.get("events", [])) > 15:
+                    j["events"] = j["events"][-15:]
+        _sweep_old(max_keep=12 if _SYSTEM_RAM_MB < 2500 else 30)
+    except Exception:
+        pass
+    gc.collect()
+    try:
+        import ctypes
+        libc = ctypes.CDLL("libc.so.6")
+        libc.malloc_trim(0)
+    except Exception:
+        pass
+    _AUTO_CACHE_CLEANUP_COUNT += 1
+    _LAST_AUTO_CLEANUP_TS = time.time()
+    ram_after = _get_process_ram_mb()
+    _log_ops_event("ok", f"Auto Cache & RAM Clean ({reason}): {ram_before}MB -> {ram_after}MB")
+    return {
+        "ok": True,
+        "reason": reason,
+        "ram_before_mb": ram_before,
+        "ram_after_mb": ram_after,
+        "cleared_lessons": cleared_lessons,
+        "total_cleanups": _AUTO_CACHE_CLEANUP_COUNT,
+    }
 
 
 def _decode_upload(data: bytes, filename: str) -> np.ndarray:
@@ -268,15 +352,15 @@ def _decode_upload(data: bytes, filename: str) -> np.ndarray:
             try:
                 import resvg_py
                 svg_str = data.decode("utf-8", "ignore").lstrip("\ufeff")
-                data = bytes(resvg_py.svg_to_bytes(svg_string=svg_str, width=2400, background="white"))
+                data = bytes(resvg_py.svg_to_bytes(svg_string=svg_str, width=min(2400, MAX_SIDE), background="white"))
             except Exception as e:
                 try:
-                    return load_gray(data)
+                    return load_gray(data, max_side=MAX_SIDE)
                 except Exception:
                     raise HTTPException(400, f"Could not render SVG: {e}")
 
     try:
-        g = load_gray(data)
+        g = load_gray(data, max_side=MAX_SIDE)
     except Exception as e:
         raise HTTPException(400, f"Unsupported or corrupted image: {e}")
 
@@ -394,6 +478,22 @@ def _store_icon(job, d, k, mj, off, met):
 
 
 def _detect_system_ram_mb() -> int:
+    # Check container environment & cgroup memory limits FIRST (since /proc/meminfo in Docker shows the host node's 64GB RAM)
+    if os.environ.get("RENDER"):
+        return 512
+    if os.environ.get("SPACE_ID") or os.environ.get("HF_SPACE"):
+        return 16384
+    for cg_path in ("/sys/fs/cgroup/memory.max", "/sys/fs/cgroup/memory/memory.limit_in_bytes"):
+        try:
+            p = FsPath(cg_path)
+            if p.exists():
+                val = p.read_text().strip()
+                if val.isdigit():
+                    mb = int(val) // (1024 * 1024)
+                    if 64 <= mb <= 131072:
+                        return mb
+        except Exception:
+            pass
     try:
         if FsPath("/proc/meminfo").exists():
             txt = FsPath("/proc/meminfo").read_text()
@@ -402,17 +502,14 @@ def _detect_system_ram_mb() -> int:
                 return int(m.group(1)) // 1024
     except Exception:
         pass
-    # Default: if on Render free tier, assume 512MB; if on HF Spaces (SPACE_ID), 16384MB
-    if os.environ.get("SPACE_ID") or os.environ.get("HF_SPACE"):
-        return 16384
-    if os.environ.get("RENDER"):
-        return 512
     return 4096
 
 
 _SYSTEM_RAM_MB = _detect_system_ram_mb()
 _LOCAL_CAPACITY = max(2, min(4, os.cpu_count() or 2)) if _SYSTEM_RAM_MB >= 3000 else 1
 _LOCAL_SEMAPHORE = threading.Semaphore(_LOCAL_CAPACITY)
+_SPLIT_SEMAPHORE = threading.Semaphore(2 if _SYSTEM_RAM_MB < 2500 else 8)
+_log_ops_event("ok", f"Engine booted ({_SYSTEM_RAM_MB}MB container limit, local cap={_LOCAL_CAPACITY})")
 
 
 def _update_live_iou(job: dict):
@@ -493,14 +590,23 @@ def _run_job(job_id):
     d = _jobdir(job_id)
     try:
         job["status"] = "splitting"
-        gray = cv2.imread(str(d / "original.png"), 0)
-        opts = Options(**job["options"])
-        W, H, jobs = process_sheet(gray, opts)
+        with _SPLIT_SEMAPHORE:
+            gray = cv2.imread(str(d / "original.png"), 0)
+            opts = Options(**job["options"])
+            W, H, jobs = process_sheet(gray, opts)
+            del gray
+            gc.collect()
         if is_job_cancelled(job_id):
             job["status"] = "cancelled"
             return
         if len(jobs) > MAX_ICONS:
             raise RuntimeError(f"Too many icons ({len(jobs)}); limit is {MAX_ICONS}")
+        for k_c, crop_c, off_c in jobs:
+            try:
+                cv2.imwrite(str(d / f"icon_crop_{k_c}.png"), crop_c)
+                (d / f"icon_crop_{k_c}.json").write_text(json.dumps([int(off_c[0]), int(off_c[1])]))
+            except Exception:
+                pass
         job["width"], job["height"] = W, H
         job["icons"] = [
             dict(k=k, box=[int(off[0]), int(off[1]), int(off[0] + c.shape[1]), int(off[1] + c.shape[0])], status="queued", stage="queued")
@@ -508,6 +614,7 @@ def _run_job(job_id):
         ]
         job["status"] = "running"
         job["events"].append(dict(engine="split", msg=f"Found {len(jobs)} icon(s)", t=0, n=len(job["events"])))
+        _log_ops_event("info", f"Sheet #{job_id[:6]} started ({len(jobs)} icons, {remote_worker.get_active_nodes_count()} cluster nodes)")
         order = sorted(jobs, key=lambda j: -j[1].size)
         crop_map = {k: c for k, c, off in jobs}
         off_map = {k: off for k, c, off in jobs}
@@ -554,12 +661,17 @@ def _run_job(job_id):
             job["done"] += 1
             _update_live_iou(job)
 
+        # Free in-memory icon crops immediately after dispatch loop finishes
+        jobs.clear()
+        order.clear()
+        crop_map.clear()
+
         if is_job_cancelled(job_id):
             job["status"] = "cancelled"
             return
 
         try:  # Fast width harmonization & single final composite render
-            _set_pass(job_id, d, jobs, order)
+            _set_pass(job_id, d, [], [])
         except Exception as e:
             job["events"].append(dict(engine="doctor", msg=f"Set-level pass skipped: {e}", t=0, n=len(job["events"])))
             _finish_composite(job_id)
@@ -567,13 +679,17 @@ def _run_job(job_id):
             job["status"] = "cancelled"
             return
         job["status"] = "done"
-        gc.collect()
         job["seconds"] = round(time.time() - job["created"], 1)
         (d / "job.json").write_text(json.dumps({k: v for k, v in job.items() if k != "events"}))
+        _log_ops_event("ok", f"Sheet #{job_id[:6]} completed in {job['seconds']}s (IoU: {round((job.get('iou') or 0)*100, 1)}%)")
     except Exception as e:
         if not is_job_cancelled(job_id):
             job["status"] = "error"
             job["error"] = str(e)
+            _log_ops_event("error", f"Sheet #{job_id[:6]} error: {e}")
+    finally:
+        # Automatic cache & memory cleanup after every single icon sheet!
+        _release_os_memory(reason=f"sheet_{job_id[:6]}_done")
 
 
 # --------------------------------------------------------------------------- API
@@ -587,9 +703,8 @@ def lessons():
 @app.delete("/api/lessons")
 @app.post("/api/cache/clear")
 def clear_cache():
-    from linework import lessons as LS
-    cleared = LS.clear()
-    return dict(ok=True, message="Cache cleared and lessons reset", cleared=cleared)
+    info = _release_os_memory(reason="manual_api_clear")
+    return dict(ok=True, message="Cache cleared and memory released", cleared=info["cleared_lessons"], memory=info)
 
 
 @app.post("/api/jobs/{job_id}/cancel")
@@ -685,6 +800,35 @@ async def register_worker(request: Request):
     if not ok:
         raise HTTPException(401, "Invalid secret")
     return {"ok": True, "registered": url}
+
+
+@app.post("/api/worker/pull")
+def worker_pull(body: dict = Body(...)):
+    """Zero-Tunnel Direct Pull endpoint. Runs in FastAPI's sync threadpool so workers can long-poll up to 18s."""
+    worker_id = body.get("worker_id") or body.get("url")
+    secret = body.get("secret")
+    specs = body.get("specs", {})
+    if not worker_id or not secret:
+        raise HTTPException(400, "Missing worker_id or secret")
+    res = remote_worker.pull_pending_task(worker_id, secret, specs, wait_timeout=18.0)
+    if not res.get("ok") and res.get("error") == "unauthorized":
+        raise HTTPException(401, "Invalid secret")
+    return res
+
+
+@app.post("/api/worker/complete")
+def worker_complete(body: dict = Body(...)):
+    """Zero-Tunnel Task Completion endpoint."""
+    task_id = body.get("task_id")
+    worker_id = body.get("worker_id")
+    secret = body.get("secret")
+    result = body.get("result", {})
+    if not task_id or not secret:
+        raise HTTPException(400, "Missing task_id or secret")
+    if secret != remote_worker.WORKER_SECRET:
+        raise HTTPException(401, "Invalid secret")
+    ok = remote_worker.complete_pulled_task(task_id, worker_id, secret, result)
+    return {"ok": ok, "task_id": task_id}
 
 
 @app.get("/api/worker/bundle.zip")
@@ -825,8 +969,14 @@ def diff(job_id: str, v: int = 0):
         allm = _compose(job_id)
         if not allm.paths:
             raise HTTPException(404)
-        img = render_gray(allm.svg(), allm.width, allm.height)
         gray = cv2.imread(str(d / "original.png"), 0)
+        if _SYSTEM_RAM_MB < 2500 and max(gray.shape[:2]) > 1100:
+            sc = 1100.0 / max(gray.shape[:2])
+            gray = cv2.resize(gray, None, fx=sc, fy=sc, interpolation=cv2.INTER_AREA)
+            rw, rh = gray.shape[1], gray.shape[0]
+        else:
+            rw, rh = allm.width, allm.height
+        img = render_gray(allm.svg(), rw, rh)
         ref = ink_map(gray) > 0.5
         b = img < 128
         dm = np.full(ref.shape + (3,), 255, np.uint8)
@@ -834,6 +984,8 @@ def diff(job_id: str, v: int = 0):
         dm[ref & ~b] = (60, 60, 235)
         dm[~ref & b] = (235, 120, 60)
         cv2.imwrite(str(fn), dm)
+        del gray, img, ref, b, dm
+        gc.collect()
     return FileResponse(fn, media_type="image/png", headers={"Cache-Control": "no-store"})
 
 
@@ -845,7 +997,11 @@ def result_png(job_id: str):
         allm = _compose(job_id)
         if not allm.paths:
             raise HTTPException(404)
-        img = render_gray(allm.svg(), allm.width, allm.height)
+        rw, rh = allm.width, allm.height
+        if _SYSTEM_RAM_MB < 2500 and max(rw, rh) > 1200:
+            sc = 1200.0 / max(rw, rh)
+            rw, rh = int(round(rw * sc)), int(round(rh * sc))
+        img = render_gray(allm.svg(), rw, rh)
         cv2.imwrite(str(fn), img)
     return FileResponse(fn, media_type="image/png", headers={"Cache-Control": "no-store"})
 
@@ -929,7 +1085,7 @@ def icon_diff_png(job_id: str, k: int):
     if not local_fn.exists():
         raise HTTPException(404, "Icon vector not found")
     m = Model.from_json(local_fn.read_text())
-    crop = _icon_crop(job_id, k)
+    crop, _ = _icon_crop(job_id, k)
     if crop is None:
         raise HTTPException(404, "Icon crop not found")
     D = ink_map(crop)
@@ -964,14 +1120,22 @@ def _icon_crop(job_id, k):
     gray = cv2.imread(str(orig_path), 0)
     opts = Options(**job.get("options", {}))
     _, _, jobs = process_sheet(gray, opts)
+    del gray
+    for jk, jc, joff in jobs:
+        try:
+            cv2.imwrite(str(d / f"icon_crop_{jk}.png"), jc)
+            (d / f"icon_crop_{jk}.json").write_text(json.dumps([int(joff[0]), int(joff[1])]))
+        except Exception:
+            pass
     if k < len(jobs):
         _, crop, off = jobs[k]
     else:
         b = icons[k]["box"]
-        crop = gray[b[1]:b[3], b[0]:b[2]]
+        orig_gray = cv2.imread(str(orig_path), 0)
+        crop = orig_gray[b[1]:b[3], b[0]:b[2]]
         off = (b[0], b[1])
-    cv2.imwrite(str(cache), crop)
-    offf.write_text(json.dumps([int(off[0]), int(off[1])]))
+        cv2.imwrite(str(cache), crop)
+        offf.write_text(json.dumps([int(off[0]), int(off[1])]))
     return crop, (int(off[0]), int(off[1]))
 
 
@@ -1522,6 +1686,87 @@ NO_CACHE_HEADERS = {
 def api_admin_stats(request: Request):
     require_admin(request)
     return JSONResponse(db.get_admin_stats(), headers=NO_CACHE_HEADERS)
+
+
+@app.get("/api/admin/operations")
+def api_admin_operations(request: Request):
+    require_admin(request)
+    cluster = remote_worker.get_cluster_operations_detail()
+    ram_used = _get_process_ram_mb()
+    ram_limit = float(_SYSTEM_RAM_MB)
+    ram_pct = min(99.0, round((ram_used / max(ram_limit, 1.0)) * 100.0, 1))
+    now = time.time()
+    active_jobs = [
+        {
+            "id": j.get("id"),
+            "name": j.get("name"),
+            "status": j.get("status"),
+            "done": j.get("done", 0),
+            "total": len(j.get("icons", [])),
+            "elapsed_s": round(now - j.get("created", now), 1),
+        }
+        for j in JOBS.values()
+        if j.get("status") in ("queued", "splitting", "running")
+    ]
+    completed_count = sum(1 for j in JOBS.values() if j.get("status") == "done")
+    error_count = sum(1 for j in JOBS.values() if j.get("status") == "error")
+
+    return JSONResponse(
+        {
+            "ok": True,
+            "cluster": cluster,
+            "server": {
+                "status": "healthy" if ram_pct < 85 else "high_load",
+                "ram_used_mb": ram_used,
+                "ram_limit_mb": int(ram_limit),
+                "ram_pct": ram_pct,
+                "uptime_sec": int(round(now - _SERVER_START_TIME)),
+                "renderer": backend_name(),
+                "local_capacity": _LOCAL_CAPACITY,
+                "max_concurrent_customers": 100,
+                "active_jobs_count": len(active_jobs),
+                "active_jobs": active_jobs,
+                "completed_jobs_mem": completed_count,
+                "error_jobs_mem": error_count,
+                "auto_cache_enabled": True,
+                "auto_cache_cleanup_count": _AUTO_CACHE_CLEANUP_COUNT,
+                "last_auto_cleanup_ago_s": int(round(now - _LAST_AUTO_CLEANUP_TS)),
+            },
+            "recent_logs": list(reversed(_OPS_LOGS[-25:])),
+        },
+        headers=NO_CACHE_HEADERS,
+    )
+
+
+@app.post("/api/admin/operations/clear-cache")
+def api_admin_ops_clear_cache(request: Request):
+    require_admin(request)
+    info = _release_os_memory(reason="admin_dashboard_manual")
+    return JSONResponse(
+        {
+            "ok": True,
+            "message": f"Cache & OS memory cleaned! RAM: {info['ram_before_mb']}MB -> {info['ram_after_mb']}MB",
+            "details": info,
+        },
+        headers=NO_CACHE_HEADERS,
+    )
+
+
+@app.post("/api/admin/operations/reset-queue")
+def api_admin_ops_reset_queue(request: Request):
+    require_admin(request)
+    cancel_all_jobs()
+    remote_worker.reset_worker_queue()
+    info = _release_os_memory(reason="admin_queue_reset")
+    _log_ops_event("warn", "Admin reset stuck jobs & worker dispatch queue")
+    return JSONResponse(
+        {
+            "ok": True,
+            "message": "All stuck jobs and worker queues reset cleanly!",
+            "details": info,
+        },
+        headers=NO_CACHE_HEADERS,
+    )
 
 
 
