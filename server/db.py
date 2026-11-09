@@ -171,7 +171,7 @@ def _get_pg_conn():
     if "sslmode" not in url:
         sep = "&" if "?" in url else "?"
         url = f"{url}{sep}sslmode=require"
-    return psycopg2.connect(url)
+    return psycopg2.connect(url, connect_timeout=3)
 
 if getattr(sys, "frozen", False):
     DB_DIR = Path(sys.executable).resolve().parent / "data"
@@ -203,7 +203,8 @@ def get_db():
         try:
             return PostgresConnectionWrapper(_get_pg_conn())
         except Exception as e:
-            print(f"[DB WARN] Failed to connect to Postgres ({e}), falling back to SQLite", file=sys.stderr)
+            print(f"[DB WARN] Failed to connect to Postgres ({e}), falling back to SQLite permanently", file=sys.stderr)
+            IS_POSTGRES = False
     conn = sqlite3.connect(str(DB_PATH))
     conn.row_factory = sqlite3.Row
     return conn
@@ -291,58 +292,131 @@ def _migrate_db(conn):
 
 
 def init_db():
-    with get_db() as conn:
-        if IS_POSTGRES:
+    global IS_POSTGRES
+    try:
+        with get_db() as conn:
+            if IS_POSTGRES:
+                cur = conn.cursor()
+                cur.execute("""
+                CREATE TABLE IF NOT EXISTS users (
+                    id SERIAL PRIMARY KEY,
+                    username TEXT UNIQUE NOT NULL,
+                    name TEXT,
+                    phone TEXT UNIQUE,
+                    whatsapp TEXT,
+                    email TEXT,
+                    password_hash TEXT NOT NULL,
+                    salt TEXT NOT NULL,
+                    role TEXT DEFAULT 'user',
+                    status TEXT DEFAULT 'active',
+                    plan TEXT DEFAULT 'free',
+                    free_sheets_used INTEGER DEFAULT 0,
+                    free_bg_used INTEGER DEFAULT 0,
+                    pro_expires_at TEXT,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    last_active TEXT,
+                    last_seen_epoch BIGINT DEFAULT 0
+                );
+
+                CREATE TABLE IF NOT EXISTS sessions (
+                    token TEXT PRIMARY KEY,
+                    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                    last_seen TEXT,
+                    last_seen_epoch BIGINT DEFAULT 0,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                );
+
+                CREATE TABLE IF NOT EXISTS payments (
+                    id SERIAL PRIMARY KEY,
+                    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                    username TEXT NOT NULL,
+                    user_name TEXT,
+                    phone TEXT NOT NULL,
+                    whatsapp TEXT,
+                    plan_selected TEXT DEFAULT 'bundle_pro',
+                    amount INTEGER DEFAULT 300,
+                    trx_id TEXT NOT NULL,
+                    screenshot_path TEXT,
+                    status TEXT DEFAULT 'pending',
+                    admin_notes TEXT,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    reviewed_at TEXT
+                );
+                """)
+                conn.commit()
+            else:
+                conn.executescript("""
+                CREATE TABLE IF NOT EXISTS users (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    username TEXT UNIQUE NOT NULL,
+                    name TEXT,
+                    phone TEXT UNIQUE,
+                    whatsapp TEXT,
+                    email TEXT,
+                    password_hash TEXT NOT NULL,
+                    salt TEXT NOT NULL,
+                    role TEXT DEFAULT 'user',
+                    status TEXT DEFAULT 'active',
+                    plan TEXT DEFAULT 'free',
+                    free_sheets_used INTEGER DEFAULT 0,
+                    free_bg_used INTEGER DEFAULT 0,
+                    pro_expires_at TEXT,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                );
+
+                CREATE TABLE IF NOT EXISTS sessions (
+                    token TEXT PRIMARY KEY,
+                    user_id INTEGER NOT NULL,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+                );
+
+                CREATE TABLE IF NOT EXISTS payments (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    user_id INTEGER NOT NULL,
+                    username TEXT NOT NULL,
+                    user_name TEXT,
+                    phone TEXT NOT NULL,
+                    whatsapp TEXT,
+                    plan_selected TEXT DEFAULT 'bundle_pro',
+                    amount INTEGER DEFAULT 300,
+                    trx_id TEXT NOT NULL,
+                    screenshot_path TEXT,
+                    status TEXT DEFAULT 'pending',
+                    admin_notes TEXT,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+                );
+                """)
+
+            _migrate_db(conn)
+
+            # Ensure default admin exists and is ALWAYS active admin with bundle_pro
             cur = conn.cursor()
-            cur.execute("""
-            CREATE TABLE IF NOT EXISTS users (
-                id SERIAL PRIMARY KEY,
-                username TEXT UNIQUE NOT NULL,
-                name TEXT,
-                phone TEXT UNIQUE,
-                whatsapp TEXT,
-                email TEXT,
-                password_hash TEXT NOT NULL,
-                salt TEXT NOT NULL,
-                role TEXT DEFAULT 'user',
-                status TEXT DEFAULT 'active',
-                plan TEXT DEFAULT 'free',
-                free_sheets_used INTEGER DEFAULT 0,
-                free_bg_used INTEGER DEFAULT 0,
-                pro_expires_at TEXT,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                last_active TEXT,
-                last_seen_epoch BIGINT DEFAULT 0
-            );
-
-            CREATE TABLE IF NOT EXISTS sessions (
-                token TEXT PRIMARY KEY,
-                user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-                last_seen TEXT,
-                last_seen_epoch BIGINT DEFAULT 0,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            );
-
-            CREATE TABLE IF NOT EXISTS payments (
-                id SERIAL PRIMARY KEY,
-                user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-                username TEXT NOT NULL,
-                user_name TEXT,
-                phone TEXT NOT NULL,
-                whatsapp TEXT,
-                plan_selected TEXT DEFAULT 'bundle_pro',
-                amount INTEGER DEFAULT 300,
-                trx_id TEXT NOT NULL,
-                screenshot_path TEXT,
-                status TEXT DEFAULT 'pending',
-                admin_notes TEXT,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                reviewed_at TEXT
-            );
-            """)
-            conn.commit()
-        else:
+            cur.execute("SELECT id FROM users WHERE username = 'admin' OR phone = ?", (BKASH_NUMBER,))
+            adm_row = cur.fetchone()
+            if not adm_row:
+                salt = secrets.token_hex(16)
+                pwd_hash = _hash_password("admin123", salt)
+                cur.execute("""
+                INSERT INTO users (username, name, phone, whatsapp, email, password_hash, salt, role, status, plan, pro_expires_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, 'admin', 'active', 'bundle_pro', ?)
+                """, ("admin", "Super Admin", BKASH_NUMBER, BKASH_NUMBER, "admin@linework.ai", pwd_hash, salt, "2099-12-31 23:59:59"))
+                conn.commit()
+            else:
+                cur.execute("""
+                UPDATE users
+                SET role = 'admin', status = 'active', plan = 'bundle_pro', pro_expires_at = '2099-12-31 23:59:59'
+                WHERE id = ?
+                """, (adm_row[0],))
+                conn.commit()
+    except Exception as e:
+        print(f"[DB WARN] Error initializing DB with IS_POSTGRES={IS_POSTGRES}: {e}. Retrying with SQLite fallback...", file=sys.stderr)
+        IS_POSTGRES = False
+        with sqlite3.connect(str(DB_PATH)) as conn:
+            conn.row_factory = sqlite3.Row
             conn.executescript("""
             CREATE TABLE IF NOT EXISTS users (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -387,28 +461,7 @@ def init_db():
                 FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
             );
             """)
-
-        _migrate_db(conn)
-
-        # Ensure default admin exists and is ALWAYS active admin with bundle_pro
-        cur = conn.cursor()
-        cur.execute("SELECT id FROM users WHERE username = 'admin' OR phone = ?", (BKASH_NUMBER,))
-        adm_row = cur.fetchone()
-        if not adm_row:
-            salt = secrets.token_hex(16)
-            pwd_hash = _hash_password("admin123", salt)
-            cur.execute("""
-            INSERT INTO users (username, name, phone, whatsapp, email, password_hash, salt, role, status, plan, pro_expires_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, 'admin', 'active', 'bundle_pro', ?)
-            """, ("admin", "Super Admin", BKASH_NUMBER, BKASH_NUMBER, "admin@linework.ai", pwd_hash, salt, "2099-12-31 23:59:59"))
-            conn.commit()
-        else:
-            cur.execute("""
-            UPDATE users
-            SET role = 'admin', status = 'active', plan = 'bundle_pro', pro_expires_at = '2099-12-31 23:59:59'
-            WHERE id = ?
-            """, (adm_row[0],))
-            conn.commit()
+            _migrate_db(conn)
 
 
 def _hash_password(password: str, salt: str) -> str:
