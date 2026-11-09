@@ -1347,55 +1347,143 @@
   // Adobe Stock / Vectuz Style Presentation Template Studio Logic
   // ================================================================
   const TEMPLATE_DESIGNS = {
-    vectuz_sidebar: {
-      id: 'vectuz_sidebar',
-      name: 'Side Cover (Left)',
-      badge: 'Adobe Stock',
-      desc: 'Left vertical banner with top colored card & dark showcase'
+    "vectuz_sidebar": {
+        "id": "vectuz_sidebar",
+        "family": "bestsellers",
+        "name": "Side Cover (Left)",
+        "badge": "Adobe Stock",
+        "desc": "Left vertical banner with top colored card & dark showcase",
+        "thumb_svg": "<svg viewBox=\"0 0 120 68\" xmlns=\"http://www.w3.org/2000/svg\"><rect width=\"120\" height=\"68\" rx=\"4\" fill=\"#1e293b\"/><rect x=\"33\" y=\"3\" width=\"84\" height=\"62\" rx=\"3\" fill=\"#ffffff\"/><rect x=\"40\" y=\"10\" width=\"6\" height=\"6\" rx=\"1.5\" fill=\"#94a3b8\" opacity=\"0.6\"/><rect x=\"54\" y=\"10\" width=\"6\" height=\"6\" rx=\"1.5\" fill=\"#94a3b8\" opacity=\"0.6\"/><rect x=\"68\" y=\"10\" width=\"6\" height=\"6\" rx=\"1.5\" fill=\"#94a3b8\" opacity=\"0.6\"/><rect x=\"82\" y=\"10\" width=\"6\" height=\"6\" rx=\"1.5\" fill=\"#94a3b8\" opacity=\"0.6\"/><rect x=\"96\" y=\"10\" width=\"6\" height=\"6\" rx=\"1.5\" fill=\"#94a3b8\" opacity=\"0.6\"/><rect x=\"40\" y=\"22\" width=\"6\" height=\"6\" rx=\"1.5\" fill=\"#94a3b8\" opacity=\"0.6\"/><rect x=\"54\" y=\"22\" width=\"6\" height=\"6\" rx=\"1.5\" fill=\"#94a3b8\" opacity=\"0.6\"/><rect x=\"68\" y=\"22\" width=\"6\" height=\"6\" rx=\"1.5\" fill=\"#94a3b8\" opacity=\"0.6\"/><rect x=\"82\" y=\"22\" width=\"6\" height=\"6\" rx=\"1.5\" fill=\"#94a3b8\" opacity=\"0.6\"/><rect x=\"96\" y=\"22\" width=\"6\" height=\"6\" rx=\"1.5\" fill=\"#94a3b8\" opacity=\"0.6\"/><rect x=\"40\" y=\"34\" width=\"6\" height=\"6\" rx=\"1.5\" fill=\"#94a3b8\" opacity=\"0.6\"/><rect x=\"54\" y=\"34\" width=\"6\" height=\"6\" rx=\"1.5\" fill=\"#94a3b8\" opacity=\"0.6\"/><rect x=\"68\" y=\"34\" width=\"6\" height=\"6\" rx=\"1.5\" fill=\"#94a3b8\" opacity=\"0.6\"/><rect x=\"82\" y=\"34\" width=\"6\" height=\"6\" rx=\"1.5\" fill=\"#94a3b8\" opacity=\"0.6\"/><rect x=\"96\" y=\"34\" width=\"6\" height=\"6\" rx=\"1.5\" fill=\"#94a3b8\" opacity=\"0.6\"/><rect x=\"40\" y=\"46\" width=\"6\" height=\"6\" rx=\"1.5\" fill=\"#94a3b8\" opacity=\"0.6\"/><rect x=\"54\" y=\"46\" width=\"6\" height=\"6\" rx=\"1.5\" fill=\"#94a3b8\" opacity=\"0.6\"/><rect x=\"68\" y=\"46\" width=\"6\" height=\"6\" rx=\"1.5\" fill=\"#94a3b8\" opacity=\"0.6\"/><rect x=\"82\" y=\"46\" width=\"6\" height=\"6\" rx=\"1.5\" fill=\"#94a3b8\" opacity=\"0.6\"/><rect x=\"96\" y=\"46\" width=\"6\" height=\"6\" rx=\"1.5\" fill=\"#94a3b8\" opacity=\"0.6\"/><rect x=\"4\" y=\"4\" width=\"26\" height=\"32\" rx=\"3\" fill=\"#ff334b\"/><rect x=\"7\" y=\"8\" width=\"14\" height=\"2.5\" rx=\"1\" fill=\"#ffffff\" opacity=\"0.9\"/><rect x=\"7\" y=\"14\" width=\"20\" height=\"8\" rx=\"1.5\" fill=\"#ffffff\"/><rect x=\"7\" y=\"25\" width=\"16\" height=\"2\" rx=\"1\" fill=\"#ffffff\" opacity=\"0.7\"/><rect x=\"4\" y=\"38\" width=\"26\" height=\"26\" rx=\"3\" fill=\"#0f172a\"/><circle cx=\"17\" cy=\"51\" r=\"7\" fill=\"none\" stroke=\"#ff334b\" stroke-width=\"1.5\"/><line x1=\"22\" y1=\"56\" x2=\"26\" y2=\"60\" stroke=\"#ff334b\" stroke-width=\"1.5\"/></svg>"
     },
-    top_banner: {
-      id: 'top_banner',
-      name: 'Top Header Bar',
-      badge: 'Shutterstock',
-      desc: 'Wide top magazine banner with count pill & specs'
+    "vectuz_right": {
+        "id": "vectuz_right",
+        "family": "bestsellers",
+        "name": "Side Cover (Right)",
+        "badge": "Mirrored",
+        "desc": "Right vertical cover card with left icon artboard",
+        "thumb_svg": "<svg viewBox=\"0 0 120 68\" xmlns=\"http://www.w3.org/2000/svg\"><rect width=\"120\" height=\"68\" rx=\"4\" fill=\"#1e293b\"/><rect x=\"3\" y=\"3\" width=\"84\" height=\"62\" rx=\"3\" fill=\"#ffffff\"/><rect x=\"10\" y=\"10\" width=\"6\" height=\"6\" rx=\"1.5\" fill=\"#94a3b8\" opacity=\"0.6\"/><rect x=\"24\" y=\"10\" width=\"6\" height=\"6\" rx=\"1.5\" fill=\"#94a3b8\" opacity=\"0.6\"/><rect x=\"38\" y=\"10\" width=\"6\" height=\"6\" rx=\"1.5\" fill=\"#94a3b8\" opacity=\"0.6\"/><rect x=\"52\" y=\"10\" width=\"6\" height=\"6\" rx=\"1.5\" fill=\"#94a3b8\" opacity=\"0.6\"/><rect x=\"66\" y=\"10\" width=\"6\" height=\"6\" rx=\"1.5\" fill=\"#94a3b8\" opacity=\"0.6\"/><rect x=\"10\" y=\"22\" width=\"6\" height=\"6\" rx=\"1.5\" fill=\"#94a3b8\" opacity=\"0.6\"/><rect x=\"24\" y=\"22\" width=\"6\" height=\"6\" rx=\"1.5\" fill=\"#94a3b8\" opacity=\"0.6\"/><rect x=\"38\" y=\"22\" width=\"6\" height=\"6\" rx=\"1.5\" fill=\"#94a3b8\" opacity=\"0.6\"/><rect x=\"52\" y=\"22\" width=\"6\" height=\"6\" rx=\"1.5\" fill=\"#94a3b8\" opacity=\"0.6\"/><rect x=\"66\" y=\"22\" width=\"6\" height=\"6\" rx=\"1.5\" fill=\"#94a3b8\" opacity=\"0.6\"/><rect x=\"10\" y=\"34\" width=\"6\" height=\"6\" rx=\"1.5\" fill=\"#94a3b8\" opacity=\"0.6\"/><rect x=\"24\" y=\"34\" width=\"6\" height=\"6\" rx=\"1.5\" fill=\"#94a3b8\" opacity=\"0.6\"/><rect x=\"38\" y=\"34\" width=\"6\" height=\"6\" rx=\"1.5\" fill=\"#94a3b8\" opacity=\"0.6\"/><rect x=\"52\" y=\"34\" width=\"6\" height=\"6\" rx=\"1.5\" fill=\"#94a3b8\" opacity=\"0.6\"/><rect x=\"66\" y=\"34\" width=\"6\" height=\"6\" rx=\"1.5\" fill=\"#94a3b8\" opacity=\"0.6\"/><rect x=\"10\" y=\"46\" width=\"6\" height=\"6\" rx=\"1.5\" fill=\"#94a3b8\" opacity=\"0.6\"/><rect x=\"24\" y=\"46\" width=\"6\" height=\"6\" rx=\"1.5\" fill=\"#94a3b8\" opacity=\"0.6\"/><rect x=\"38\" y=\"46\" width=\"6\" height=\"6\" rx=\"1.5\" fill=\"#94a3b8\" opacity=\"0.6\"/><rect x=\"52\" y=\"46\" width=\"6\" height=\"6\" rx=\"1.5\" fill=\"#94a3b8\" opacity=\"0.6\"/><rect x=\"66\" y=\"46\" width=\"6\" height=\"6\" rx=\"1.5\" fill=\"#94a3b8\" opacity=\"0.6\"/><rect x=\"90\" y=\"4\" width=\"26\" height=\"32\" rx=\"3\" fill=\"#ff334b\"/><rect x=\"93\" y=\"8\" width=\"14\" height=\"2.5\" rx=\"1\" fill=\"#ffffff\" opacity=\"0.9\"/><rect x=\"93\" y=\"14\" width=\"20\" height=\"8\" rx=\"1.5\" fill=\"#ffffff\"/><rect x=\"93\" y=\"25\" width=\"16\" height=\"2\" rx=\"1\" fill=\"#ffffff\" opacity=\"0.7\"/><rect x=\"90\" y=\"38\" width=\"26\" height=\"26\" rx=\"3\" fill=\"#0f172a\"/><circle cx=\"103\" cy=\"51\" r=\"7\" fill=\"none\" stroke=\"#ff334b\" stroke-width=\"1.5\"/></svg>"
     },
-    split_duo: {
-      id: 'split_duo',
-      name: 'Dual Theme 50/50',
-      badge: 'Bestseller',
-      desc: 'Half Light + Half Dark theme split with floating pill'
+    "top_banner": {
+        "id": "top_banner",
+        "family": "bestsellers",
+        "name": "Top Header Bar",
+        "badge": "Shutterstock",
+        "desc": "Wide top magazine banner with count pill & specs",
+        "thumb_svg": "<svg viewBox=\"0 0 120 68\" xmlns=\"http://www.w3.org/2000/svg\"><rect width=\"120\" height=\"68\" rx=\"4\" fill=\"#0f172a\"/><rect x=\"3\" y=\"3\" width=\"114\" height=\"22\" rx=\"3\" fill=\"#0284c7\"/><rect x=\"7\" y=\"7\" width=\"18\" height=\"14\" rx=\"2\" fill=\"#38bdf8\"/><text x=\"16\" y=\"17.5\" font-size=\"9\" font-weight=\"900\" fill=\"#0f172a\" text-anchor=\"middle\">24</text><rect x=\"30\" y=\"8\" width=\"40\" height=\"3.5\" rx=\"1\" fill=\"#ffffff\"/><rect x=\"30\" y=\"14\" width=\"55\" height=\"2.5\" rx=\"1\" fill=\"#bae6fd\"/><rect x=\"3\" y=\"27\" width=\"114\" height=\"38\" rx=\"2\" fill=\"#ffffff\"/><rect x=\"10\" y=\"31\" width=\"6\" height=\"6\" rx=\"1.5\" fill=\"#94a3b8\" opacity=\"0.6\"/><rect x=\"25\" y=\"31\" width=\"6\" height=\"6\" rx=\"1.5\" fill=\"#94a3b8\" opacity=\"0.6\"/><rect x=\"40\" y=\"31\" width=\"6\" height=\"6\" rx=\"1.5\" fill=\"#94a3b8\" opacity=\"0.6\"/><rect x=\"55\" y=\"31\" width=\"6\" height=\"6\" rx=\"1.5\" fill=\"#94a3b8\" opacity=\"0.6\"/><rect x=\"70\" y=\"31\" width=\"6\" height=\"6\" rx=\"1.5\" fill=\"#94a3b8\" opacity=\"0.6\"/><rect x=\"85\" y=\"31\" width=\"6\" height=\"6\" rx=\"1.5\" fill=\"#94a3b8\" opacity=\"0.6\"/><rect x=\"100\" y=\"31\" width=\"6\" height=\"6\" rx=\"1.5\" fill=\"#94a3b8\" opacity=\"0.6\"/><rect x=\"10\" y=\"45\" width=\"6\" height=\"6\" rx=\"1.5\" fill=\"#94a3b8\" opacity=\"0.6\"/><rect x=\"25\" y=\"45\" width=\"6\" height=\"6\" rx=\"1.5\" fill=\"#94a3b8\" opacity=\"0.6\"/><rect x=\"40\" y=\"45\" width=\"6\" height=\"6\" rx=\"1.5\" fill=\"#94a3b8\" opacity=\"0.6\"/><rect x=\"55\" y=\"45\" width=\"6\" height=\"6\" rx=\"1.5\" fill=\"#94a3b8\" opacity=\"0.6\"/><rect x=\"70\" y=\"45\" width=\"6\" height=\"6\" rx=\"1.5\" fill=\"#94a3b8\" opacity=\"0.6\"/><rect x=\"85\" y=\"45\" width=\"6\" height=\"6\" rx=\"1.5\" fill=\"#94a3b8\" opacity=\"0.6\"/><rect x=\"100\" y=\"45\" width=\"6\" height=\"6\" rx=\"1.5\" fill=\"#94a3b8\" opacity=\"0.6\"/></svg>"
     },
-    floating_card: {
-      id: 'floating_card',
-      name: 'Floating Card',
-      badge: 'Dribbble UI',
-      desc: 'Modern floating badge card with drop shadow'
+    "split_duo": {
+        "id": "split_duo",
+        "family": "bestsellers",
+        "name": "Dual Theme 50/50",
+        "badge": "Bestseller",
+        "desc": "50% Light + 50% Dark theme split with central floating pill",
+        "thumb_svg": "<svg viewBox=\"0 0 120 68\" xmlns=\"http://www.w3.org/2000/svg\"><rect width=\"120\" height=\"68\" rx=\"4\" fill=\"#020617\"/><rect x=\"3\" y=\"3\" width=\"57\" height=\"62\" rx=\"2\" fill=\"#ffffff\"/><rect x=\"60\" y=\"3\" width=\"57\" height=\"62\" rx=\"2\" fill=\"#0f172a\"/><rect x=\"8\" y=\"12\" width=\"6\" height=\"6\" rx=\"1.5\" fill=\"#94a3b8\" opacity=\"0.6\"/><rect x=\"23\" y=\"12\" width=\"6\" height=\"6\" rx=\"1.5\" fill=\"#94a3b8\" opacity=\"0.6\"/><rect x=\"38\" y=\"12\" width=\"6\" height=\"6\" rx=\"1.5\" fill=\"#94a3b8\" opacity=\"0.6\"/><rect x=\"8\" y=\"24\" width=\"6\" height=\"6\" rx=\"1.5\" fill=\"#94a3b8\" opacity=\"0.6\"/><rect x=\"23\" y=\"24\" width=\"6\" height=\"6\" rx=\"1.5\" fill=\"#94a3b8\" opacity=\"0.6\"/><rect x=\"38\" y=\"24\" width=\"6\" height=\"6\" rx=\"1.5\" fill=\"#94a3b8\" opacity=\"0.6\"/><rect x=\"8\" y=\"36\" width=\"6\" height=\"6\" rx=\"1.5\" fill=\"#94a3b8\" opacity=\"0.6\"/><rect x=\"23\" y=\"36\" width=\"6\" height=\"6\" rx=\"1.5\" fill=\"#94a3b8\" opacity=\"0.6\"/><rect x=\"38\" y=\"36\" width=\"6\" height=\"6\" rx=\"1.5\" fill=\"#94a3b8\" opacity=\"0.6\"/><rect x=\"8\" y=\"48\" width=\"6\" height=\"6\" rx=\"1.5\" fill=\"#94a3b8\" opacity=\"0.6\"/><rect x=\"23\" y=\"48\" width=\"6\" height=\"6\" rx=\"1.5\" fill=\"#94a3b8\" opacity=\"0.6\"/><rect x=\"38\" y=\"48\" width=\"6\" height=\"6\" rx=\"1.5\" fill=\"#94a3b8\" opacity=\"0.6\"/><rect x=\"70\" y=\"12\" width=\"6\" height=\"6\" rx=\"1.5\" fill=\"#38bdf8\" opacity=\"0.7\"/><rect x=\"85\" y=\"12\" width=\"6\" height=\"6\" rx=\"1.5\" fill=\"#38bdf8\" opacity=\"0.7\"/><rect x=\"100\" y=\"12\" width=\"6\" height=\"6\" rx=\"1.5\" fill=\"#38bdf8\" opacity=\"0.7\"/><rect x=\"70\" y=\"24\" width=\"6\" height=\"6\" rx=\"1.5\" fill=\"#38bdf8\" opacity=\"0.7\"/><rect x=\"85\" y=\"24\" width=\"6\" height=\"6\" rx=\"1.5\" fill=\"#38bdf8\" opacity=\"0.7\"/><rect x=\"100\" y=\"24\" width=\"6\" height=\"6\" rx=\"1.5\" fill=\"#38bdf8\" opacity=\"0.7\"/><rect x=\"70\" y=\"36\" width=\"6\" height=\"6\" rx=\"1.5\" fill=\"#38bdf8\" opacity=\"0.7\"/><rect x=\"85\" y=\"36\" width=\"6\" height=\"6\" rx=\"1.5\" fill=\"#38bdf8\" opacity=\"0.7\"/><rect x=\"100\" y=\"36\" width=\"6\" height=\"6\" rx=\"1.5\" fill=\"#38bdf8\" opacity=\"0.7\"/><rect x=\"70\" y=\"48\" width=\"6\" height=\"6\" rx=\"1.5\" fill=\"#38bdf8\" opacity=\"0.7\"/><rect x=\"85\" y=\"48\" width=\"6\" height=\"6\" rx=\"1.5\" fill=\"#38bdf8\" opacity=\"0.7\"/><rect x=\"100\" y=\"48\" width=\"6\" height=\"6\" rx=\"1.5\" fill=\"#38bdf8\" opacity=\"0.7\"/><rect x=\"46\" y=\"25\" width=\"28\" height=\"18\" rx=\"9\" fill=\"#f59e0b\" stroke=\"#ffffff\" stroke-width=\"1.5\"/><text x=\"60\" y=\"37.5\" font-size=\"9\" font-weight=\"900\" fill=\"#ffffff\" text-anchor=\"middle\">50/50</text></svg>"
     },
-    bottom_dock: {
-      id: 'bottom_dock',
-      name: 'Bottom Dock',
-      badge: 'Creative Mkt',
-      desc: 'Bottom dock strip with title, big count & mini showcase'
+    "floating_card": {
+        "id": "floating_card",
+        "family": "bestsellers",
+        "name": "Floating Card",
+        "badge": "Dribbble UI",
+        "desc": "Modern floating badge card with drop shadow",
+        "thumb_svg": "<svg viewBox=\"0 0 120 68\" xmlns=\"http://www.w3.org/2000/svg\"><rect width=\"120\" height=\"68\" rx=\"4\" fill=\"#0f172a\"/><rect x=\"3\" y=\"3\" width=\"114\" height=\"62\" rx=\"3\" fill=\"#f8fafc\"/><rect x=\"44\" y=\"10\" width=\"6\" height=\"6\" rx=\"1.5\" fill=\"#94a3b8\" opacity=\"0.6\"/><rect x=\"58\" y=\"10\" width=\"6\" height=\"6\" rx=\"1.5\" fill=\"#94a3b8\" opacity=\"0.6\"/><rect x=\"72\" y=\"10\" width=\"6\" height=\"6\" rx=\"1.5\" fill=\"#94a3b8\" opacity=\"0.6\"/><rect x=\"86\" y=\"10\" width=\"6\" height=\"6\" rx=\"1.5\" fill=\"#94a3b8\" opacity=\"0.6\"/><rect x=\"100\" y=\"10\" width=\"6\" height=\"6\" rx=\"1.5\" fill=\"#94a3b8\" opacity=\"0.6\"/><rect x=\"44\" y=\"22\" width=\"6\" height=\"6\" rx=\"1.5\" fill=\"#94a3b8\" opacity=\"0.6\"/><rect x=\"58\" y=\"22\" width=\"6\" height=\"6\" rx=\"1.5\" fill=\"#94a3b8\" opacity=\"0.6\"/><rect x=\"72\" y=\"22\" width=\"6\" height=\"6\" rx=\"1.5\" fill=\"#94a3b8\" opacity=\"0.6\"/><rect x=\"86\" y=\"22\" width=\"6\" height=\"6\" rx=\"1.5\" fill=\"#94a3b8\" opacity=\"0.6\"/><rect x=\"100\" y=\"22\" width=\"6\" height=\"6\" rx=\"1.5\" fill=\"#94a3b8\" opacity=\"0.6\"/><rect x=\"44\" y=\"34\" width=\"6\" height=\"6\" rx=\"1.5\" fill=\"#94a3b8\" opacity=\"0.6\"/><rect x=\"58\" y=\"34\" width=\"6\" height=\"6\" rx=\"1.5\" fill=\"#94a3b8\" opacity=\"0.6\"/><rect x=\"72\" y=\"34\" width=\"6\" height=\"6\" rx=\"1.5\" fill=\"#94a3b8\" opacity=\"0.6\"/><rect x=\"86\" y=\"34\" width=\"6\" height=\"6\" rx=\"1.5\" fill=\"#94a3b8\" opacity=\"0.6\"/><rect x=\"100\" y=\"34\" width=\"6\" height=\"6\" rx=\"1.5\" fill=\"#94a3b8\" opacity=\"0.6\"/><rect x=\"44\" y=\"46\" width=\"6\" height=\"6\" rx=\"1.5\" fill=\"#94a3b8\" opacity=\"0.6\"/><rect x=\"58\" y=\"46\" width=\"6\" height=\"6\" rx=\"1.5\" fill=\"#94a3b8\" opacity=\"0.6\"/><rect x=\"72\" y=\"46\" width=\"6\" height=\"6\" rx=\"1.5\" fill=\"#94a3b8\" opacity=\"0.6\"/><rect x=\"86\" y=\"46\" width=\"6\" height=\"6\" rx=\"1.5\" fill=\"#94a3b8\" opacity=\"0.6\"/><rect x=\"100\" y=\"46\" width=\"6\" height=\"6\" rx=\"1.5\" fill=\"#94a3b8\" opacity=\"0.6\"/><rect x=\"6\" y=\"6\" width=\"34\" height=\"28\" rx=\"4\" fill=\"#e11d48\"/><rect x=\"10\" y=\"10\" width=\"16\" height=\"2\" rx=\"1\" fill=\"#ffffff\" opacity=\"0.9\"/><rect x=\"10\" y=\"15\" width=\"24\" height=\"9\" rx=\"1.5\" fill=\"#ffffff\"/><rect x=\"10\" y=\"27\" width=\"20\" height=\"2\" rx=\"1\" fill=\"#ffffff\" opacity=\"0.7\"/></svg>"
     },
-    hero_spotlight: {
-      id: 'hero_spotlight',
-      name: 'Hero Spotlight',
-      badge: 'Spotlight',
-      desc: 'Large dark circle highlighting 1 hero icon + grid'
+    "bottom_dock": {
+        "id": "bottom_dock",
+        "family": "bestsellers",
+        "name": "Bottom Dock",
+        "badge": "Creative Mkt",
+        "desc": "Bottom dock strip with title, big count & mini showcase",
+        "thumb_svg": "<svg viewBox=\"0 0 120 68\" xmlns=\"http://www.w3.org/2000/svg\"><rect width=\"120\" height=\"68\" rx=\"4\" fill=\"#0f172a\"/><rect x=\"3\" y=\"3\" width=\"114\" height=\"40\" rx=\"2\" fill=\"#ffffff\"/><rect x=\"10\" y=\"8\" width=\"6\" height=\"6\" rx=\"1.5\" fill=\"#94a3b8\" opacity=\"0.6\"/><rect x=\"25\" y=\"8\" width=\"6\" height=\"6\" rx=\"1.5\" fill=\"#94a3b8\" opacity=\"0.6\"/><rect x=\"40\" y=\"8\" width=\"6\" height=\"6\" rx=\"1.5\" fill=\"#94a3b8\" opacity=\"0.6\"/><rect x=\"55\" y=\"8\" width=\"6\" height=\"6\" rx=\"1.5\" fill=\"#94a3b8\" opacity=\"0.6\"/><rect x=\"70\" y=\"8\" width=\"6\" height=\"6\" rx=\"1.5\" fill=\"#94a3b8\" opacity=\"0.6\"/><rect x=\"85\" y=\"8\" width=\"6\" height=\"6\" rx=\"1.5\" fill=\"#94a3b8\" opacity=\"0.6\"/><rect x=\"100\" y=\"8\" width=\"6\" height=\"6\" rx=\"1.5\" fill=\"#94a3b8\" opacity=\"0.6\"/><rect x=\"10\" y=\"22\" width=\"6\" height=\"6\" rx=\"1.5\" fill=\"#94a3b8\" opacity=\"0.6\"/><rect x=\"25\" y=\"22\" width=\"6\" height=\"6\" rx=\"1.5\" fill=\"#94a3b8\" opacity=\"0.6\"/><rect x=\"40\" y=\"22\" width=\"6\" height=\"6\" rx=\"1.5\" fill=\"#94a3b8\" opacity=\"0.6\"/><rect x=\"55\" y=\"22\" width=\"6\" height=\"6\" rx=\"1.5\" fill=\"#94a3b8\" opacity=\"0.6\"/><rect x=\"70\" y=\"22\" width=\"6\" height=\"6\" rx=\"1.5\" fill=\"#94a3b8\" opacity=\"0.6\"/><rect x=\"85\" y=\"22\" width=\"6\" height=\"6\" rx=\"1.5\" fill=\"#94a3b8\" opacity=\"0.6\"/><rect x=\"100\" y=\"22\" width=\"6\" height=\"6\" rx=\"1.5\" fill=\"#94a3b8\" opacity=\"0.6\"/><rect x=\"3\" y=\"45\" width=\"114\" height=\"20\" rx=\"3\" fill=\"#1e293b\"/><rect x=\"7\" y=\"49\" width=\"18\" height=\"12\" rx=\"2\" fill=\"#10b981\"/><text x=\"16\" y=\"58\" font-size=\"8\" font-weight=\"900\" fill=\"#ffffff\" text-anchor=\"middle\">24</text><rect x=\"30\" y=\"52\" width=\"40\" height=\"3\" rx=\"1\" fill=\"#ffffff\"/><rect x=\"30\" y=\"58\" width=\"55\" height=\"2\" rx=\"1\" fill=\"#64748b\"/></svg>"
     },
-    framed_editorial: {
-      id: 'framed_editorial',
-      name: 'Framed Luxury',
-      badge: 'Passe-Partout',
-      desc: 'Double vector borders with corner crosshairs & badges'
+    "hero_spotlight": {
+        "id": "hero_spotlight",
+        "family": "bestsellers",
+        "name": "Hero Spotlight",
+        "badge": "Spotlight",
+        "desc": "Large dark circle highlighting 1 hero icon + grid",
+        "thumb_svg": "<svg viewBox=\"0 0 120 68\" xmlns=\"http://www.w3.org/2000/svg\"><rect width=\"120\" height=\"68\" rx=\"4\" fill=\"#0f172a\"/><rect x=\"3\" y=\"3\" width=\"114\" height=\"62\" rx=\"3\" fill=\"#ffffff\"/><rect x=\"52\" y=\"10\" width=\"6\" height=\"6\" rx=\"1.5\" fill=\"#94a3b8\" opacity=\"0.6\"/><rect x=\"67\" y=\"10\" width=\"6\" height=\"6\" rx=\"1.5\" fill=\"#94a3b8\" opacity=\"0.6\"/><rect x=\"82\" y=\"10\" width=\"6\" height=\"6\" rx=\"1.5\" fill=\"#94a3b8\" opacity=\"0.6\"/><rect x=\"97\" y=\"10\" width=\"6\" height=\"6\" rx=\"1.5\" fill=\"#94a3b8\" opacity=\"0.6\"/><rect x=\"52\" y=\"22\" width=\"6\" height=\"6\" rx=\"1.5\" fill=\"#94a3b8\" opacity=\"0.6\"/><rect x=\"67\" y=\"22\" width=\"6\" height=\"6\" rx=\"1.5\" fill=\"#94a3b8\" opacity=\"0.6\"/><rect x=\"82\" y=\"22\" width=\"6\" height=\"6\" rx=\"1.5\" fill=\"#94a3b8\" opacity=\"0.6\"/><rect x=\"97\" y=\"22\" width=\"6\" height=\"6\" rx=\"1.5\" fill=\"#94a3b8\" opacity=\"0.6\"/><rect x=\"52\" y=\"34\" width=\"6\" height=\"6\" rx=\"1.5\" fill=\"#94a3b8\" opacity=\"0.6\"/><rect x=\"67\" y=\"34\" width=\"6\" height=\"6\" rx=\"1.5\" fill=\"#94a3b8\" opacity=\"0.6\"/><rect x=\"82\" y=\"34\" width=\"6\" height=\"6\" rx=\"1.5\" fill=\"#94a3b8\" opacity=\"0.6\"/><rect x=\"97\" y=\"34\" width=\"6\" height=\"6\" rx=\"1.5\" fill=\"#94a3b8\" opacity=\"0.6\"/><rect x=\"52\" y=\"46\" width=\"6\" height=\"6\" rx=\"1.5\" fill=\"#94a3b8\" opacity=\"0.6\"/><rect x=\"67\" y=\"46\" width=\"6\" height=\"6\" rx=\"1.5\" fill=\"#94a3b8\" opacity=\"0.6\"/><rect x=\"82\" y=\"46\" width=\"6\" height=\"6\" rx=\"1.5\" fill=\"#94a3b8\" opacity=\"0.6\"/><rect x=\"97\" y=\"46\" width=\"6\" height=\"6\" rx=\"1.5\" fill=\"#94a3b8\" opacity=\"0.6\"/><circle cx=\"26\" cy=\"34\" r=\"20\" fill=\"#1e293b\"/><circle cx=\"26\" cy=\"34\" r=\"22\" fill=\"none\" stroke=\"#ec4899\" stroke-width=\"1.5\"/><circle cx=\"24\" cy=\"32\" r=\"6\" stroke=\"#ffffff\" stroke-width=\"1.5\" fill=\"none\"/><line x1=\"28\" y1=\"36\" x2=\"33\" y2=\"41\" stroke=\"#ffffff\" stroke-width=\"2\"/></svg>"
     },
-    vectuz_right: {
-      id: 'vectuz_right',
-      name: 'Side Cover (Right)',
-      badge: 'Mirrored',
-      desc: 'Right vertical cover card with left icon artboard'
+    "framed_editorial": {
+        "id": "framed_editorial",
+        "family": "bestsellers",
+        "name": "Framed Luxury",
+        "badge": "Passe-Partout",
+        "desc": "Double vector borders with corner crosshairs & badges",
+        "thumb_svg": "<svg viewBox=\"0 0 120 68\" xmlns=\"http://www.w3.org/2000/svg\"><rect width=\"120\" height=\"68\" rx=\"4\" fill=\"#0f172a\"/><rect x=\"3\" y=\"3\" width=\"114\" height=\"62\" rx=\"2\" fill=\"#fefce8\"/><rect x=\"7\" y=\"7\" width=\"106\" height=\"54\" rx=\"1\" fill=\"none\" stroke=\"#d97706\" stroke-width=\"0.8\"/><rect x=\"10\" y=\"10\" width=\"100\" height=\"48\" rx=\"1\" fill=\"none\" stroke=\"#d97706\" stroke-width=\"0.4\"/><rect x=\"42\" y=\"5\" width=\"36\" height=\"7\" rx=\"2\" fill=\"#d97706\"/><text x=\"60\" y=\"10.5\" font-size=\"5\" font-weight=\"800\" fill=\"#ffffff\" text-anchor=\"middle\">COLLECTION</text><rect x=\"16\" y=\"17\" width=\"6\" height=\"6\" rx=\"1.5\" fill=\"#94a3b8\" opacity=\"0.6\"/><rect x=\"31\" y=\"17\" width=\"6\" height=\"6\" rx=\"1.5\" fill=\"#94a3b8\" opacity=\"0.6\"/><rect x=\"46\" y=\"17\" width=\"6\" height=\"6\" rx=\"1.5\" fill=\"#94a3b8\" opacity=\"0.6\"/><rect x=\"61\" y=\"17\" width=\"6\" height=\"6\" rx=\"1.5\" fill=\"#94a3b8\" opacity=\"0.6\"/><rect x=\"76\" y=\"17\" width=\"6\" height=\"6\" rx=\"1.5\" fill=\"#94a3b8\" opacity=\"0.6\"/><rect x=\"91\" y=\"17\" width=\"6\" height=\"6\" rx=\"1.5\" fill=\"#94a3b8\" opacity=\"0.6\"/><rect x=\"16\" y=\"29\" width=\"6\" height=\"6\" rx=\"1.5\" fill=\"#94a3b8\" opacity=\"0.6\"/><rect x=\"31\" y=\"29\" width=\"6\" height=\"6\" rx=\"1.5\" fill=\"#94a3b8\" opacity=\"0.6\"/><rect x=\"46\" y=\"29\" width=\"6\" height=\"6\" rx=\"1.5\" fill=\"#94a3b8\" opacity=\"0.6\"/><rect x=\"61\" y=\"29\" width=\"6\" height=\"6\" rx=\"1.5\" fill=\"#94a3b8\" opacity=\"0.6\"/><rect x=\"76\" y=\"29\" width=\"6\" height=\"6\" rx=\"1.5\" fill=\"#94a3b8\" opacity=\"0.6\"/><rect x=\"91\" y=\"29\" width=\"6\" height=\"6\" rx=\"1.5\" fill=\"#94a3b8\" opacity=\"0.6\"/><rect x=\"16\" y=\"41\" width=\"6\" height=\"6\" rx=\"1.5\" fill=\"#94a3b8\" opacity=\"0.6\"/><rect x=\"31\" y=\"41\" width=\"6\" height=\"6\" rx=\"1.5\" fill=\"#94a3b8\" opacity=\"0.6\"/><rect x=\"46\" y=\"41\" width=\"6\" height=\"6\" rx=\"1.5\" fill=\"#94a3b8\" opacity=\"0.6\"/><rect x=\"61\" y=\"41\" width=\"6\" height=\"6\" rx=\"1.5\" fill=\"#94a3b8\" opacity=\"0.6\"/><rect x=\"76\" y=\"41\" width=\"6\" height=\"6\" rx=\"1.5\" fill=\"#94a3b8\" opacity=\"0.6\"/><rect x=\"91\" y=\"41\" width=\"6\" height=\"6\" rx=\"1.5\" fill=\"#94a3b8\" opacity=\"0.6\"/></svg>"
+    },
+    "wave_flow": {
+        "id": "wave_flow",
+        "family": "organic",
+        "name": "Wave Flow Ribbon",
+        "badge": "S-Curve Flow",
+        "desc": "Smooth double S-curve ribbon with count bubble",
+        "thumb_svg": "<svg viewBox=\"0 0 120 68\" xmlns=\"http://www.w3.org/2000/svg\"><rect width=\"120\" height=\"68\" rx=\"4\" fill=\"#0f172a\"/><rect x=\"3\" y=\"3\" width=\"114\" height=\"62\" rx=\"3\" fill=\"#ffffff\"/><rect x=\"46\" y=\"10\" width=\"6\" height=\"6\" rx=\"1.5\" fill=\"#94a3b8\" opacity=\"0.6\"/><rect x=\"61\" y=\"10\" width=\"6\" height=\"6\" rx=\"1.5\" fill=\"#94a3b8\" opacity=\"0.6\"/><rect x=\"76\" y=\"10\" width=\"6\" height=\"6\" rx=\"1.5\" fill=\"#94a3b8\" opacity=\"0.6\"/><rect x=\"91\" y=\"10\" width=\"6\" height=\"6\" rx=\"1.5\" fill=\"#94a3b8\" opacity=\"0.6\"/><rect x=\"46\" y=\"22\" width=\"6\" height=\"6\" rx=\"1.5\" fill=\"#94a3b8\" opacity=\"0.6\"/><rect x=\"61\" y=\"22\" width=\"6\" height=\"6\" rx=\"1.5\" fill=\"#94a3b8\" opacity=\"0.6\"/><rect x=\"76\" y=\"22\" width=\"6\" height=\"6\" rx=\"1.5\" fill=\"#94a3b8\" opacity=\"0.6\"/><rect x=\"91\" y=\"22\" width=\"6\" height=\"6\" rx=\"1.5\" fill=\"#94a3b8\" opacity=\"0.6\"/><rect x=\"46\" y=\"34\" width=\"6\" height=\"6\" rx=\"1.5\" fill=\"#94a3b8\" opacity=\"0.6\"/><rect x=\"61\" y=\"34\" width=\"6\" height=\"6\" rx=\"1.5\" fill=\"#94a3b8\" opacity=\"0.6\"/><rect x=\"76\" y=\"34\" width=\"6\" height=\"6\" rx=\"1.5\" fill=\"#94a3b8\" opacity=\"0.6\"/><rect x=\"91\" y=\"34\" width=\"6\" height=\"6\" rx=\"1.5\" fill=\"#94a3b8\" opacity=\"0.6\"/><rect x=\"46\" y=\"46\" width=\"6\" height=\"6\" rx=\"1.5\" fill=\"#94a3b8\" opacity=\"0.6\"/><rect x=\"61\" y=\"46\" width=\"6\" height=\"6\" rx=\"1.5\" fill=\"#94a3b8\" opacity=\"0.6\"/><rect x=\"76\" y=\"46\" width=\"6\" height=\"6\" rx=\"1.5\" fill=\"#94a3b8\" opacity=\"0.6\"/><rect x=\"91\" y=\"46\" width=\"6\" height=\"6\" rx=\"1.5\" fill=\"#94a3b8\" opacity=\"0.6\"/><path d=\"M 3 3 L 44 3 C 32 22, 54 44, 30 65 L 3 65 Z\" fill=\"#0284c7\"/><path d=\"M 3 3 L 36 3 C 24 22, 46 44, 22 65 L 3 65 Z\" fill=\"#06b6d4\" opacity=\"0.8\"/><path d=\"M 3 3 L 28 3 C 16 22, 38 44, 14 65 L 3 65 Z\" fill=\"#38bdf8\" opacity=\"0.6\"/><circle cx=\"16\" cy=\"24\" r=\"8\" fill=\"#ffffff\"/><text x=\"16\" y=\"27.5\" font-size=\"8\" font-weight=\"900\" fill=\"#0284c7\" text-anchor=\"middle\">01</text></svg>"
+    },
+    "eco_leaf": {
+        "id": "eco_leaf",
+        "family": "organic",
+        "name": "Botanical Eco Leaf",
+        "badge": "Leaf Petal",
+        "desc": "Curved organic leaf petal contour with count badge",
+        "thumb_svg": "<svg viewBox=\"0 0 120 68\" xmlns=\"http://www.w3.org/2000/svg\"><rect width=\"120\" height=\"68\" rx=\"4\" fill=\"#0f172a\"/><rect x=\"3\" y=\"3\" width=\"114\" height=\"62\" rx=\"3\" fill=\"#ffffff\"/><rect x=\"44\" y=\"10\" width=\"6\" height=\"6\" rx=\"1.5\" fill=\"#94a3b8\" opacity=\"0.6\"/><rect x=\"58\" y=\"10\" width=\"6\" height=\"6\" rx=\"1.5\" fill=\"#94a3b8\" opacity=\"0.6\"/><rect x=\"72\" y=\"10\" width=\"6\" height=\"6\" rx=\"1.5\" fill=\"#94a3b8\" opacity=\"0.6\"/><rect x=\"86\" y=\"10\" width=\"6\" height=\"6\" rx=\"1.5\" fill=\"#94a3b8\" opacity=\"0.6\"/><rect x=\"100\" y=\"10\" width=\"6\" height=\"6\" rx=\"1.5\" fill=\"#94a3b8\" opacity=\"0.6\"/><rect x=\"44\" y=\"22\" width=\"6\" height=\"6\" rx=\"1.5\" fill=\"#94a3b8\" opacity=\"0.6\"/><rect x=\"58\" y=\"22\" width=\"6\" height=\"6\" rx=\"1.5\" fill=\"#94a3b8\" opacity=\"0.6\"/><rect x=\"72\" y=\"22\" width=\"6\" height=\"6\" rx=\"1.5\" fill=\"#94a3b8\" opacity=\"0.6\"/><rect x=\"86\" y=\"22\" width=\"6\" height=\"6\" rx=\"1.5\" fill=\"#94a3b8\" opacity=\"0.6\"/><rect x=\"100\" y=\"22\" width=\"6\" height=\"6\" rx=\"1.5\" fill=\"#94a3b8\" opacity=\"0.6\"/><rect x=\"44\" y=\"34\" width=\"6\" height=\"6\" rx=\"1.5\" fill=\"#94a3b8\" opacity=\"0.6\"/><rect x=\"58\" y=\"34\" width=\"6\" height=\"6\" rx=\"1.5\" fill=\"#94a3b8\" opacity=\"0.6\"/><rect x=\"72\" y=\"34\" width=\"6\" height=\"6\" rx=\"1.5\" fill=\"#94a3b8\" opacity=\"0.6\"/><rect x=\"86\" y=\"34\" width=\"6\" height=\"6\" rx=\"1.5\" fill=\"#94a3b8\" opacity=\"0.6\"/><rect x=\"100\" y=\"34\" width=\"6\" height=\"6\" rx=\"1.5\" fill=\"#94a3b8\" opacity=\"0.6\"/><rect x=\"44\" y=\"46\" width=\"6\" height=\"6\" rx=\"1.5\" fill=\"#94a3b8\" opacity=\"0.6\"/><rect x=\"58\" y=\"46\" width=\"6\" height=\"6\" rx=\"1.5\" fill=\"#94a3b8\" opacity=\"0.6\"/><rect x=\"72\" y=\"46\" width=\"6\" height=\"6\" rx=\"1.5\" fill=\"#94a3b8\" opacity=\"0.6\"/><rect x=\"86\" y=\"46\" width=\"6\" height=\"6\" rx=\"1.5\" fill=\"#94a3b8\" opacity=\"0.6\"/><rect x=\"100\" y=\"46\" width=\"6\" height=\"6\" rx=\"1.5\" fill=\"#94a3b8\" opacity=\"0.6\"/><path d=\"M 3 3 C 50 3, 50 65, 3 65 Z\" fill=\"#10b981\"/><path d=\"M 3 12 C 40 12, 40 56, 3 56 Z\" fill=\"#34d399\" opacity=\"0.6\"/><path d=\"M 3 22 C 30 22, 30 48, 3 48 Z\" fill=\"#6ee7b7\" opacity=\"0.4\"/><circle cx=\"16\" cy=\"34\" r=\"8\" fill=\"#ffffff\"/><text x=\"16\" y=\"37.5\" font-size=\"8\" font-weight=\"900\" fill=\"#059669\" text-anchor=\"middle\">03</text></svg>"
+    },
+    "droplet_flow": {
+        "id": "droplet_flow",
+        "family": "organic",
+        "name": "Liquid Teardrop",
+        "badge": "Teardrop",
+        "desc": "Liquid splash curve swooping into canvas",
+        "thumb_svg": "<svg viewBox=\"0 0 120 68\" xmlns=\"http://www.w3.org/2000/svg\"><rect width=\"120\" height=\"68\" rx=\"4\" fill=\"#0f172a\"/><rect x=\"3\" y=\"3\" width=\"114\" height=\"62\" rx=\"3\" fill=\"#ffffff\"/><rect x=\"46\" y=\"10\" width=\"6\" height=\"6\" rx=\"1.5\" fill=\"#94a3b8\" opacity=\"0.6\"/><rect x=\"61\" y=\"10\" width=\"6\" height=\"6\" rx=\"1.5\" fill=\"#94a3b8\" opacity=\"0.6\"/><rect x=\"76\" y=\"10\" width=\"6\" height=\"6\" rx=\"1.5\" fill=\"#94a3b8\" opacity=\"0.6\"/><rect x=\"91\" y=\"10\" width=\"6\" height=\"6\" rx=\"1.5\" fill=\"#94a3b8\" opacity=\"0.6\"/><rect x=\"46\" y=\"22\" width=\"6\" height=\"6\" rx=\"1.5\" fill=\"#94a3b8\" opacity=\"0.6\"/><rect x=\"61\" y=\"22\" width=\"6\" height=\"6\" rx=\"1.5\" fill=\"#94a3b8\" opacity=\"0.6\"/><rect x=\"76\" y=\"22\" width=\"6\" height=\"6\" rx=\"1.5\" fill=\"#94a3b8\" opacity=\"0.6\"/><rect x=\"91\" y=\"22\" width=\"6\" height=\"6\" rx=\"1.5\" fill=\"#94a3b8\" opacity=\"0.6\"/><rect x=\"46\" y=\"34\" width=\"6\" height=\"6\" rx=\"1.5\" fill=\"#94a3b8\" opacity=\"0.6\"/><rect x=\"61\" y=\"34\" width=\"6\" height=\"6\" rx=\"1.5\" fill=\"#94a3b8\" opacity=\"0.6\"/><rect x=\"76\" y=\"34\" width=\"6\" height=\"6\" rx=\"1.5\" fill=\"#94a3b8\" opacity=\"0.6\"/><rect x=\"91\" y=\"34\" width=\"6\" height=\"6\" rx=\"1.5\" fill=\"#94a3b8\" opacity=\"0.6\"/><rect x=\"46\" y=\"46\" width=\"6\" height=\"6\" rx=\"1.5\" fill=\"#94a3b8\" opacity=\"0.6\"/><rect x=\"61\" y=\"46\" width=\"6\" height=\"6\" rx=\"1.5\" fill=\"#94a3b8\" opacity=\"0.6\"/><rect x=\"76\" y=\"46\" width=\"6\" height=\"6\" rx=\"1.5\" fill=\"#94a3b8\" opacity=\"0.6\"/><rect x=\"91\" y=\"46\" width=\"6\" height=\"6\" rx=\"1.5\" fill=\"#94a3b8\" opacity=\"0.6\"/><path d=\"M 3 3 L 38 3 C 50 20, 22 36, 42 52 C 48 58, 36 65, 3 65 Z\" fill=\"#8b5cf6\"/><path d=\"M 3 8 L 30 8 C 42 22, 18 35, 34 50 C 38 56, 28 62, 3 62 Z\" fill=\"#a855f7\" opacity=\"0.7\"/><circle cx=\"17\" cy=\"24\" r=\"8\" fill=\"#ffffff\"/><text x=\"17\" y=\"27.5\" font-size=\"8\" font-weight=\"900\" fill=\"#7c3aed\" text-anchor=\"middle\">09</text></svg>"
+    },
+    "hexagon_shield": {
+        "id": "hexagon_shield",
+        "family": "geometric",
+        "name": "Hexagon Shield",
+        "badge": "Cyber Badge",
+        "desc": "Layered 3D cyber hexagon badge with tech accents",
+        "thumb_svg": "<svg viewBox=\"0 0 120 68\" xmlns=\"http://www.w3.org/2000/svg\"><rect width=\"120\" height=\"68\" rx=\"4\" fill=\"#0f172a\"/><rect x=\"3\" y=\"3\" width=\"114\" height=\"62\" rx=\"3\" fill=\"#ffffff\"/><rect x=\"46\" y=\"10\" width=\"6\" height=\"6\" rx=\"1.5\" fill=\"#94a3b8\" opacity=\"0.6\"/><rect x=\"61\" y=\"10\" width=\"6\" height=\"6\" rx=\"1.5\" fill=\"#94a3b8\" opacity=\"0.6\"/><rect x=\"76\" y=\"10\" width=\"6\" height=\"6\" rx=\"1.5\" fill=\"#94a3b8\" opacity=\"0.6\"/><rect x=\"91\" y=\"10\" width=\"6\" height=\"6\" rx=\"1.5\" fill=\"#94a3b8\" opacity=\"0.6\"/><rect x=\"46\" y=\"22\" width=\"6\" height=\"6\" rx=\"1.5\" fill=\"#94a3b8\" opacity=\"0.6\"/><rect x=\"61\" y=\"22\" width=\"6\" height=\"6\" rx=\"1.5\" fill=\"#94a3b8\" opacity=\"0.6\"/><rect x=\"76\" y=\"22\" width=\"6\" height=\"6\" rx=\"1.5\" fill=\"#94a3b8\" opacity=\"0.6\"/><rect x=\"91\" y=\"22\" width=\"6\" height=\"6\" rx=\"1.5\" fill=\"#94a3b8\" opacity=\"0.6\"/><rect x=\"46\" y=\"34\" width=\"6\" height=\"6\" rx=\"1.5\" fill=\"#94a3b8\" opacity=\"0.6\"/><rect x=\"61\" y=\"34\" width=\"6\" height=\"6\" rx=\"1.5\" fill=\"#94a3b8\" opacity=\"0.6\"/><rect x=\"76\" y=\"34\" width=\"6\" height=\"6\" rx=\"1.5\" fill=\"#94a3b8\" opacity=\"0.6\"/><rect x=\"91\" y=\"34\" width=\"6\" height=\"6\" rx=\"1.5\" fill=\"#94a3b8\" opacity=\"0.6\"/><rect x=\"46\" y=\"46\" width=\"6\" height=\"6\" rx=\"1.5\" fill=\"#94a3b8\" opacity=\"0.6\"/><rect x=\"61\" y=\"46\" width=\"6\" height=\"6\" rx=\"1.5\" fill=\"#94a3b8\" opacity=\"0.6\"/><rect x=\"76\" y=\"46\" width=\"6\" height=\"6\" rx=\"1.5\" fill=\"#94a3b8\" opacity=\"0.6\"/><rect x=\"91\" y=\"46\" width=\"6\" height=\"6\" rx=\"1.5\" fill=\"#94a3b8\" opacity=\"0.6\"/><polygon points=\"22,10 37,19 37,42 22,51 7,42 7,19\" fill=\"#2563eb\"/><polygon points=\"22,15 33,22 33,39 22,46 11,39 11,22\" fill=\"#3b82f6\"/><polygon points=\"22,20 29,24 29,36 22,41 15,36 15,24\" fill=\"#60a5fa\"/><text x=\"22\" y=\"33.5\" font-size=\"9\" font-weight=\"900\" fill=\"#ffffff\" text-anchor=\"middle\">01</text></svg>"
+    },
+    "origami_fold": {
+        "id": "origami_fold",
+        "family": "geometric",
+        "name": "Origami Fold",
+        "badge": "Geometric",
+        "desc": "Angular folded geometric facets & multi-tone planes",
+        "thumb_svg": "<svg viewBox=\"0 0 120 68\" xmlns=\"http://www.w3.org/2000/svg\"><rect width=\"120\" height=\"68\" rx=\"4\" fill=\"#0f172a\"/><rect x=\"3\" y=\"3\" width=\"114\" height=\"62\" rx=\"3\" fill=\"#ffffff\"/><rect x=\"44\" y=\"10\" width=\"6\" height=\"6\" rx=\"1.5\" fill=\"#94a3b8\" opacity=\"0.6\"/><rect x=\"58\" y=\"10\" width=\"6\" height=\"6\" rx=\"1.5\" fill=\"#94a3b8\" opacity=\"0.6\"/><rect x=\"72\" y=\"10\" width=\"6\" height=\"6\" rx=\"1.5\" fill=\"#94a3b8\" opacity=\"0.6\"/><rect x=\"86\" y=\"10\" width=\"6\" height=\"6\" rx=\"1.5\" fill=\"#94a3b8\" opacity=\"0.6\"/><rect x=\"100\" y=\"10\" width=\"6\" height=\"6\" rx=\"1.5\" fill=\"#94a3b8\" opacity=\"0.6\"/><rect x=\"44\" y=\"22\" width=\"6\" height=\"6\" rx=\"1.5\" fill=\"#94a3b8\" opacity=\"0.6\"/><rect x=\"58\" y=\"22\" width=\"6\" height=\"6\" rx=\"1.5\" fill=\"#94a3b8\" opacity=\"0.6\"/><rect x=\"72\" y=\"22\" width=\"6\" height=\"6\" rx=\"1.5\" fill=\"#94a3b8\" opacity=\"0.6\"/><rect x=\"86\" y=\"22\" width=\"6\" height=\"6\" rx=\"1.5\" fill=\"#94a3b8\" opacity=\"0.6\"/><rect x=\"100\" y=\"22\" width=\"6\" height=\"6\" rx=\"1.5\" fill=\"#94a3b8\" opacity=\"0.6\"/><rect x=\"44\" y=\"34\" width=\"6\" height=\"6\" rx=\"1.5\" fill=\"#94a3b8\" opacity=\"0.6\"/><rect x=\"58\" y=\"34\" width=\"6\" height=\"6\" rx=\"1.5\" fill=\"#94a3b8\" opacity=\"0.6\"/><rect x=\"72\" y=\"34\" width=\"6\" height=\"6\" rx=\"1.5\" fill=\"#94a3b8\" opacity=\"0.6\"/><rect x=\"86\" y=\"34\" width=\"6\" height=\"6\" rx=\"1.5\" fill=\"#94a3b8\" opacity=\"0.6\"/><rect x=\"100\" y=\"34\" width=\"6\" height=\"6\" rx=\"1.5\" fill=\"#94a3b8\" opacity=\"0.6\"/><rect x=\"44\" y=\"46\" width=\"6\" height=\"6\" rx=\"1.5\" fill=\"#94a3b8\" opacity=\"0.6\"/><rect x=\"58\" y=\"46\" width=\"6\" height=\"6\" rx=\"1.5\" fill=\"#94a3b8\" opacity=\"0.6\"/><rect x=\"72\" y=\"46\" width=\"6\" height=\"6\" rx=\"1.5\" fill=\"#94a3b8\" opacity=\"0.6\"/><rect x=\"86\" y=\"46\" width=\"6\" height=\"6\" rx=\"1.5\" fill=\"#94a3b8\" opacity=\"0.6\"/><rect x=\"100\" y=\"46\" width=\"6\" height=\"6\" rx=\"1.5\" fill=\"#94a3b8\" opacity=\"0.6\"/><polygon points=\"3,3 40,3 24,34\" fill=\"#ea580c\"/><polygon points=\"3,3 24,34 3,50\" fill=\"#f97316\"/><polygon points=\"3,50 24,34 36,65 3,65\" fill=\"#fb923c\"/><circle cx=\"16\" cy=\"24\" r=\"7.5\" fill=\"#ffffff\"/><text x=\"16\" y=\"27.5\" font-size=\"8\" font-weight=\"900\" fill=\"#c2410c\" text-anchor=\"middle\">04</text></svg>"
+    },
+    "diagonal_slash": {
+        "id": "diagonal_slash",
+        "family": "geometric",
+        "name": "Diagonal Slashes",
+        "badge": "Speed Sport",
+        "desc": "45-degree angled athletic speed stripes with count",
+        "thumb_svg": "<svg viewBox=\"0 0 120 68\" xmlns=\"http://www.w3.org/2000/svg\"><rect width=\"120\" height=\"68\" rx=\"4\" fill=\"#0f172a\"/><rect x=\"3\" y=\"3\" width=\"114\" height=\"62\" rx=\"3\" fill=\"#ffffff\"/><rect x=\"46\" y=\"10\" width=\"6\" height=\"6\" rx=\"1.5\" fill=\"#94a3b8\" opacity=\"0.6\"/><rect x=\"61\" y=\"10\" width=\"6\" height=\"6\" rx=\"1.5\" fill=\"#94a3b8\" opacity=\"0.6\"/><rect x=\"76\" y=\"10\" width=\"6\" height=\"6\" rx=\"1.5\" fill=\"#94a3b8\" opacity=\"0.6\"/><rect x=\"91\" y=\"10\" width=\"6\" height=\"6\" rx=\"1.5\" fill=\"#94a3b8\" opacity=\"0.6\"/><rect x=\"46\" y=\"22\" width=\"6\" height=\"6\" rx=\"1.5\" fill=\"#94a3b8\" opacity=\"0.6\"/><rect x=\"61\" y=\"22\" width=\"6\" height=\"6\" rx=\"1.5\" fill=\"#94a3b8\" opacity=\"0.6\"/><rect x=\"76\" y=\"22\" width=\"6\" height=\"6\" rx=\"1.5\" fill=\"#94a3b8\" opacity=\"0.6\"/><rect x=\"91\" y=\"22\" width=\"6\" height=\"6\" rx=\"1.5\" fill=\"#94a3b8\" opacity=\"0.6\"/><rect x=\"46\" y=\"34\" width=\"6\" height=\"6\" rx=\"1.5\" fill=\"#94a3b8\" opacity=\"0.6\"/><rect x=\"61\" y=\"34\" width=\"6\" height=\"6\" rx=\"1.5\" fill=\"#94a3b8\" opacity=\"0.6\"/><rect x=\"76\" y=\"34\" width=\"6\" height=\"6\" rx=\"1.5\" fill=\"#94a3b8\" opacity=\"0.6\"/><rect x=\"91\" y=\"34\" width=\"6\" height=\"6\" rx=\"1.5\" fill=\"#94a3b8\" opacity=\"0.6\"/><rect x=\"46\" y=\"46\" width=\"6\" height=\"6\" rx=\"1.5\" fill=\"#94a3b8\" opacity=\"0.6\"/><rect x=\"61\" y=\"46\" width=\"6\" height=\"6\" rx=\"1.5\" fill=\"#94a3b8\" opacity=\"0.6\"/><rect x=\"76\" y=\"46\" width=\"6\" height=\"6\" rx=\"1.5\" fill=\"#94a3b8\" opacity=\"0.6\"/><rect x=\"91\" y=\"46\" width=\"6\" height=\"6\" rx=\"1.5\" fill=\"#94a3b8\" opacity=\"0.6\"/><polygon points=\"14,3 22,3 3,42 3,26\" fill=\"#10b981\"/><polygon points=\"26,3 34,3 3,65 3,50\" fill=\"#059669\"/><polygon points=\"38,3 46,3 12,65 4,65\" fill=\"#047857\"/><rect x=\"4\" y=\"6\" width=\"15\" height=\"15\" rx=\"3\" fill=\"#10b981\"/><text x=\"11.5\" y=\"17.5\" font-size=\"8.5\" font-weight=\"900\" fill=\"#ffffff\" text-anchor=\"middle\">06</text></svg>"
+    },
+    "bubble_orbital": {
+        "id": "bubble_orbital",
+        "family": "geometric",
+        "name": "Orbital Rings",
+        "badge": "Ring Planets",
+        "desc": "Concentric orbital rings with floating planetary bubbles",
+        "thumb_svg": "<svg viewBox=\"0 0 120 68\" xmlns=\"http://www.w3.org/2000/svg\"><rect width=\"120\" height=\"68\" rx=\"4\" fill=\"#0f172a\"/><rect x=\"3\" y=\"3\" width=\"114\" height=\"62\" rx=\"3\" fill=\"#ffffff\"/><rect x=\"46\" y=\"10\" width=\"6\" height=\"6\" rx=\"1.5\" fill=\"#94a3b8\" opacity=\"0.6\"/><rect x=\"61\" y=\"10\" width=\"6\" height=\"6\" rx=\"1.5\" fill=\"#94a3b8\" opacity=\"0.6\"/><rect x=\"76\" y=\"10\" width=\"6\" height=\"6\" rx=\"1.5\" fill=\"#94a3b8\" opacity=\"0.6\"/><rect x=\"91\" y=\"10\" width=\"6\" height=\"6\" rx=\"1.5\" fill=\"#94a3b8\" opacity=\"0.6\"/><rect x=\"46\" y=\"22\" width=\"6\" height=\"6\" rx=\"1.5\" fill=\"#94a3b8\" opacity=\"0.6\"/><rect x=\"61\" y=\"22\" width=\"6\" height=\"6\" rx=\"1.5\" fill=\"#94a3b8\" opacity=\"0.6\"/><rect x=\"76\" y=\"22\" width=\"6\" height=\"6\" rx=\"1.5\" fill=\"#94a3b8\" opacity=\"0.6\"/><rect x=\"91\" y=\"22\" width=\"6\" height=\"6\" rx=\"1.5\" fill=\"#94a3b8\" opacity=\"0.6\"/><rect x=\"46\" y=\"34\" width=\"6\" height=\"6\" rx=\"1.5\" fill=\"#94a3b8\" opacity=\"0.6\"/><rect x=\"61\" y=\"34\" width=\"6\" height=\"6\" rx=\"1.5\" fill=\"#94a3b8\" opacity=\"0.6\"/><rect x=\"76\" y=\"34\" width=\"6\" height=\"6\" rx=\"1.5\" fill=\"#94a3b8\" opacity=\"0.6\"/><rect x=\"91\" y=\"34\" width=\"6\" height=\"6\" rx=\"1.5\" fill=\"#94a3b8\" opacity=\"0.6\"/><rect x=\"46\" y=\"46\" width=\"6\" height=\"6\" rx=\"1.5\" fill=\"#94a3b8\" opacity=\"0.6\"/><rect x=\"61\" y=\"46\" width=\"6\" height=\"6\" rx=\"1.5\" fill=\"#94a3b8\" opacity=\"0.6\"/><rect x=\"76\" y=\"46\" width=\"6\" height=\"6\" rx=\"1.5\" fill=\"#94a3b8\" opacity=\"0.6\"/><rect x=\"91\" y=\"46\" width=\"6\" height=\"6\" rx=\"1.5\" fill=\"#94a3b8\" opacity=\"0.6\"/><circle cx=\"21\" cy=\"34\" r=\"23\" fill=\"none\" stroke=\"#7c3aed\" stroke-width=\"1\" stroke-dasharray=\"2,2\"/><circle cx=\"21\" cy=\"34\" r=\"16\" fill=\"none\" stroke=\"#8b5cf6\" stroke-width=\"1.5\"/><circle cx=\"21\" cy=\"34\" r=\"11\" fill=\"#6d28d9\"/><circle cx=\"35\" cy=\"24\" r=\"3.5\" fill=\"#a78bfa\"/><text x=\"21\" y=\"37.5\" font-size=\"8.5\" font-weight=\"900\" fill=\"#ffffff\" text-anchor=\"middle\">05</text></svg>"
+    },
+    "halftone_burst": {
+        "id": "halftone_burst",
+        "family": "geometric",
+        "name": "Halftone Burst",
+        "badge": "Radial Dots",
+        "desc": "Dynamic dot matrix halftone radiating behind badge",
+        "thumb_svg": "<svg viewBox=\"0 0 120 68\" xmlns=\"http://www.w3.org/2000/svg\"><rect width=\"120\" height=\"68\" rx=\"4\" fill=\"#0f172a\"/><rect x=\"3\" y=\"3\" width=\"114\" height=\"62\" rx=\"3\" fill=\"#ffffff\"/><rect x=\"46\" y=\"10\" width=\"6\" height=\"6\" rx=\"1.5\" fill=\"#94a3b8\" opacity=\"0.6\"/><rect x=\"61\" y=\"10\" width=\"6\" height=\"6\" rx=\"1.5\" fill=\"#94a3b8\" opacity=\"0.6\"/><rect x=\"76\" y=\"10\" width=\"6\" height=\"6\" rx=\"1.5\" fill=\"#94a3b8\" opacity=\"0.6\"/><rect x=\"91\" y=\"10\" width=\"6\" height=\"6\" rx=\"1.5\" fill=\"#94a3b8\" opacity=\"0.6\"/><rect x=\"46\" y=\"22\" width=\"6\" height=\"6\" rx=\"1.5\" fill=\"#94a3b8\" opacity=\"0.6\"/><rect x=\"61\" y=\"22\" width=\"6\" height=\"6\" rx=\"1.5\" fill=\"#94a3b8\" opacity=\"0.6\"/><rect x=\"76\" y=\"22\" width=\"6\" height=\"6\" rx=\"1.5\" fill=\"#94a3b8\" opacity=\"0.6\"/><rect x=\"91\" y=\"22\" width=\"6\" height=\"6\" rx=\"1.5\" fill=\"#94a3b8\" opacity=\"0.6\"/><rect x=\"46\" y=\"34\" width=\"6\" height=\"6\" rx=\"1.5\" fill=\"#94a3b8\" opacity=\"0.6\"/><rect x=\"61\" y=\"34\" width=\"6\" height=\"6\" rx=\"1.5\" fill=\"#94a3b8\" opacity=\"0.6\"/><rect x=\"76\" y=\"34\" width=\"6\" height=\"6\" rx=\"1.5\" fill=\"#94a3b8\" opacity=\"0.6\"/><rect x=\"91\" y=\"34\" width=\"6\" height=\"6\" rx=\"1.5\" fill=\"#94a3b8\" opacity=\"0.6\"/><rect x=\"46\" y=\"46\" width=\"6\" height=\"6\" rx=\"1.5\" fill=\"#94a3b8\" opacity=\"0.6\"/><rect x=\"61\" y=\"46\" width=\"6\" height=\"6\" rx=\"1.5\" fill=\"#94a3b8\" opacity=\"0.6\"/><rect x=\"76\" y=\"46\" width=\"6\" height=\"6\" rx=\"1.5\" fill=\"#94a3b8\" opacity=\"0.6\"/><rect x=\"91\" y=\"46\" width=\"6\" height=\"6\" rx=\"1.5\" fill=\"#94a3b8\" opacity=\"0.6\"/><circle cx=\"8\" cy=\"20\" r=\"1\" fill=\"#0ea5e9\"/><circle cx=\"14\" cy=\"16\" r=\"1.3\" fill=\"#0ea5e9\"/><circle cx=\"21\" cy=\"13\" r=\"1.6\" fill=\"#0ea5e9\"/><circle cx=\"29\" cy=\"12\" r=\"1.9\" fill=\"#0ea5e9\"/><circle cx=\"37\" cy=\"13\" r=\"1.5\" fill=\"#0ea5e9\"/><circle cx=\"39\" cy=\"21\" r=\"1.8\" fill=\"#0ea5e9\"/><circle cx=\"41\" cy=\"31\" r=\"1.5\" fill=\"#0ea5e9\"/><circle cx=\"39\" cy=\"41\" r=\"1.8\" fill=\"#0ea5e9\"/><circle cx=\"35\" cy=\"51\" r=\"1.5\" fill=\"#0ea5e9\"/><circle cx=\"21\" cy=\"34\" r=\"13\" fill=\"#0284c7\"/><text x=\"21\" y=\"37.5\" font-size=\"8.5\" font-weight=\"900\" fill=\"#ffffff\" text-anchor=\"middle\">12</text></svg>"
+    },
+    "pixel_matrix": {
+        "id": "pixel_matrix",
+        "family": "geometric",
+        "name": "Pixel Matrix",
+        "badge": "AI Matrix",
+        "desc": "Digital pixel square dissolve matrix fading to icons",
+        "thumb_svg": "<svg viewBox=\"0 0 120 68\" xmlns=\"http://www.w3.org/2000/svg\"><rect width=\"120\" height=\"68\" rx=\"4\" fill=\"#0f172a\"/><rect x=\"3\" y=\"3\" width=\"114\" height=\"62\" rx=\"3\" fill=\"#ffffff\"/><rect x=\"46\" y=\"10\" width=\"6\" height=\"6\" rx=\"1.5\" fill=\"#94a3b8\" opacity=\"0.6\"/><rect x=\"61\" y=\"10\" width=\"6\" height=\"6\" rx=\"1.5\" fill=\"#94a3b8\" opacity=\"0.6\"/><rect x=\"76\" y=\"10\" width=\"6\" height=\"6\" rx=\"1.5\" fill=\"#94a3b8\" opacity=\"0.6\"/><rect x=\"91\" y=\"10\" width=\"6\" height=\"6\" rx=\"1.5\" fill=\"#94a3b8\" opacity=\"0.6\"/><rect x=\"46\" y=\"22\" width=\"6\" height=\"6\" rx=\"1.5\" fill=\"#94a3b8\" opacity=\"0.6\"/><rect x=\"61\" y=\"22\" width=\"6\" height=\"6\" rx=\"1.5\" fill=\"#94a3b8\" opacity=\"0.6\"/><rect x=\"76\" y=\"22\" width=\"6\" height=\"6\" rx=\"1.5\" fill=\"#94a3b8\" opacity=\"0.6\"/><rect x=\"91\" y=\"22\" width=\"6\" height=\"6\" rx=\"1.5\" fill=\"#94a3b8\" opacity=\"0.6\"/><rect x=\"46\" y=\"34\" width=\"6\" height=\"6\" rx=\"1.5\" fill=\"#94a3b8\" opacity=\"0.6\"/><rect x=\"61\" y=\"34\" width=\"6\" height=\"6\" rx=\"1.5\" fill=\"#94a3b8\" opacity=\"0.6\"/><rect x=\"76\" y=\"34\" width=\"6\" height=\"6\" rx=\"1.5\" fill=\"#94a3b8\" opacity=\"0.6\"/><rect x=\"91\" y=\"34\" width=\"6\" height=\"6\" rx=\"1.5\" fill=\"#94a3b8\" opacity=\"0.6\"/><rect x=\"46\" y=\"46\" width=\"6\" height=\"6\" rx=\"1.5\" fill=\"#94a3b8\" opacity=\"0.6\"/><rect x=\"61\" y=\"46\" width=\"6\" height=\"6\" rx=\"1.5\" fill=\"#94a3b8\" opacity=\"0.6\"/><rect x=\"76\" y=\"46\" width=\"6\" height=\"6\" rx=\"1.5\" fill=\"#94a3b8\" opacity=\"0.6\"/><rect x=\"91\" y=\"46\" width=\"6\" height=\"6\" rx=\"1.5\" fill=\"#94a3b8\" opacity=\"0.6\"/><rect x=\"4\" y=\"8\" width=\"22\" height=\"50\" rx=\"3\" fill=\"#4f46e5\"/><rect x=\"28\" y=\"14\" width=\"4\" height=\"4\" fill=\"#6366f1\"/><rect x=\"34\" y=\"18\" width=\"3\" height=\"3\" fill=\"#818cf8\"/><rect x=\"28\" y=\"26\" width=\"3\" height=\"3\" fill=\"#818cf8\"/><rect x=\"33\" y=\"34\" width=\"4\" height=\"4\" fill=\"#6366f1\"/><rect x=\"28\" y=\"44\" width=\"3\" height=\"3\" fill=\"#818cf8\"/><rect x=\"34\" y=\"48\" width=\"3\" height=\"3\" fill=\"#6366f1\"/><text x=\"15\" y=\"37.5\" font-size=\"9\" font-weight=\"900\" fill=\"#ffffff\" text-anchor=\"middle\">08</text></svg>"
     }
-  };
+};
 
   const TEMPLATE_PRESETS = {
     vectuz_yellow: {
@@ -1509,24 +1597,53 @@
     show_highlight: true,
   };
 
-  function renderDesignCards() {
+  let activeDesignFamily = 'all';
+
+  function renderDesignCards(familyFilter = activeDesignFamily) {
+    activeDesignFamily = familyFilter;
     const box = $('#designList');
     if (!box) return;
     box.innerHTML = '';
-    for (const [key, d] of Object.entries(TEMPLATE_DESIGNS)) {
+
+    const entries = Object.entries(TEMPLATE_DESIGNS).filter(([key, d]) => {
+      if (familyFilter === 'all') return true;
+      return d.family === familyFilter;
+    });
+
+    const countBadge = $('#designCountBadge');
+    if (countBadge) {
+      countBadge.textContent = `${entries.length} Styles`;
+    }
+
+    for (const [key, d] of entries) {
       const el = document.createElement('div');
       el.className = 'design-card' + (S.template.design === key ? ' active' : '');
       el.dataset.d = key;
       el.innerHTML = `
-        <div class="design-card-top">
-          <span class="design-card-name">${d.name}</span>
-          <span class="design-card-badge">${d.badge}</span>
+        <div class="design-card-preview">${d.thumb_svg}</div>
+        <div class="design-card-info">
+          <div class="design-card-top">
+            <span class="design-card-name" title="${d.name}">${d.name}</span>
+            <span class="design-card-badge">${d.badge}</span>
+          </div>
+          <div class="design-card-desc" title="${d.desc}">${d.desc}</div>
         </div>
-        <div class="design-card-desc">${d.desc}</div>
       `;
       el.onclick = () => selectDesign(key);
       box.appendChild(el);
     }
+  }
+
+  function setupDesignFilterTabs() {
+    const tabs = $$('#designFilterTabs .design-tab-btn');
+    if (!tabs || !tabs.length) return;
+    tabs.forEach(btn => {
+      btn.onclick = () => {
+        tabs.forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        renderDesignCards(btn.dataset.f);
+      };
+    });
   }
 
   function selectDesign(key) {
@@ -1776,7 +1893,8 @@
       }
     }
 
-    renderDesignCards();
+    setupDesignFilterTabs();
+    renderDesignCards(activeDesignFamily);
     renderPresetCards();
     renderSavedTemplates();
     resetTemplateView();
