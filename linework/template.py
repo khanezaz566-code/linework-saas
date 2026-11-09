@@ -283,7 +283,12 @@ def resolve_config(cfg: dict | None) -> dict[str, Any]:
         "title_highlight": "pill",
         "showcase_shape": "card",
         "icon_layout": "auto_grid",
-        "artboard_margin": 0.06
+        "artboard_margin": 0.06,
+        "highlight_index": 0,
+        "title_fs": 0,
+        "count_fs": 0,
+        "sub_fs": 0,
+        "shape_accent": ""
     })
     if cfg:
         p_name = cfg.get("preset")
@@ -620,9 +625,12 @@ def _render_showcase_box(
     stroke_scale: float
 ) -> str:
     shape = str(c.get("showcase_shape") or "card").lower()
+    if shape in ("none", "off", "hidden", "0", "false") or not c.get("show_highlight", True):
+        return ""
     hl_bg = c["highlight_bg"]
     hl_stroke = c["highlight_stroke"]
     hl_mode = c.get("highlight_mode", "hero_1")
+    highlight_index = int(c.get("highlight_index") or 0)
     num_hl = 1 if hl_mode == "hero_1" else (6 if hl_mode == "mini_6" else 4)
     cols = 1 if hl_mode == "hero_1" else 2
 
@@ -631,7 +639,7 @@ def _render_showcase_box(
         hero_paths = _extract_highlight_svg(
             model, icons_meta, hl_mode, num_hl, hl_stroke, stroke_scale,
             r * 1.35, r * 1.35,
-            cx - r * 0.675, cy - r * 0.675, cols=cols
+            cx - r * 0.675, cy - r * 0.675, cols=cols, highlight_index=highlight_index
         )
         return f"""
     <!-- Redesigned Showcase: Luxury Orbital Ring -->
@@ -664,7 +672,7 @@ def _render_showcase_box(
         hero_paths = _extract_highlight_svg(
             model, icons_meta, hl_mode, num_hl, hl_stroke, stroke_scale,
             hex_r * 1.35, hex_r * 1.35,
-            cx - hex_r * 0.675, cy - hex_r * 0.675, cols=cols
+            cx - hex_r * 0.675, cy - hex_r * 0.675, cols=cols, highlight_index=highlight_index
         )
         return f"""
     <!-- Redesigned Showcase: Cyber Hexagon Shield -->
@@ -691,7 +699,7 @@ def _render_showcase_box(
         hero_paths = _extract_highlight_svg(
             model, icons_meta, hl_mode, num_hl, hl_stroke, stroke_scale,
             card_w * 0.78, card_h * 0.65,
-            card_x + card_w * 0.11, card_y + card_h * 0.18, cols=cols
+            card_x + card_w * 0.11, card_y + card_h * 0.18, cols=cols, highlight_index=highlight_index
         )
         return f"""
     <!-- Redesigned Showcase: Modern Squircle Luxury Card -->
@@ -733,12 +741,13 @@ def _render_showcase_box(
 
 
 def _extract_highlight_svg(model: Model, icons_meta: list[dict], hl_mode: str, count: int, hl_stroke: str, stroke_scale: float,
-                           inner_w: float, inner_h: float, ox: float, oy: float, cols: int = 2) -> str:
+                           inner_w: float, inner_h: float, ox: float, oy: float, cols: int = 2, highlight_index: int = 0) -> str:
     avail_icons = icons_meta or []
     if not avail_icons:
         return ""
     if hl_mode == "hero_1":
-        ic = avail_icons[0]
+        idx = max(0, min(len(avail_icons) - 1, int(highlight_index)))
+        ic = avail_icons[idx]
         ic_paths = _extract_icon_paths(model, ic["box"])
         if not ic_paths:
             return ""
@@ -750,11 +759,13 @@ def _extract_highlight_svg(model: Model, icons_meta: list[dict], hl_mode: str, c
         h_oy = oy + (inner_h - bh * h_scale) / 2 - by1 * h_scale
         return _render_paths_svg(ic_paths, hl_stroke, stroke_scale, h_scale, h_ox, h_oy)
 
+    start_idx = max(0, min(len(avail_icons) - 1, int(highlight_index)))
     rows = max(1, math.ceil(count / cols))
     cell_w = inner_w / cols
     cell_h = inner_h / rows
     rendered = []
-    for i in range(min(count, len(avail_icons))):
+    for k in range(min(count, len(avail_icons))):
+        i = (start_idx + k) % len(avail_icons)
         ic = avail_icons[i]
         ic_paths = _extract_icon_paths(model, ic["box"])
         if not ic_paths:
@@ -816,9 +827,9 @@ def _build_vectuz_sidebar(model: Model, icons_meta: list[dict], c: dict, W: int,
     fonts_import, title_font, count_font, sub_font = _get_font_css(c.get("font_family", "bebas"))
     title_hl_style = str(c.get("title_highlight", "pill"))
 
-    title_fs = max(32, int(round(banner_w * 0.082)))
-    count_fs = max(88, int(round(banner_w * 0.32)))
-    sub_fs = max(16, int(round(banner_w * 0.046)))
+    title_fs = int(c.get("title_fs") or 0) or max(32, int(round(banner_w * 0.082)))
+    count_fs = int(c.get("count_fs") or 0) or max(88, int(round(banner_w * 0.32)))
+    sub_fs = int(c.get("sub_fs") or 0) or max(16, int(round(banner_w * 0.046)))
 
     title_svg = _render_title_highlight(
         title=c['title'], subtitle=c['subtitle'],
@@ -1578,8 +1589,8 @@ def _build_top_banner(model: Model, icons_meta: list[dict], c: dict, W: int, H: 
     badge_y = card_margin
 
     title_x = badge_x + badge_w + int(W * 0.03)
-    title_fs = max(32, int(round(top_h * 0.28)))
-    sub_fs = max(16, int(round(top_h * 0.12)))
+    title_fs = int(c.get("title_fs") or 0) or max(32, int(round(top_h * 0.28)))
+    sub_fs = int(c.get("sub_fs") or 0) or max(16, int(round(top_h * 0.12)))
 
     show_highlight = c.get("show_highlight", True)
     right_box_svg = ""
@@ -1979,8 +1990,8 @@ def _build_hero_spotlight(model: Model, icons_meta: list[dict], c: dict, W: int,
     title_svg = _render_title_highlight(
         title=c['title'], subtitle=c['subtitle'],
         cx=panel_w / 2, cy=int(H * 0.13),
-        title_fs=max(36, int(panel_w * 0.082)),
-        sub_fs=max(16, int(panel_w * 0.038)),
+        title_fs=int(c.get("title_fs") or 0) or max(36, int(panel_w * 0.082)),
+        sub_fs=int(c.get("sub_fs") or 0) or max(16, int(panel_w * 0.038)),
         banner_text=banner_text, banner_sub=banner_sub,
         title_font=title_font, sub_font=sub_font,
         style=title_hl_style, is_centered=True,
@@ -1999,7 +2010,7 @@ def _build_hero_spotlight(model: Model, icons_meta: list[dict], c: dict, W: int,
     )
 
     # Big punchy count number with bottom pill badge
-    count_fs = max(96, int(panel_w * 0.28))
+    count_fs = int(c.get("count_fs") or 0) or max(96, int(panel_w * 0.28))
 
     return f"""<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {W} {H}" width="{W}" height="{H}">
   <defs>

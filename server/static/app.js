@@ -1593,14 +1593,74 @@
     layout: 'landscape_16_9',
     banner_text: '#1E1E1E',
     artboard_bg: 'checkered',
-    highlight_mode: 'mini_4',
+    highlight_mode: 'hero_1',
     show_highlight: true,
+    highlight_index: 0,
+    title_fs: 54,
+    count_fs: 160,
+    sub_fs: 20,
     font_family: 'bebas',
     title_highlight: 'pill',
     showcase_shape: 'card',
     icon_layout: 'auto_grid',
     artboard_margin: 0.06,
   };
+
+  let currentSheetIcons = [];
+
+  async function fetchAndRenderIconPicker() {
+    const jobId = S.job || 'demo';
+    const grid = $('#featuredIconGrid');
+    const badge = $('#featuredIconBadge');
+    if (!grid) return;
+
+    grid.innerHTML = '<div style="padding:14px; color:var(--text-dim); font-size:11px; text-align:center; grid-column:1/-1;">Loading sheet icons...</div>';
+
+    try {
+      const res = await api(`/api/jobs/${jobId}/template/icons`);
+      if (res.ok) {
+        currentSheetIcons = await res.json();
+      } else {
+        currentSheetIcons = [];
+      }
+    } catch (e) {
+      console.error('Failed to load icons:', e);
+      currentSheetIcons = [];
+    }
+
+    if (!currentSheetIcons || currentSheetIcons.length === 0) {
+      grid.innerHTML = '<div style="padding:14px; color:var(--text-dim); font-size:11px; text-align:center; grid-column:1/-1;">No icons available in current sheet</div>';
+      return;
+    }
+
+    grid.innerHTML = '';
+    const activeIdx = S.template.highlight_index || 0;
+    if (badge) badge.textContent = `#${activeIdx + 1} Selected`;
+
+    currentSheetIcons.forEach((ic, idx) => {
+      const item = document.createElement('div');
+      item.className = 'featured-icon-item' + (idx === activeIdx ? ' active' : '');
+      item.dataset.index = idx;
+      item.title = `Feature Icon #${idx + 1} in Hero Showcase`;
+      item.innerHTML = `
+        <img src="${ic.svg_url}" alt="Icon #${idx + 1}" loading="lazy">
+        <span class="icon-num">#${idx + 1}</span>
+      `;
+      item.onclick = () => selectFeaturedIcon(idx);
+      grid.appendChild(item);
+    });
+  }
+
+  function selectFeaturedIcon(idx) {
+    S.template.highlight_index = idx;
+    $$('#featuredIconGrid .featured-icon-item').forEach(el => {
+      el.classList.toggle('active', parseInt(el.dataset.index, 10) === idx);
+    });
+    const badge = $('#featuredIconBadge');
+    if (badge) badge.textContent = `#${idx + 1} Selected`;
+    scheduleTemplateUpdate();
+    toast(`Hero Showcase updated: Icon #${idx + 1}`);
+  }
 
   let activeDesignFamily = 'all';
 
@@ -1741,6 +1801,10 @@
       showcase_shape: S.template.showcase_shape || 'card',
       icon_layout: S.template.icon_layout || 'auto_grid',
       artboard_margin: S.template.artboard_margin !== undefined ? S.template.artboard_margin : 0.06,
+      highlight_index: S.template.highlight_index !== undefined ? S.template.highlight_index : 0,
+      title_fs: S.template.title_fs !== undefined ? S.template.title_fs : 54,
+      count_fs: S.template.count_fs !== undefined ? S.template.count_fs : 160,
+      sub_fs: S.template.sub_fs !== undefined ? S.template.sub_fs : 20,
       icon_layout: S.template.icon_layout || 'auto_grid',
       artboard_margin: S.template.artboard_margin !== undefined ? S.template.artboard_margin : 0.06,
       title: $('#tplTitle') ? $('#tplTitle').value : 'TECHNOLOGY',
@@ -1830,6 +1894,24 @@
       $('#tplMarginRange').value = item.artboard_margin;
       const pct = Math.round(item.artboard_margin * 100);
       if ($('#tplMarginVal')) $('#tplMarginVal').textContent = pct + '% ' + (pct === 6 ? '(Stock Standard)' : (pct < 6 ? '(Compact)' : '(Relaxed)'));
+    }
+    if (item.highlight_index !== undefined) {
+      selectFeaturedIcon(item.highlight_index);
+    }
+    if (item.title_fs !== undefined && $('#tplTitleSize')) {
+      S.template.title_fs = item.title_fs;
+      $('#tplTitleSize').value = item.title_fs;
+      if ($('#tplTitleSizeVal')) $('#tplTitleSizeVal').textContent = item.title_fs + ' px';
+    }
+    if (item.count_fs !== undefined && $('#tplCountSize')) {
+      S.template.count_fs = item.count_fs;
+      $('#tplCountSize').value = item.count_fs;
+      if ($('#tplCountSizeVal')) $('#tplCountSizeVal').textContent = item.count_fs + ' px';
+    }
+    if (item.sub_fs !== undefined && $('#tplSubSize')) {
+      S.template.sub_fs = item.sub_fs;
+      $('#tplSubSize').value = item.sub_fs;
+      if ($('#tplSubSizeVal')) $('#tplSubSizeVal').textContent = item.sub_fs + ' px';
     }
 
     $$('#presetList .preset-card').forEach(c => c.classList.remove('active'));
@@ -1931,6 +2013,7 @@
     renderDesignCards(activeDesignFamily);
     renderPresetCards();
     renderSavedTemplates();
+    fetchAndRenderIconPicker();
     resetTemplateView();
     updateTemplatePreview();
   }
@@ -1980,6 +2063,10 @@
       layout: layout,
       show_highlight: showHighlight,
       highlight_mode: highlightMode,
+      highlight_index: S.template.highlight_index !== undefined ? S.template.highlight_index : 0,
+      title_fs: S.template.title_fs !== undefined ? S.template.title_fs : 54,
+      count_fs: S.template.count_fs !== undefined ? S.template.count_fs : 160,
+      sub_fs: S.template.sub_fs !== undefined ? S.template.sub_fs : 20,
       font_family: S.template.font_family || 'bebas',
       title_highlight: S.template.title_highlight || 'pill',
       showcase_shape: S.template.showcase_shape || 'card',
@@ -2101,6 +2188,60 @@
   const btnSaveCustomTemplate = $('#btnSaveCustomTemplate');
   if (btnSaveCustomTemplate) {
     btnSaveCustomTemplate.addEventListener('click', saveCurrentCustomTemplate);
+  }
+  const btnSaveTemplateSidebar = $('#btnSaveTemplateSidebar');
+  if (btnSaveTemplateSidebar) {
+    btnSaveTemplateSidebar.addEventListener('click', saveCurrentCustomTemplate);
+  }
+
+  // Random & Reset featured icon buttons
+  const btnRandomFeatured = $('#btnRandomFeaturedIcon');
+  if (btnRandomFeatured) {
+    btnRandomFeatured.onclick = () => {
+      if (!currentSheetIcons || currentSheetIcons.length <= 1) return;
+      const randIdx = Math.floor(Math.random() * currentSheetIcons.length);
+      selectFeaturedIcon(randIdx);
+    };
+  }
+  const btnResetFeatured = $('#btnResetFeaturedIcon');
+  if (btnResetFeatured) {
+    btnResetFeatured.onclick = () => {
+      selectFeaturedIcon(0);
+    };
+  }
+
+  // Font size sliders live preview
+  const tplTitleSize = $('#tplTitleSize');
+  const tplTitleSizeVal = $('#tplTitleSizeVal');
+  if (tplTitleSize && tplTitleSizeVal) {
+    tplTitleSize.addEventListener('input', () => {
+      const val = parseInt(tplTitleSize.value, 10);
+      tplTitleSizeVal.textContent = val + ' px';
+      S.template.title_fs = val;
+      scheduleTemplateUpdate();
+    });
+  }
+
+  const tplCountSize = $('#tplCountSize');
+  const tplCountSizeVal = $('#tplCountSizeVal');
+  if (tplCountSize && tplCountSizeVal) {
+    tplCountSize.addEventListener('input', () => {
+      const val = parseInt(tplCountSize.value, 10);
+      tplCountSizeVal.textContent = val + ' px';
+      S.template.count_fs = val;
+      scheduleTemplateUpdate();
+    });
+  }
+
+  const tplSubSize = $('#tplSubSize');
+  const tplSubSizeVal = $('#tplSubSizeVal');
+  if (tplSubSize && tplSubSizeVal) {
+    tplSubSize.addEventListener('input', () => {
+      const val = parseInt(tplSubSize.value, 10);
+      tplSubSizeVal.textContent = val + ' px';
+      S.template.sub_fs = val;
+      scheduleTemplateUpdate();
+    });
   }
 
   const btnAutoCount = $('#btnAutoCount');

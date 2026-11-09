@@ -744,6 +744,17 @@ def result_svg(job_id: str, stroke: str = "#000000", scale: float = 1.0, bg: str
 
 @app.get("/api/jobs/{job_id}/icons/{k}.svg")
 def icon_svg(job_id: str, k: int, stroke: str = "#000000", scale: float = 1.0, download: int = 0):
+    if str(job_id).lower() in ("demo", "sample", "preview", "none", "null", "undefined"):
+        from linework.template import generate_demo_sheet, _extract_icon_paths
+        model, icons = generate_demo_sheet()
+        if k < 0 or k >= len(icons):
+            raise HTTPException(404, "Icon index out of range")
+        paths = _extract_icon_paths(model, icons[k]["box"])
+        m = Model(paths=paths, width=model.width, height=model.height)
+        svg = _tight_svg(m, stroke=stroke, scale=float(np.clip(scale, 0.2, 4)))
+        headers = {"Content-Disposition": f'attachment; filename="demo-icon-{int(k) + 1:02d}.svg"'} if download else {}
+        return Response(svg, media_type="image/svg+xml", headers=headers)
+
     fn = _jobdir(job_id) / f"icon_local_{k}.json"
     if not fn.exists():
         raise HTTPException(404)
@@ -751,6 +762,20 @@ def icon_svg(job_id: str, k: int, stroke: str = "#000000", scale: float = 1.0, d
     svg = _tight_svg(m, stroke=stroke, scale=float(np.clip(scale, 0.2, 4)))
     headers = {"Content-Disposition": f'attachment; filename="icon-{int(k) + 1:02d}.svg"'} if download else {}
     return Response(svg, media_type="image/svg+xml", headers=headers)
+
+
+@app.get("/api/jobs/{job_id}/template/icons")
+def job_template_icons(job_id: str):
+    job = _get(job_id)
+    icons = job.get("icons", [])
+    result = []
+    for i, ic in enumerate(icons):
+        result.append({
+            "index": i,
+            "name": ic.get("name") or f"Icon #{i+1}",
+            "svg_url": f"/api/jobs/{job_id}/icons/{i}.svg?stroke=%23000000"
+        })
+    return JSONResponse(result)
 
 
 @app.get("/api/jobs/{job_id}/icons/{k}/decision")
@@ -932,6 +957,11 @@ def job_template_svg(
     showcase_shape: str = "card",
     icon_layout: str = "auto_grid",
     artboard_margin: float = 0.06,
+    highlight_index: int = 0,
+    title_fs: int = 0,
+    count_fs: int = 0,
+    sub_fs: int = 0,
+    shape_accent: str = "",
     bg: str = "",
     panel_bg: str = "",
     accent: str = "",
@@ -947,7 +977,9 @@ def job_template_svg(
         layout=layout, stroke_scale=float(scale),
         show_highlight=bool(show_highlight), highlight_mode=highlight_mode,
         font_family=font_family, title_highlight=title_highlight, showcase_shape=showcase_shape,
-        icon_layout=icon_layout, artboard_margin=float(artboard_margin)
+        icon_layout=icon_layout, artboard_margin=float(artboard_margin),
+        highlight_index=int(highlight_index), title_fs=int(title_fs), count_fs=int(count_fs), sub_fs=int(sub_fs),
+        shape_accent=shape_accent
     )
     if banner_bg: cfg["banner_bg"] = banner_bg
     if banner_text: cfg["banner_text"] = banner_text
@@ -990,6 +1022,11 @@ def job_template_eps(
     showcase_shape: str = "card",
     icon_layout: str = "auto_grid",
     artboard_margin: float = 0.06,
+    highlight_index: int = 0,
+    title_fs: int = 0,
+    count_fs: int = 0,
+    sub_fs: int = 0,
+    shape_accent: str = "",
     bg: str = "",
     panel_bg: str = "",
     accent: str = "",
@@ -1005,7 +1042,9 @@ def job_template_eps(
         layout=layout, stroke_scale=float(scale),
         show_highlight=bool(show_highlight), highlight_mode=highlight_mode,
         font_family=font_family, title_highlight=title_highlight, showcase_shape=showcase_shape,
-        icon_layout=icon_layout, artboard_margin=float(artboard_margin)
+        icon_layout=icon_layout, artboard_margin=float(artboard_margin),
+        highlight_index=int(highlight_index), title_fs=int(title_fs), count_fs=int(count_fs), sub_fs=int(sub_fs),
+        shape_accent=shape_accent
     )
     if banner_bg: cfg["banner_bg"] = banner_bg
     if banner_text: cfg["banner_text"] = banner_text
@@ -1043,6 +1082,11 @@ def job_template_png(
     stroke: str = "",
     scale: float = 1.0,
     font_family: str = "bebas",
+    highlight_index: int = 0,
+    title_fs: int = 0,
+    count_fs: int = 0,
+    sub_fs: int = 0,
+    shape_accent: str = "",
     title_highlight: str = "pill",
     showcase_shape: str = "card",
     icon_layout: str = "auto_grid",
@@ -1059,7 +1103,9 @@ def job_template_png(
         layout=layout, stroke_scale=float(scale),
         show_highlight=bool(show_highlight), highlight_mode=highlight_mode,
         font_family=font_family, title_highlight=title_highlight, showcase_shape=showcase_shape,
-        icon_layout=icon_layout, artboard_margin=float(artboard_margin)
+        icon_layout=icon_layout, artboard_margin=float(artboard_margin),
+        highlight_index=int(highlight_index), title_fs=int(title_fs), count_fs=int(count_fs), sub_fs=int(sub_fs),
+        shape_accent=shape_accent
     )
     if banner_bg: cfg["banner_bg"] = banner_bg
     if banner_text: cfg["banner_text"] = banner_text

@@ -3012,3 +3012,121 @@ select {
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
+
+
+/* =========================================================================
+   Template Maker Studio - Modular Components, Icon Picker & Typography
+   ========================================================================= */
+.featured-icon-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(54px, 1fr));
+  gap: 8px;
+  max-height: 200px;
+  overflow-y: auto;
+  padding: 8px;
+  background: rgba(0, 0, 0, 0.28);
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  border-radius: 10px;
+}
+
+.featured-icon-item {
+  position: relative;
+  aspect-ratio: 1;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1.5px solid rgba(255, 255, 255, 0.12);
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  padding: 4px;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.featured-icon-item:hover {
+  background: rgba(0, 245, 160, 0.1);
+  border-color: rgba(0, 245, 160, 0.5);
+  transform: translateY(-2px);
+}
+
+.featured-icon-item.active {
+  background: rgba(0, 245, 160, 0.18);
+  border-color: #00f5a0;
+  box-shadow: 0 0 14px rgba(0, 245, 160, 0.35);
+}
+
+.featured-icon-item.active::after {
+  content: '✓ Hero';
+  position: absolute;
+  top: -6px;
+  right: -4px;
+  background: #00f5a0;
+  color: #050508;
+  font-size: 8.5px;
+  font-weight: 800;
+  padding: 1px 4px;
+  border-radius: 6px;
+  letter-spacing: 0.5px;
+}
+
+.featured-icon-item img, .featured-icon-item svg {
+  width: 30px;
+  height: 30px;
+  object-fit: contain;
+  pointer-events: none;
+}
+
+.featured-icon-item .icon-num {
+  font-size: 9px;
+  color: var(--text-dim, #64748b);
+  font-weight: 700;
+  margin-top: 2px;
+  font-family: var(--font-mono, monospace);
+}
+
+.featured-icon-item.active .icon-num {
+  color: #00f5a0;
+  font-weight: 800;
+}
+
+/* Font Size Sliders with Live Value Badge */
+.font-size-ctrl {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 10px;
+}
+
+.ctrl-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 11.5px;
+  color: var(--text-muted, #94a3b8);
+  font-weight: 600;
+}
+
+.val-pill {
+  font-family: var(--font-mono, monospace);
+  font-size: 11px;
+  color: var(--accent, #00f5a0);
+  background: rgba(0, 245, 160, 0.12);
+  padding: 1px 7px;
+  border-radius: 10px;
+  border: 1px solid rgba(0, 245, 160, 0.25);
+}
+
+.component-step-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--accent, #00f5a0);
+  color: #050508;
+  font-size: 10.5px;
+  font-weight: 800;
+  margin-right: 6px;
+}
