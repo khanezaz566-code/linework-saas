@@ -902,12 +902,16 @@
 
         <div class="form-group">
           <label>Subscription Plan</label>
-          <select id="grantPlan" class="form-control">
+          <select id="grantPlan" class="form-control" onchange="updateGrantPlanHint()">
             <option value="bundle_pro">All-In-One Bundle Pro (৳500/mo - Unlimited Everything)</option>
             <option value="redraw_pro">Icon Redraw Pro (৳300/mo - Unlimited Redraw)</option>
             <option value="bg_pro">BG Studio Pro (৳200/mo - Unlimited Backgrounds)</option>
             <option value="free">Free Trial (Standard Limits)</option>
           </select>
+        </div>
+
+        <div id="grantPlanHint" style="padding:10px 14px; border-radius:8px; font-size:12px; line-height:1.4; margin-top:-4px; background:rgba(0,245,160,0.1); border:1px solid rgba(0,245,160,0.25); color:#00f5a0;">
+          👑 <b>All-In-One Bundle Pro:</b> 100% UNLIMITED Icon Redraw AND 100% UNLIMITED BG Studio.
         </div>
 
         <div class="form-group">
@@ -939,11 +943,14 @@
           </div>
         </div>
 
-        <div style="background:#090c12; border:1px solid var(--card-border); border-radius:10px; padding:12px; display:flex; flex-direction:column; gap:8px;">
+        <div style="background:#090c12; border:1px solid var(--card-border); border-radius:10px; padding:12px; display:flex; flex-direction:column; gap:4px;">
           <label style="font-size:12px; font-weight:700; color:#fff; display:flex; align-items:center; gap:8px; cursor:pointer;">
             <input type="checkbox" id="grantResetQuota" checked>
-            Reset Free Trial Usage (Set to 0 / 3 icons and 0 / 10 BG)
+            Reset Trial Usage Counters (Icons: 0 / 3, BG: 0 / 10)
           </label>
+          <div style="font-size:11px; color:var(--text-muted); margin-left:22px;" id="grantResetNote">
+            Active Pro features are always 100% Unlimited regardless of trial counter.
+          </div>
         </div>
 
         <div style="display:flex; gap:10px; margin-top:8px;">
@@ -1411,9 +1418,9 @@
         const waLink = waClean ? `https://wa.me/88${waClean.replace(/^88/, '')}?text=${encodeURIComponent('Hello ' + (u.name || '') + ', from Linework AI support!')}` : null;
         
         let planBadge = '<span class="badge free">🎁 Free Trial</span>';
-        if (u.plan === 'redraw_pro') planBadge = '<span class="badge pro">⚡ Redraw Pro (৳300)</span>';
-        else if (u.plan === 'bg_pro') planBadge = '<span class="badge pro">⚡ BG Pro (৳200)</span>';
-        else if (u.plan === 'bundle_pro') planBadge = '<span class="badge bundle">👑 Bundle Pro (৳500)</span>';
+        if (u.plan === 'redraw_pro') planBadge = '<span class="badge pro" style="background:rgba(0,210,255,0.15); color:#00d2ff; border:1px solid #00d2ff;">⚡ Redraw Pro (৳300)</span>';
+        else if (u.plan === 'bg_pro') planBadge = '<span class="badge" style="background:rgba(168,85,247,0.15); color:#c084fc; border:1px solid #a855f7;">🎨 BG Studio Pro (৳200)</span>';
+        else if (u.plan === 'bundle_pro') planBadge = '<span class="badge bundle">👑 All-In-One Pro (৳500)</span>';
         else if (u.plan === 'pro') planBadge = '<span class="badge bundle">💎 Lifetime VIP</span>';
 
         let livePill = '<span class="badge" style="background:rgba(255,255,255,0.04); color:var(--text-dim);">' + (u.presence_text || 'Offline') + '</span>';
@@ -1424,7 +1431,28 @@
         }
 
         let quotaContent = '';
-        if (u.plan === 'free') {
+        if (u.plan === 'bundle_pro' || u.plan === 'pro' || u.role === 'admin') {
+          quotaContent = `
+            <div style="font-size:12px; line-height:1.4;">
+              <b style="color:#00f5a0;">👑 Unlimited Everything</b><br>
+              <span style="color:var(--text-muted); font-size:11px;">Redraw + BG Studio</span>
+            </div>
+          `;
+        } else if (u.plan === 'redraw_pro') {
+          quotaContent = `
+            <div style="font-size:12px; line-height:1.4;">
+              <b style="color:#00d2ff;">⚡ Unlimited Redraw</b><br>
+              <span style="color:var(--text-muted); font-size:11px;">BG Trial: ${u.free_bg_used}/10 used</span>
+            </div>
+          `;
+        } else if (u.plan === 'bg_pro') {
+          quotaContent = `
+            <div style="font-size:12px; line-height:1.4;">
+              <b style="color:#c084fc;">🎨 Unlimited BG Studio</b><br>
+              <span style="color:var(--text-muted); font-size:11px;">Redraw Trial: ${u.free_sheets_used}/3 used</span>
+            </div>
+          `;
+        } else {
           const sheetColor = u.free_sheets_used >= 3 ? '#ff4757' : '#00f5a0';
           const bgColor = u.free_bg_used >= 10 ? '#ff4757' : '#00d2ff';
           quotaContent = `
@@ -1434,8 +1462,6 @@
               ${u.is_trial_exhausted ? '<div style="color:#ff4757; font-weight:700; font-size:10px; margin-top:2px;">⚠️ TRIAL FINISHED</div>' : ''}
             </div>
           `;
-        } else {
-          quotaContent = `<div style="font-size:12px; color:#00f5a0; font-weight:700;">⚡ Unlimited Vector Output</div>`;
         }
 
         let validityText = '<span style="color:var(--text-muted); font-size:12px;">Free Trial Tier</span>';
@@ -1515,6 +1541,38 @@
       renderUsers(filtered);
     }
 
+    function updateGrantPlanHint() {
+      const plan = document.getElementById('grantPlan').value;
+      const hint = document.getElementById('grantPlanHint');
+      const resetNote = document.getElementById('grantResetNote');
+      if (!hint) return;
+      if (plan === 'bundle_pro') {
+        hint.style.background = 'rgba(0,245,160,0.12)';
+        hint.style.borderColor = 'rgba(0,245,160,0.3)';
+        hint.style.color = '#00f5a0';
+        hint.innerHTML = '👑 <b>All-In-One Bundle Pro:</b> 100% UNLIMITED Icon Redraw AND 100% UNLIMITED BG Studio. Customer sees: <code style="background:rgba(0,0,0,0.4); padding:2px 6px; border-radius:4px;">👑 All-In-One: Unlimited</code> in their header.';
+        if (resetNote) resetNote.textContent = 'Active Pro features are always 100% Unlimited regardless of trial counter.';
+      } else if (plan === 'redraw_pro') {
+        hint.style.background = 'rgba(0,210,255,0.12)';
+        hint.style.borderColor = 'rgba(0,210,255,0.3)';
+        hint.style.color = '#00d2ff';
+        hint.innerHTML = '⚡ <b>Icon Redraw Pro:</b> 100% UNLIMITED Icon Redraws! Customer sees: <code style="background:rgba(0,0,0,0.4); padding:2px 6px; border-radius:4px;">👑 Redraw: Unlimited</code> in their header (no confusing "10" or quota counters displayed). BG Studio retains separate 10 free trial uses.';
+        if (resetNote) resetNote.textContent = 'Redraw is 100% Unlimited. Resetting clears BG trial back to 0/10.';
+      } else if (plan === 'bg_pro') {
+        hint.style.background = 'rgba(168,85,247,0.12)';
+        hint.style.borderColor = 'rgba(168,85,247,0.3)';
+        hint.style.color = '#c084fc';
+        hint.innerHTML = '🎨 <b>BG Studio Pro:</b> 100% UNLIMITED BG Studio generations and vector exports! Customer sees: <code style="background:rgba(0,0,0,0.4); padding:2px 6px; border-radius:4px;">🎨 BG Studio: Unlimited</code> in their header. Redraw retains separate 3 free trial icon sets.';
+        if (resetNote) resetNote.textContent = 'BG Studio is 100% Unlimited. Resetting clears Redraw trial back to 0/3.';
+      } else {
+        hint.style.background = 'rgba(255,255,255,0.06)';
+        hint.style.borderColor = 'rgba(255,255,255,0.15)';
+        hint.style.color = '#cbd5e1';
+        hint.innerHTML = '🎁 <b>Free Trial:</b> Standard trial limits apply (3 Redraw sheets + 10 Backgrounds).';
+        if (resetNote) resetNote.textContent = 'Resets usage counters back to 0 (Customer gets full 3 icon sets + 10 BG fresh).';
+      }
+    }
+
     // Grant Access Modal
     function openGrantModal(userId) {
       const u = state.allUsers.find(x => x.id === userId);
@@ -1522,11 +1580,12 @@
       document.getElementById('grantUserId').value = u.id;
       document.getElementById('modalCustName').textContent = u.name || u.username;
       document.getElementById('modalCustPhone').textContent = `Mobile: ${u.phone || 'None'} · WhatsApp: ${u.whatsapp || 'None'}`;
-      document.getElementById('grantPlan').value = u.plan === 'pro' ? 'bundle_pro' : u.plan;
+      document.getElementById('grantPlan').value = (u.plan === 'free' || !u.plan) ? 'redraw_pro' : (u.plan === 'pro' ? 'bundle_pro' : u.plan);
       document.getElementById('grantRole').value = u.role || 'user';
       document.getElementById('grantStatus').value = u.status || 'active';
       document.getElementById('grantDays').value = '30';
       document.getElementById('grantResetQuota').checked = true;
+      updateGrantPlanHint();
       document.getElementById('grantAccessModal').style.display = 'flex';
     }
 

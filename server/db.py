@@ -734,7 +734,10 @@ def _check_pro_expiration(u_dict: dict, conn):
     exp_str = u_dict.get("pro_expires_at")
     if plan in ("redraw_pro", "bg_pro", "bundle_pro", "pro") and exp_str:
         try:
-            exp_dt = datetime.fromisoformat(exp_str)
+            exp_clean = str(exp_str).replace(" ", "T")
+            if "." in exp_clean:
+                exp_clean = exp_clean.split(".")[0]
+            exp_dt = datetime.fromisoformat(exp_clean)
             if datetime.now() > exp_dt:
                 conn.execute("UPDATE users SET plan = 'free' WHERE id = ?", (u_dict["id"],))
                 conn.commit()
@@ -752,31 +755,57 @@ def get_user_quota_info(user_dict: dict) -> dict:
     sheets_used = int(user_dict.get("free_sheets_used") or 0)
     bg_used = int(user_dict.get("free_bg_used") or 0)
 
-    # Redraw capability
-    if is_admin or plan in ("bundle_pro", "redraw_pro", "pro"):
+    # Redraw capability & limits
+    is_redraw_unlimited = (is_admin or plan in ("bundle_pro", "redraw_pro", "pro"))
+    if is_redraw_unlimited:
         can_redraw = True
         sheets_left = "Unlimited"
+        sheets_limit = -1
     else:
         can_redraw = (sheets_used < 3)
         sheets_left = max(0, 3 - sheets_used)
+        sheets_limit = 3
 
-    # BG Studio capability
-    if is_admin or plan in ("bundle_pro", "bg_pro", "pro"):
+    # BG Studio capability & limits
+    is_bg_unlimited = (is_admin or plan in ("bundle_pro", "bg_pro", "pro"))
+    if is_bg_unlimited:
         can_bg = True
         bg_left = "Unlimited"
+        bg_limit = -1
     else:
         can_bg = (bg_used < 10)
         bg_left = max(0, 10 - bg_used)
+        bg_limit = 10
 
     exp_str = user_dict.get("pro_expires_at")
     days_left = None
     if exp_str:
         try:
-            exp_clean = exp_str.replace(" ", "T") if " " in exp_str else exp_str
+            exp_clean = str(exp_str).replace(" ", "T")
+            if "." in exp_clean:
+                exp_clean = exp_clean.split(".")[0]
             exp_dt = datetime.fromisoformat(exp_clean)
-            days_left = max(0, (exp_dt - datetime.now()).days)
+            diff = (exp_dt - datetime.now()).days
+            days_left = max(0, diff) if diff < 20000 else 9999
         except Exception:
             days_left = None
+
+    # Human-readable plan badge & display text
+    if is_admin:
+        plan_badge_text = "👑 Super Admin"
+        header_quota_text = "⚡ Super Admin (Unlimited)"
+    elif plan in ("bundle_pro", "pro"):
+        plan_badge_text = "👑 All-In-One Pro"
+        header_quota_text = "👑 All-In-One: Unlimited"
+    elif plan == "redraw_pro":
+        plan_badge_text = "⚡ Redraw Pro"
+        header_quota_text = "👑 Redraw: Unlimited"
+    elif plan == "bg_pro":
+        plan_badge_text = "🎨 BG Studio Pro"
+        header_quota_text = "🎨 BG Studio: Unlimited"
+    else:
+        plan_badge_text = "Free Trial"
+        header_quota_text = f"Trial: {sheets_left}/3 Icons · {bg_left}/10 BG"
 
     return {
         "id": user_dict["id"],
@@ -787,14 +816,19 @@ def get_user_quota_info(user_dict: dict) -> dict:
         "status": user_dict.get("status", "active"),
         "plan": plan,
         "plan_name": PLANS.get(plan, {}).get("name", "Free Trial"),
+        "plan_badge_text": plan_badge_text,
+        "header_quota_text": header_quota_text,
+        "is_redraw_unlimited": is_redraw_unlimited,
+        "is_bg_unlimited": is_bg_unlimited,
+        "is_bundle": (is_admin or plan in ("bundle_pro", "pro")),
         "pro_expires_at": exp_str,
         "days_left": days_left,
         "sheets_used": sheets_used,
-        "sheets_limit": 3,
+        "sheets_limit": sheets_limit,
         "sheets_left": sheets_left,
         "can_redraw": can_redraw,
         "bg_used": bg_used,
-        "bg_limit": 10,
+        "bg_limit": bg_limit,
         "bg_left": bg_left,
         "can_bg": can_bg,
         "bkash_number": BKASH_NUMBER,
@@ -905,10 +939,11 @@ def submit_payment_request(user_id: int, plan_selected: str, amount: int, phone:
 def grant_user_access(user_id: int, plan: str = None, days: int = 30, role: str = None, status: str = None, reset_quota: bool = False, sheets_used: int = None, bg_used: int = None):
     with get_db() as conn:
         cur = conn.cursor()
-        cur.execute("SELECT plan, role, status, phone, username FROM users WHERE id = ?", (user_id,))
-        curr = cur.fetchone()
-        if not curr:
+        cur.execute("SELECT plan, role, status, phone, username, pro_expires_at FROM users WHERE id = ?", (user_id,))
+        row = cur.fetchone()
+        if not row:
             return False
+        curr = dict(row)
         
         target_plan = plan if plan is not None else curr["plan"]
         target_role = role if role is not None else curr["role"]
@@ -926,7 +961,18 @@ def grant_user_access(user_id: int, plan: str = None, days: int = 30, role: str 
             if days >= 3650 or days == -1:
                 exp_date = "2099-12-31 23:59:59"
             else:
-                exp_date = (now + timedelta(days=days)).strftime("%Y-%m-%d %H:%M:%S")
+                base = now
+                if curr.get("pro_expires_at") and curr.get("plan") == target_plan:
+                    try:
+                        clean_curr = str(curr["pro_expires_at"]).replace(" ", "T")
+                        if "." in clean_curr:
+                            clean_curr = clean_curr.split(".")[0]
+                        c_dt = datetime.fromisoformat(clean_curr)
+                        if c_dt > now:
+                            base = c_dt
+                    except Exception:
+                        pass
+                exp_date = (base + timedelta(days=days)).strftime("%Y-%m-%d %H:%M:%S")
         else:
             exp_date = None
             
@@ -1022,9 +1068,18 @@ def list_users(search: str = None, filter_type: str = None):
             # Quota info
             sheets_used = int(r.get("free_sheets_used") or 0)
             bg_used = int(r.get("free_bg_used") or 0)
-            r["sheets_left"] = max(0, 3 - sheets_used)
-            r["bg_left"] = max(0, 10 - bg_used)
-            r["is_trial_exhausted"] = (sheets_used >= 3 and bg_used >= 10)
+            plan = r.get("plan", "free")
+            role = r.get("role", "user")
+            is_admin = (role == "admin")
+
+            is_redraw_unlimited = (is_admin or plan in ("bundle_pro", "redraw_pro", "pro"))
+            is_bg_unlimited = (is_admin or plan in ("bundle_pro", "bg_pro", "pro"))
+
+            r["is_redraw_unlimited"] = is_redraw_unlimited
+            r["is_bg_unlimited"] = is_bg_unlimited
+            r["sheets_left"] = "Unlimited" if is_redraw_unlimited else max(0, 3 - sheets_used)
+            r["bg_left"] = "Unlimited" if is_bg_unlimited else max(0, 10 - bg_used)
+            r["is_trial_exhausted"] = (not is_redraw_unlimited and sheets_used >= 3) and (not is_bg_unlimited and bg_used >= 10)
             
             # Days remaining on pro
             exp_str = r.get("pro_expires_at")

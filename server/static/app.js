@@ -3415,13 +3415,28 @@
       // Header Plan Badge
       if (pBadge) {
         pBadge.style.display = 'inline-block';
-        if (isAnyPro) {
-          pBadge.textContent = '👑 ' + (user.plan_name || 'PRO ACTIVE');
+        if (user.role === 'admin') {
+          pBadge.textContent = '👑 VIP ADMIN';
+          pBadge.style.background = 'rgba(255, 183, 3, 0.2)';
+          pBadge.style.borderColor = '#ffb703';
+          pBadge.style.color = '#ffb703';
+        } else if (user.plan === 'bundle_pro' || user.plan === 'pro') {
+          pBadge.textContent = '👑 ALL-IN-ONE PRO';
           pBadge.style.background = 'rgba(0, 245, 160, 0.2)';
           pBadge.style.borderColor = '#00f5a0';
           pBadge.style.color = '#00f5a0';
+        } else if (user.plan === 'redraw_pro') {
+          pBadge.textContent = '⚡ REDRAW PRO';
+          pBadge.style.background = 'rgba(0, 210, 255, 0.2)';
+          pBadge.style.borderColor = '#00d2ff';
+          pBadge.style.color = '#00d2ff';
+        } else if (user.plan === 'bg_pro') {
+          pBadge.textContent = '🎨 BG STUDIO PRO';
+          pBadge.style.background = 'rgba(168, 85, 247, 0.2)';
+          pBadge.style.borderColor = '#c084fc';
+          pBadge.style.color = '#c084fc';
         } else {
-          pBadge.textContent = user.plan_name || 'Free Trial';
+          pBadge.textContent = '🎁 FREE TRIAL';
           pBadge.style.background = 'rgba(255, 255, 255, 0.08)';
           pBadge.style.borderColor = 'rgba(255, 255, 255, 0.2)';
           pBadge.style.color = '#ccc';
@@ -3430,16 +3445,20 @@
 
       // Quota indicator in header
       if (qTxt) {
-        if (user.role === 'admin') {
+        if (user.header_quota_text) {
+          qTxt.textContent = user.header_quota_text;
+        } else if (user.role === 'admin') {
           qTxt.textContent = '⚡ Lifetime VIP Admin';
-        } else if (user.plan === 'bundle_pro') {
-          qTxt.textContent = '👑 Unlimited Bundle Pro';
+        } else if (user.plan === 'bundle_pro' || user.plan === 'pro') {
+          qTxt.textContent = '👑 All-In-One: Unlimited';
         } else if (user.plan === 'redraw_pro') {
-          qTxt.textContent = `👑 Redraw: Unlimited · BG: ${user.bg_used}/10`;
+          qTxt.textContent = '👑 Redraw: Unlimited';
         } else if (user.plan === 'bg_pro') {
-          qTxt.textContent = `Icons: ${user.sheets_used}/3 · 👑 BG: Unlimited`;
+          qTxt.textContent = '🎨 BG Studio: Unlimited';
         } else {
-          qTxt.textContent = `Icons: ${user.sheets_used}/3 · BG: ${user.bg_used}/10`;
+          const sLeft = Math.max(0, 3 - (user.sheets_used || 0));
+          const bLeft = Math.max(0, 10 - (user.bg_used || 0));
+          qTxt.textContent = `Trial: ${sLeft}/3 Icons · ${bLeft}/10 BG`;
         }
       }
 
@@ -3598,9 +3617,26 @@
         const isUnlimitedBg = (this.user.role === 'admin' || ['bundle_pro', 'bg_pro', 'pro'].includes(this.user.plan));
         const isAnyPro = (this.user.role === 'admin' || ['bundle_pro', 'redraw_pro', 'bg_pro', 'pro'].includes(this.user.plan));
 
-        $('#profilePlanBadge').textContent = (isAnyPro ? '👑 ' : '') + (this.user.plan_name || 'Free Trial');
-        $('#profileQuotaRedraw').textContent = isUnlimitedRedraw ? 'Unlimited Pro Access' : `${this.user.sheets_used} / 3 Sets Used`;
-        $('#profileQuotaBg').textContent = isUnlimitedBg ? 'Unlimited Pro Access' : `${this.user.bg_used} / 10 Used`;
+        let badgeTitle = '🎁 Free Trial';
+        if (this.user.role === 'admin') badgeTitle = '👑 Super Admin';
+        else if (this.user.plan === 'bundle_pro' || this.user.plan === 'pro') badgeTitle = '👑 All-In-One Bundle Pro';
+        else if (this.user.plan === 'redraw_pro') badgeTitle = '⚡ Icon Redraw Pro';
+        else if (this.user.plan === 'bg_pro') badgeTitle = '🎨 BG Studio Pro';
+
+        $('#profilePlanBadge').textContent = badgeTitle;
+        if (isUnlimitedRedraw) {
+          $('#profileQuotaRedraw').innerHTML = '<span style="color:#00f5a0; font-weight:700;">👑 Unlimited Pro Access</span>';
+        } else {
+          const leftS = Math.max(0, 3 - (this.user.sheets_used || 0));
+          $('#profileQuotaRedraw').textContent = `${this.user.sheets_used || 0} / 3 Used (${leftS} Free Left)`;
+        }
+
+        if (isUnlimitedBg) {
+          $('#profileQuotaBg').innerHTML = '<span style="color:#00f5a0; font-weight:700;">🎨 Unlimited Pro Access</span>';
+        } else {
+          const leftB = Math.max(0, 10 - (this.user.bg_used || 0));
+          $('#profileQuotaBg').textContent = `${this.user.bg_used || 0} / 10 Used (${leftB} Free Left)`;
+        }
 
         const expRow = $('#profileExpiryRow');
         const expTxt = $('#profileExpiryDate');
@@ -3644,7 +3680,7 @@
 
     canProcessSheet() {
       if (!this.user) return false;
-      if (this.user.role === 'admin' || ['bundle_pro', 'redraw_pro', 'pro'].includes(this.user.plan)) {
+      if (this.user.is_redraw_unlimited || this.user.role === 'admin' || ['bundle_pro', 'redraw_pro', 'pro'].includes(this.user.plan)) {
         return true;
       }
       return (this.user.sheets_used < 3);
@@ -3652,7 +3688,7 @@
 
     canProcessBg() {
       if (!this.user) return false;
-      if (this.user.role === 'admin' || ['bundle_pro', 'bg_pro', 'pro'].includes(this.user.plan)) {
+      if (this.user.is_bg_unlimited || this.user.role === 'admin' || ['bundle_pro', 'bg_pro', 'pro'].includes(this.user.plan)) {
         return true;
       }
       return (this.user.bg_used < 10);
