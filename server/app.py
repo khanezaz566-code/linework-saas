@@ -1742,8 +1742,11 @@ async def api_register(request: Request):
     phone = body.get("phone")
     whatsapp = body.get("whatsapp") or phone
     password = body.get("password")
+    email = body.get("email") or ""
+    provider = body.get("provider") or "direct"
+    social_id = body.get("social_id") or ""
     
-    user, err = db.register_user(name, phone, whatsapp, password)
+    user, err = db.register_user(name, phone, whatsapp, password, email=email, provider=provider, social_id=social_id)
     if err:
         raise HTTPException(400, err)
     
@@ -1753,6 +1756,43 @@ async def api_register(request: Request):
         "token": token,
         "user": db.get_user_quota_info(user),
         "message": "Account created successfully! 3 Free Icon Sets and 10 Backgrounds activated."
+    })
+    response.set_cookie("lw_token", token, max_age=30*86400, httponly=False, samesite="lax")
+    return response
+
+
+@app.post("/api/auth/social-auth")
+async def api_social_auth(request: Request):
+    try:
+        body = await request.json()
+    except Exception:
+        raise HTTPException(400, "Invalid JSON payload")
+    provider = (body.get("provider") or "google").lower()
+    social_id = body.get("social_id") or ""
+    email = (body.get("email") or "").strip().lower()
+    name = (body.get("name") or "").strip()
+    phone = body.get("phone") or ""
+    whatsapp = body.get("whatsapp") or phone
+    password = body.get("password") or ""
+    
+    user, err = db.social_authenticate_or_register(
+        provider=provider,
+        social_id=social_id,
+        email=email,
+        name=name,
+        phone=phone,
+        whatsapp=whatsapp,
+        password=password
+    )
+    if err:
+        raise HTTPException(400, err)
+    
+    token = db.create_session(user["id"])
+    response = JSONResponse({
+        "ok": True,
+        "token": token,
+        "user": db.get_user_quota_info(user),
+        "message": f"Successfully authenticated with {provider.capitalize()}! Free Trial activated."
     })
     response.set_cookie("lw_token", token, max_age=30*86400, httponly=False, samesite="lax")
     return response

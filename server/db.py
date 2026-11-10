@@ -226,7 +226,10 @@ def _migrate_db(conn):
         "whatsapp": "TEXT",
         "free_bg_used": "INTEGER DEFAULT 0",
         "last_active": "TEXT",
-        "last_seen_epoch": "INTEGER DEFAULT 0"
+        "last_seen_epoch": "INTEGER DEFAULT 0",
+        "email": "TEXT",
+        "provider": "TEXT DEFAULT 'direct'",
+        "social_id": "TEXT"
     }
     for col, col_type in needed_user_cols.items():
         if col not in existing_user_cols:
@@ -477,39 +480,124 @@ def normalize_phone(phone: str) -> str:
     return digits
 
 
-def register_user(name: str, phone: str, whatsapp: str, password: str):
+def register_user(name: str, phone: str, whatsapp: str, password: str, email: str = "", provider: str = "direct", social_id: str = ""):
     """Register a new user with 3 free redraw icon sets & 10 free backgrounds."""
     name = (name or "").strip()
     phone_norm = normalize_phone(phone)
     wp_norm = normalize_phone(whatsapp) or phone_norm
     password = (password or "").strip()
+    email = (email or "").strip().lower()
 
     if not name:
         return None, "Please provide your full name."
-    if len(phone_norm) < 11:
-        return None, "Please provide a valid 11-digit phone number."
-    if len(password) < 4:
+    if len(phone_norm) < 11 and not email:
+        return None, "Please provide a valid 11-digit phone number or WhatsApp."
+    if not password and not social_id:
         return None, "Password must be at least 4 characters."
+    if password and len(password) < 4:
+        return None, "Password must be at least 4 characters."
+
+    # fallback identifier if phone is missing but email is provided
+    ident = phone_norm or email or f"user_{secrets.token_hex(4)}"
+    if not phone_norm and email:
+        phone_norm = ident
+    if not wp_norm:
+        wp_norm = phone_norm
+    if not password:
+        password = secrets.token_hex(8)
 
     with get_db() as conn:
         cur = conn.cursor()
-        cur.execute("SELECT id FROM users WHERE phone = ? OR username = ?", (phone_norm, phone_norm))
-        if cur.fetchone():
-            return None, "An account with this phone number already exists. Please sign in."
+        cur.execute("""
+        SELECT * FROM users 
+        WHERE (phone IS NOT NULL AND phone != '' AND phone = ?) 
+           OR (username IS NOT NULL AND username = ?)
+           OR (email IS NOT NULL AND email != '' AND email = ?)
+        """, (phone_norm, ident, email or ident))
+        existing = cur.fetchone()
+        if existing:
+            u_dict = dict(existing)
+            _check_pro_expiration(u_dict, conn)
+            # If user already exists, update name/whatsapp if provided, and log them in
+            try:
+                conn.execute("""
+                UPDATE users SET name = COALESCE(NULLIF(?, ''), name), 
+                                 whatsapp = COALESCE(NULLIF(?, ''), whatsapp),
+                                 last_active = ?, last_seen_epoch = ?
+                WHERE id = ?
+                """, (name, wp_norm, datetime.now().strftime("%Y-%m-%d %H:%M:%S"), int(datetime.now().timestamp()), u_dict["id"]))
+                conn.commit()
+                cur.execute("SELECT * FROM users WHERE id = ?", (u_dict["id"],))
+                u_dict = dict(cur.fetchone())
+            except Exception:
+                pass
+            return u_dict, None
 
         salt = secrets.token_hex(16)
         pwd_hash = _hash_password(password, salt)
         now_epoch = int(datetime.now().timestamp())
         now_iso = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         cur.execute("""
-        INSERT INTO users (username, name, phone, whatsapp, password_hash, salt, role, status, plan, free_sheets_used, free_bg_used, last_active, last_seen_epoch)
-        VALUES (?, ?, ?, ?, ?, ?, 'user', 'active', 'free', 0, 0, ?, ?)
-        """, (phone_norm, name, phone_norm, wp_norm, pwd_hash, salt, now_iso, now_epoch))
+        INSERT INTO users (username, name, phone, whatsapp, email, password_hash, salt, role, status, plan, free_sheets_used, free_bg_used, last_active, last_seen_epoch, provider, social_id)
+        VALUES (?, ?, ?, ?, ?, ?, ?, 'user', 'active', 'free', 0, 0, ?, ?, ?, ?)
+        """, (ident, name, phone_norm, wp_norm, email, pwd_hash, salt, now_iso, now_epoch, provider, social_id))
         conn.commit()
-        user_id = cur.lastrowid
-        cur.execute("SELECT * FROM users WHERE id = ?", (user_id,))
-        user_row = dict(cur.fetchone())
-        return user_row, None
+        
+        cur.execute("SELECT * FROM users WHERE username = ? OR phone = ?", (ident, phone_norm))
+        user_row = cur.fetchone()
+        if user_row:
+            return dict(user_row), None
+        return None, "Failed to create account. Please try again."
+
+
+def social_authenticate_or_register(provider: str, social_id: str, email: str, name: str, phone: str = "", whatsapp: str = "", password: str = ""):
+    """Authenticate or register user via Google or Facebook social login."""
+    provider = (provider or "google").lower()
+    email = (email or "").strip().lower()
+    name = (name or "").strip() or ("Google User" if provider == "google" else "Facebook User")
+    phone_norm = normalize_phone(phone)
+    wp_norm = normalize_phone(whatsapp) or phone_norm
+
+    with get_db() as conn:
+        cur = conn.cursor()
+        # Look up by social_id, email, or phone
+        cur.execute("""
+        SELECT * FROM users 
+        WHERE (social_id IS NOT NULL AND social_id != '' AND social_id = ?)
+           OR (email IS NOT NULL AND email != '' AND email = ?)
+           OR (phone IS NOT NULL AND phone != '' AND phone = ?)
+        """, (social_id or "NONE", email or "NONE", phone_norm or "NONE"))
+        user = cur.fetchone()
+        if user:
+            u_dict = dict(user)
+            _check_pro_expiration(u_dict, conn)
+            # Update missing social info
+            try:
+                conn.execute("""
+                UPDATE users SET social_id = COALESCE(NULLIF(?, ''), social_id),
+                                 provider = COALESCE(NULLIF(?, ''), provider),
+                                 name = COALESCE(NULLIF(?, ''), name),
+                                 whatsapp = COALESCE(NULLIF(?, ''), whatsapp),
+                                 last_active = ?, last_seen_epoch = ?
+                WHERE id = ?
+                """, (social_id, provider, name, wp_norm, datetime.now().strftime("%Y-%m-%d %H:%M:%S"), int(datetime.now().timestamp()), u_dict["id"]))
+                conn.commit()
+                cur.execute("SELECT * FROM users WHERE id = ?", (u_dict["id"],))
+                u_dict = dict(cur.fetchone())
+            except Exception:
+                pass
+            return u_dict, None
+
+        # New registration with trial
+        return register_user(
+            name=name,
+            phone=phone_norm,
+            whatsapp=wp_norm,
+            password=password or secrets.token_hex(8),
+            email=email,
+            provider=provider,
+            social_id=social_id
+        )
 
 
 def authenticate_user(identifier: str, password: str):

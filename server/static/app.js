@@ -2935,20 +2935,239 @@
       // Tab switcher
       const tabReg = $('#tabRegister');
       const tabLog = $('#tabLogin');
-      const fReg = $('#registerForm');
-      const fLog = $('#loginForm');
+      const regContainer = $('#registerContainer');
+      const logContainer = $('#loginContainer');
+      const regStepSocial = $('#regStepSocial');
+      const regStepIdent = $('#regStepIdentification');
+
       if (tabReg && tabLog) {
         tabReg.addEventListener('click', () => {
           tabReg.classList.add('active');
           tabLog.classList.remove('active');
-          if (fReg) fReg.style.display = 'flex';
-          if (fLog) fLog.style.display = 'none';
+          if (regContainer) regContainer.style.display = 'flex';
+          if (logContainer) logContainer.style.display = 'none';
         });
         tabLog.addEventListener('click', () => {
           tabLog.classList.add('active');
           tabReg.classList.remove('active');
-          if (fLog) fLog.style.display = 'flex';
-          if (fReg) fReg.style.display = 'none';
+          if (logContainer) logContainer.style.display = 'flex';
+          if (regContainer) regContainer.style.display = 'none';
+        });
+      }
+
+      // Social Picker Management
+      let selectedSocial = {
+        provider: 'google',
+        name: 'Khan Ezaz',
+        email: 'khanezaz566@gmail.com',
+        social_id: 'google_ezaz_566'
+      };
+
+      const openSocialPicker = (provider, forLogin = false) => {
+        selectedSocial.provider = provider;
+        const pickerModal = $('#socialPickerModal');
+        const title = $('#socialPickerTitle');
+        const subtitle = $('#socialPickerSubtitle');
+        const nameEl = $('#pickerItemName');
+        const emailEl = $('#pickerItemEmail');
+        const avatarEl = $('#pickerItemAvatar');
+        const customForm = $('#customSocialForm');
+        if (customForm) customForm.style.display = 'none';
+
+        if (provider === 'google') {
+          if (title) title.innerHTML = '<span style="color:#4285F4;">Google</span> Account Selector';
+          if (subtitle) subtitle.textContent = forLogin ? 'Sign in using your Google account:' : 'Choose a Google account to claim your free trial:';
+          if (nameEl) nameEl.textContent = 'Khan Ezaz';
+          if (emailEl) emailEl.textContent = 'khanezaz566@gmail.com';
+          if (avatarEl) {
+            avatarEl.style.background = 'linear-gradient(135deg, #4285F4, #34A853)';
+            avatarEl.textContent = 'G';
+          }
+        } else {
+          if (title) title.innerHTML = '<span style="color:#1877F2;">Facebook</span> Profile Selector';
+          if (subtitle) subtitle.textContent = forLogin ? 'Sign in using your Facebook account:' : 'Choose a Facebook profile to claim your free trial:';
+          if (nameEl) nameEl.textContent = 'Khan Ezaz';
+          if (emailEl) emailEl.textContent = 'facebook.com/khanezaz';
+          if (avatarEl) {
+            avatarEl.style.background = '#1877F2';
+            avatarEl.textContent = 'f';
+          }
+        }
+        if (pickerModal) {
+          pickerModal.dataset.mode = forLogin ? 'login' : 'register';
+          pickerModal.style.display = 'flex';
+        }
+      };
+
+      const closePicker = () => {
+        const pickerModal = $('#socialPickerModal');
+        if (pickerModal) pickerModal.style.display = 'none';
+      };
+
+      const closeSocialBtn = $('#closeSocialPickerModal');
+      if (closeSocialBtn) closeSocialBtn.addEventListener('click', closePicker);
+
+      const applySocialAccount = async (account, isLoginMode = false) => {
+        closePicker();
+        if (isLoginMode) {
+          try {
+            const r = await fetch('/api/auth/social-auth', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                provider: account.provider,
+                social_id: account.social_id || account.email,
+                email: account.email,
+                name: account.name
+              })
+            });
+            const data = await r.json();
+            if (r.ok && data.token && data.user) {
+              this.token = data.token;
+              sessionStorage.setItem('lw_token', data.token);
+              localStorage.setItem('lw_token', data.token);
+              localStorage.setItem('lw_saved_ident', data.user.phone || data.user.username);
+              localStorage.setItem('lw_user_profile', JSON.stringify(data.user));
+              this.setLoggedInUser(data.user);
+              this.hideAuth();
+              toast(`Welcome back, ${data.user.name || 'User'}!`);
+              if (this.pendingAction) {
+                const act = this.pendingAction;
+                this.pendingAction = null;
+                act();
+              }
+              return;
+            }
+          } catch (e) {}
+        }
+
+        // Switch to "Create Account" tab & transition to Step 2: Identification
+        if (tabReg && tabLog) {
+          tabReg.classList.add('active');
+          tabLog.classList.remove('active');
+          if (regContainer) regContainer.style.display = 'flex';
+          if (logContainer) logContainer.style.display = 'none';
+        }
+
+        const pProvider = $('#regProvider');
+        const pSocialId = $('#regSocialId');
+        const pEmail = $('#regEmail');
+        const pName = $('#regName');
+        const verifiedIcon = $('#socialVerifiedIcon');
+        const verifiedTxt = $('#socialVerifiedText');
+
+        if (pProvider) pProvider.value = account.provider;
+        if (pSocialId) pSocialId.value = account.social_id || account.email;
+        if (pEmail) pEmail.value = account.email;
+        if (pName && (!pName.value.trim() || pName.value === 'e.g. Khanezaz')) {
+          pName.value = account.name || '';
+        }
+
+        if (verifiedIcon) {
+          verifiedIcon.textContent = account.provider === 'google' ? '🟢' : account.provider === 'facebook' ? '🔵' : '📱';
+        }
+        if (verifiedTxt) {
+          verifiedTxt.textContent = account.provider === 'direct' 
+            ? 'Mobile & WhatsApp Account Setup'
+            : `Verified via ${account.provider.charAt(0).toUpperCase() + account.provider.slice(1)} (${account.email || account.name})`;
+        }
+
+        if (regStepSocial) regStepSocial.style.display = 'none';
+        if (regStepIdent) regStepIdent.style.display = 'flex';
+
+        const wpInput = $('#regWhatsapp');
+        if (wpInput) wpInput.focus();
+      };
+
+      // Click primary item in picker
+      const itemPrimary = $('#pickerItemPrimary');
+      if (itemPrimary) {
+        itemPrimary.addEventListener('click', () => {
+          const pickerModal = $('#socialPickerModal');
+          const isLogin = pickerModal && pickerModal.dataset.mode === 'login';
+          const nameEl = $('#pickerItemName');
+          const emailEl = $('#pickerItemEmail');
+          applySocialAccount({
+            provider: selectedSocial.provider,
+            name: nameEl ? nameEl.textContent : 'Khan Ezaz',
+            email: emailEl ? emailEl.textContent : 'khanezaz566@gmail.com',
+            social_id: `${selectedSocial.provider}_${emailEl ? emailEl.textContent : 'user'}`
+          }, isLogin);
+        });
+      }
+
+      // Custom account entry
+      const itemCustom = $('#pickerItemCustom');
+      const customForm = $('#customSocialForm');
+      if (itemCustom && customForm) {
+        itemCustom.addEventListener('click', () => {
+          customForm.style.display = customForm.style.display === 'none' ? 'flex' : 'none';
+        });
+        customForm.addEventListener('submit', (e) => {
+          e.preventDefault();
+          const name = $('#inpCustomSocialName').value.trim();
+          const email = $('#inpCustomSocialEmail').value.trim();
+          if (!name || !email) return;
+          const pickerModal = $('#socialPickerModal');
+          const isLogin = pickerModal && pickerModal.dataset.mode === 'login';
+          applySocialAccount({
+            provider: selectedSocial.provider,
+            name: name,
+            email: email,
+            social_id: `${selectedSocial.provider}_${email}`
+          }, isLogin);
+        });
+      }
+
+      // Social signup buttons
+      const btnGSign = $('#btnGoogleSignup');
+      if (btnGSign) btnGSign.addEventListener('click', () => openSocialPicker('google', false));
+
+      const btnFBSign = $('#btnFacebookSignup');
+      if (btnFBSign) btnFBSign.addEventListener('click', () => openSocialPicker('facebook', false));
+
+      const btnGLog = $('#btnGoogleLogin');
+      if (btnGLog) btnGLog.addEventListener('click', () => openSocialPicker('google', true));
+
+      const btnFBLog = $('#btnFacebookLogin');
+      if (btnFBLog) btnFBLog.addEventListener('click', () => openSocialPicker('facebook', true));
+
+      // Direct phone button
+      const btnDirect = $('#btnDirectPhoneSignup');
+      if (btnDirect) {
+        btnDirect.addEventListener('click', () => {
+          applySocialAccount({
+            provider: 'direct',
+            name: '',
+            email: '',
+            social_id: ''
+          }, false);
+        });
+      }
+
+      // Change social account button (returns to Step 1)
+      const btnChangeSocial = $('#btnChangeSocialAccount');
+      if (btnChangeSocial) {
+        btnChangeSocial.addEventListener('click', () => {
+          if (regStepSocial) regStepSocial.style.display = 'flex';
+          if (regStepIdent) regStepIdent.style.display = 'none';
+        });
+      }
+
+      // Sync WhatsApp to Phone if checkbox is checked
+      const chkSame = $('#chkSameAsWhatsapp');
+      const inpWp = $('#regWhatsapp');
+      const inpPh = $('#regPhone');
+      if (inpWp && inpPh && chkSame) {
+        inpWp.addEventListener('input', () => {
+          if (chkSame.checked) {
+            inpPh.value = inpWp.value;
+          }
+        });
+        chkSame.addEventListener('change', () => {
+          if (chkSame.checked) {
+            inpPh.value = inpWp.value;
+          }
         });
       }
 
@@ -2992,25 +3211,29 @@
         });
       }
 
-      // Registration Form Submission
+      // Registration Form Submission (Step 2: Identification)
+      const fReg = $('#registerForm');
       if (fReg) {
         fReg.addEventListener('submit', async (e) => {
           e.preventDefault();
           const name = $('#regName').value.trim();
-          const phone = $('#regPhone').value.trim();
-          const whatsapp = $('#regWhatsapp').value.trim() || phone;
+          const whatsapp = $('#regWhatsapp').value.trim();
+          const phone = ($('#regPhone') ? $('#regPhone').value.trim() : '') || whatsapp;
           const password = $('#regPass').value.trim();
+          const provider = ($('#regProvider') ? $('#regProvider').value.trim() : '') || 'direct';
+          const social_id = ($('#regSocialId') ? $('#regSocialId').value.trim() : '') || '';
+          const email = ($('#regEmail') ? $('#regEmail').value.trim() : '') || '';
 
           const btn = $('#btnSubmitRegister');
           const oldTxt = btn.textContent;
-          btn.textContent = 'Creating account...';
+          btn.textContent = '🚀 একাউন্ট প্রস্তুত হচ্ছে...';
           btn.disabled = true;
 
           try {
             const r = await fetch('/api/auth/register', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ name, phone, whatsapp, password })
+              body: JSON.stringify({ name, phone, whatsapp, password, email, provider, social_id })
             });
             const data = await r.json();
             if (!r.ok) throw new Error(data.detail || 'Registration failed');
@@ -3018,12 +3241,13 @@
             this.token = data.token;
             sessionStorage.setItem('lw_token', data.token);
             localStorage.setItem('lw_token', data.token);
-            localStorage.setItem('lw_saved_ident', phone);
+            localStorage.setItem('lw_saved_ident', phone || data.user.phone || data.user.username);
             localStorage.setItem('lw_saved_pass', password);
             localStorage.setItem('lw_user_profile', JSON.stringify({ name, phone, whatsapp, password, ...data.user }));
             this.setLoggedInUser(data.user);
             this.hideAuth();
-            toast('Account created! 3 Free Icon Sets and 10 BG activated.');
+            closePicker();
+            toast(`🎉 স্বাগতম ${name}! আপনার ফ্রি ট্রায়াল (৩টি আইকন সেট + ১০টি ব্যাকগ্রাউন্ড) চালু হয়েছে।`);
 
             if (this.pendingAction) {
               const act = this.pendingAction;
@@ -3040,6 +3264,7 @@
       }
 
       // Login Form Submission
+      const fLog = $('#loginForm');
       if (fLog) {
         fLog.addEventListener('submit', async (e) => {
           e.preventDefault();
@@ -3068,6 +3293,7 @@
             localStorage.setItem('lw_user_profile', JSON.stringify(data.user));
             this.setLoggedInUser(data.user);
             this.hideAuth();
+            closePicker();
             toast('Welcome back, ' + (data.user.name || 'User') + '!');
 
             if (this.pendingAction) {
@@ -3267,12 +3493,10 @@
     },
 
     hideAuth() {
-      if (!this.user) {
-        toast('Please create a free account or sign in to continue.', 1);
-        return;
-      }
       const m = $('#authModal');
       if (m) m.style.display = 'none';
+      const sm = $('#socialPickerModal');
+      if (sm) sm.style.display = 'none';
     },
 
     showPricing(recommendedPlan) {
