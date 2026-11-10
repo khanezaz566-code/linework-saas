@@ -13,8 +13,7 @@ from .fitting import initial_model
 
 def _chunks(mask, w, min_area):
     """Connected blobs of `mask` that are fat enough to be real strokes (thin edge slivers are removed by an opening)."""
-    k = int(max(3, round(0.45 * w)))
-    k += (k + 1) % 2
+    k = 3
     op = cv2.morphologyEx(mask.astype(np.uint8), cv2.MORPH_OPEN, cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (k, k)))
     n, lab, st, _ = cv2.connectedComponentsWithStats(op, connectivity=8)
     out = []
@@ -25,26 +24,26 @@ def _chunks(mask, w, min_area):
 
 
 def missing_chunks(D, ink, w):
-    return _chunks((D > 0.5) & (ink < 0.5), w, max(1.0 * w * w, 30))
+    return _chunks((D > 0.45) & (ink < 0.40), w, max(12, int(0.20 * w * w)))
 
 
 def extra_chunks(D, ink, w):
-    return _chunks((ink > 0.5) & (D < 0.3), w, max(1.0 * w * w, 30))
+    return _chunks((ink > 0.50) & (D < 0.25), w, max(16, int(0.35 * w * w)))
 
 
 def trace_missing(D, comp, w):
     """Trace only the source ink inside (a dilated copy of) one missing blob; returns new Paths (source pixel coords)."""
     reg = cv2.dilate(comp.astype(np.uint8), cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (int(1.6 * w) | 1, int(1.6 * w) | 1))) > 0
     Dc = np.where(reg, D, 0).astype(np.float32)
-    br = refined_branches(Dc)
+    br = refined_branches(Dc, prune=max(3, int(round(0.35 * w))))
     if not br:
         return []
     chains, _ = build_chains(br)
-    m = initial_model(chains, Dc, sigma=2.0)
+    m = initial_model(chains, Dc, sigma=1.5)
     return m.paths
 
 
-def repair(model: Model, D, ink_of, soft, state_cur, w, max_items=8):
+def repair(model: Model, D, ink_of, soft, state_cur, w, max_items=12):
     """Returns (model, ink, soft, n_added, n_removed). `ink_of(model)` renders; `soft(ink)` is the Doctor's mismatch."""
     cur = state_cur
     ink = ink_of(model)
@@ -53,12 +52,21 @@ def repair(model: Model, D, ink_of, soft, state_cur, w, max_items=8):
         new_paths = trace_missing(D, comp, w)
         if not new_paths:
             continue
-        cand = Model(model.paths + new_paths, model.width, model.height)
+        valid_paths = []
+        for np_p in new_paths:
+            f = resample(np_p.flat(), 1.0)
+            xs = np.clip(np.round(f[:, 0] - 0.5).astype(int), 0, D.shape[1] - 1)
+            ys = np.clip(np.round(f[:, 1] - 0.5).astype(int), 0, D.shape[0] - 1)
+            if float((D[ys, xs] > 0.35).mean()) >= 0.60:
+                valid_paths.append(np_p)
+        if not valid_paths:
+            continue
+        cand = Model(model.paths + valid_paths, model.width, model.height)
         ink2 = ink_of(cand)
         s2 = soft(ink2)
-        if s2 < cur - 0.5:
+        if s2 <= cur + max(1.5, 0.001 * cur):
             model, ink, cur = cand, ink2, s2
-            added += 1
+            added += len(valid_paths)
     for comp in extra_chunks(D, ink, w)[:max_items]:
         dil = cv2.dilate(comp.astype(np.uint8), np.ones((3, 3), np.uint8)) > 0
         hits = []

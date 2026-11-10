@@ -102,13 +102,15 @@ class Doctor:
                 continue
             tree_other = cKDTree(np.vstack([fm for _, fm in other_entries]))
             tree_owners = np.concatenate([[m] * len(fm) for m, fm in other_entries])
-            # A stroke is ONLY redundant if its centerline points lie right on top of another stroke (< 0.25*w)
-            d_cl, _ = tree_other.query(f)
-            median_cl_dist = float(np.median(d_cl))
-            frac_coincident = float((d_cl < 0.28 * w).mean())
-            if frac_coincident >= 0.88 and median_cl_dist <= 0.22 * w:
-                red.append(i)
-                continue
+            # A stroke is ONLY redundant if virtually all of its rendered ink is covered by other strokes
+            # AND its centerline lies right on top of another stroke (< 0.16 * w)
+            if excl.sum() < max(4, int(0.015 * c.sum())):
+                d_cl, _ = tree_other.query(f)
+                median_cl_dist = float(np.median(d_cl))
+                frac_coincident = float((d_cl < 0.20 * w).mean())
+                if frac_coincident >= 0.85 and median_cl_dist <= 0.16 * w:
+                    red.append(i)
+                    continue
             ek = cv2.dilate(excl.astype(np.uint8), np.ones((5, 5), np.uint8)) > 0
             xs = np.clip(np.round(f[:, 0] - 0.5).astype(int), 0, ek.shape[1] - 1)
             ys = np.clip(np.round(f[:, 1] - 0.5).astype(int), 0, ek.shape[0] - 1)

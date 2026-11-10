@@ -81,13 +81,10 @@ def find_joints(m: Model):
     ends = [(i, e, (p.A[0] if e == 0 else p.A[-1]), p.w) for i, p in enumerate(m.paths) if not p.closed and len(p.A) >= 2 for e in (0, 1)]
     if not ends:
         return []
-    pts, own = [], []
-    for j, p in enumerate(m.paths):
-        f = p.flat(0.5)
-        pts.append(f)
-        own += [j] * len(f)
+    pts = [p.flat(0.5) for p in m.paths]
+    trees = [cKDTree(f) if len(f) else None for f in pts]
     P = np.vstack(pts)
-    own = np.array(own)
+    own = np.concatenate([[j] * len(pts[j]) for j in range(len(pts))])
     tree = cKDTree(P)
     n = len(ends)
     E = np.array([x[2] for x in ends])
@@ -140,7 +137,7 @@ def find_joints(m: Model):
             continue
         if cos_t > 0.65 and den < 0.15:
             continue
-        if (on_thr[a] or on_thr[b]) and d_ab > 0.32 * w_min:
+        if (on_thr[a] and on_thr[b]) and d_ab > 0.32 * w_min:
             continue
         if d_ab > 0.35 * w_min:
             if den < 0.20:
@@ -150,7 +147,7 @@ def find_joints(m: Model):
             sb = float(diff[0] * tangs[a][1] - diff[1] * tangs[a][0]) / (tangs[a][0] * tangs[b][1] - tangs[a][1] * tangs[b][0])
             if not (-0.25 * w_min <= sa <= 0.85 * w_min and -0.25 * w_min <= sb <= 0.85 * w_min):
                 continue
-        limit = 0.30 * w_min if (on_thr[a] or on_thr[b]) else 0.85 * w_min
+        limit = 0.30 * w_min if (on_thr[a] and on_thr[b]) else 0.85 * w_min
         if d_ab <= limit:
             par[f(a)] = f(b)
 
@@ -168,23 +165,26 @@ def find_joints(m: Model):
         if len(g) >= 2:
             for q_idx in tree.query_ball_point(mids, 0.45 * w):
                 j_path = int(own[q_idx])
-                if j_path not in mem_paths and is_interior(j_path, mids, w) and _nearest_on(m.paths[j_path], mids)[1] <= 0.35 * min(w, m.paths[j_path].w):
-                    thr.add(j_path)
+                if j_path not in mem_paths and is_interior(j_path, mids, w) and trees[j_path] is not None:
+                    d_on, _ = trees[j_path].query(mids)
+                    if d_on <= 0.35 * min(w, m.paths[j_path].w):
+                        thr.add(j_path)
         else:
             k = g[0]
             pt, pw = ends[k][2], ends[k][3]
             t_k = tangs[k]
             for q_idx in tree.query_ball_point(pt, 0.45 * pw):
                 j_path = int(own[q_idx])
-                if j_path not in mem_paths and pw <= 1.8 * m.paths[j_path].w and is_interior(j_path, pt, pw):
-                    pt_on, d_on = _nearest_on(m.paths[j_path], pt)
+                if j_path not in mem_paths and pw <= 1.8 * m.paths[j_path].w and is_interior(j_path, pt, pw) and trees[j_path] is not None:
+                    d_on, k_on = trees[j_path].query(pt)
                     if d_on <= 0.35 * min(pw, m.paths[j_path].w):
-                        fj = m.paths[j_path].flat(0.5)
-                        kj = int(np.argmin(np.linalg.norm(fj - pt_on, axis=1)))
+                        fj = pts[j_path]
+                        kj = int(k_on)
                         tau_j = unit(fj[min(kj + 1, len(fj) - 1)] - fj[max(kj - 1, 0)])
                         if d_on > 0.16 * min(pw, m.paths[j_path].w):
                             if abs(float(t_k @ tau_j)) > np.cos(np.radians(16.0)):
                                 continue
+                            pt_on = fj[kj]
                             if float(unit(pt_on - pt) @ t_k) < np.cos(np.radians(48.0)):
                                 continue
                         thr.add(j_path)
@@ -196,9 +196,9 @@ def find_joints(m: Model):
                 for m_idx in order:
                     dr, ir = float(d_ray[m_idx]), int(idx_ray[m_idx])
                     j_path = int(own[ir])
-                    if dr <= 0.25 * min(pw, m.paths[j_path].w) and float(np.linalg.norm(P[ir] - pt)) <= 0.42 * min(pw, m.paths[j_path].w) and j_path not in mem_paths and pw <= 1.8 * m.paths[j_path].w and is_interior(j_path, P[ir], pw):
-                        fj = m.paths[j_path].flat(0.5)
-                        kj = int(np.argmin(np.linalg.norm(fj - P[ir], axis=1)))
+                    if dr <= 0.25 * min(pw, m.paths[j_path].w) and float(np.linalg.norm(P[ir] - pt)) <= 0.42 * min(pw, m.paths[j_path].w) and j_path not in mem_paths and pw <= 1.8 * m.paths[j_path].w and is_interior(j_path, P[ir], pw) and trees[j_path] is not None:
+                        fj = pts[j_path]
+                        kj = int(trees[j_path].query(P[ir])[1])
                         tau_j = unit(fj[min(kj + 1, len(fj) - 1)] - fj[max(kj - 1, 0)])
                         if abs(float(t_k @ tau_j)) <= np.cos(np.radians(16.0)):
                             thr.add(j_path)
@@ -509,7 +509,11 @@ def tool_pen(m: Model, J: Joint, merge_l=True):
                     p = mm.paths[0]
                     m.paths[i] = p
             q = m.paths[j]
-            X, _ = _nearest_on(q, X)
+            if q.closed and len(q.A) == 4 and np.linalg.norm((q.A[0] + q.A[2]) - (q.A[1] + q.A[3])) < 0.25:
+                X, _ = _nearest_on(q, X)
+            else:
+                k = insert_anchor(q, X)
+                X = q.A[k].copy()
             _set_end(p, e, X)
     else:
         if len(J.ends) == 2 and J.ends[0][0] != J.ends[1][0]:

@@ -21,9 +21,9 @@ from . import lessons as LS
 from .split import find_icons, crop_icon, estimate_width
 
 PRESETS = {
-    "fast": dict(max_rounds=0, time_budget=7, region_edits=0, iters=14, taus=(1.0, 0.45)),
-    "standard": dict(max_rounds=1, time_budget=12, region_edits=2, iters=18, taus=(1.0, 0.5, 0.35)),
-    "precise": dict(max_rounds=2, time_budget=22, region_edits=4, iters=24, taus=(1.2, 0.8, 0.5, 0.34)),
+    "fast": dict(max_rounds=1, time_budget=15, region_edits=2, iters=18, taus=(1.0, 0.45)),
+    "standard": dict(max_rounds=4, time_budget=45, region_edits=8, iters=26, taus=(1.0, 0.5, 0.35)),
+    "precise": dict(max_rounds=6, time_budget=90, region_edits=12, iters=32, taus=(1.2, 0.8, 0.5, 0.34)),
 }
 
 
@@ -38,7 +38,7 @@ class Options:
     time_budget: float | None = None
     region_edits: int | None = None
     repair: bool = True  # final safety net for missing / stray pieces
-    max_stroke: float = 24.0  # sources with thicker strokes (big / hi-res sheets) are processed at norm_stroke and scaled back
+    max_stroke: float = 48.0  # sources with thicker strokes (big / hi-res sheets) are processed at norm_stroke and scaled back
     norm_stroke: float = 10.0
     memory: bool = True  # remember best results / lessons between runs (linework/lessons.py)
     fresh: bool = False  # do not re-use a stored result for the same icon (still never return something worse than the stored best)
@@ -47,12 +47,12 @@ class Options:
     joins: bool = True  # Join engine: build every joint, check it, repair failures with the pen / line / arc / shape tools (linework/joints.py)
     finish: bool = True  # Finisher engine: per-icon inspection of the last few machine-made spots
     rings: bool = True  # detect exact circles in the image and snap strokes onto them
-    trace_good: float = 0.968  # stop trying trace settings once the first render matches this well
-    trace_ok: float = 0.93  # ... or at least this well (then the optimiser does the rest; saves ~10 s per dense icon)
+    trace_good: float = 0.985  # stop trying trace settings once the first render matches this well
+    trace_ok: float = 0.94  # ... or at least this well (then the optimiser does the rest; saves ~10 s per dense icon)
     superres: int | None = None  # trace at k-times resolution (auto: thin strokes get 2-3x)
     dedupe_tol: float = 0.0025  # fraction of ink area we will sacrifice to remove a duplicate centerline
     decision: bool = True  # Decision engine: per-icon decision + verification of the last few percent
-    decision_budget: float = 3.5
+    decision_budget: float = 15.0
     tip_patches: bool = False  # Pure single-centerline vector mode: never append overlapping corner stub paths
 
     def resolved(self):
@@ -232,10 +232,9 @@ def _process_icon(gray, opts: Options = None, emit=_noop, name="icon", set_w=Non
     ev = lambda engine, msg, **kw: emit(engine=engine, msg=msg, icon=name, t=round(time.time() - t0, 2), **kw)
     # Budget = CPU time actually spent on this icon (not wall-clock), so quality does not depend on how busy the machine is,
     # how many icons run in parallel, or where in the queue this icon sits.  Complex icons get a larger budget (set below).
-    c0 = time.process_time()
+    c0 = time.time()
     bud = [float(cfg["time_budget"])]
-    max_wall = 15.0 if opts.quality != "precise" else 26.0
-    left = lambda: min(bud[0] - (time.process_time() - c0), max_wall - (time.time() - t0))
+    left = lambda: bud[0] - (time.time() - t0)
 
     ev("trace", "Tracing skeleton and centring strokes on their edges")
     w_est = estimate_width(D)
@@ -486,7 +485,10 @@ def _process_icon(gray, opts: Options = None, emit=_noop, name="icon", set_w=Non
         m3, ink3, cur3, fin = FN.finish(state["model"], D, doctor, ink_of, state["cur"], W0, time_ok=lambda: time.process_time() - fc0 < fcap,
                                        set_w=set_w, skip=(LS.skip_kinds() if opts.memory else ()))
         if fin["fixed"]:
-            state.update(model=m3, ink=ink3, cur=cur3)
+            iou_pre_fin = doctor.iou(state["ink"])
+            iou_post_fin = doctor.iou(ink3)
+            if cur3 <= state["cur"] + max(2.0, 0.001 * state["cur"]) and iou_post_fin >= iou_pre_fin - 0.001:
+                state.update(model=m3, ink=ink3, cur=cur3)
         ev("doctor", f"Finisher: {fin['found']} site(s) inspected, {fin['fixed']} fixed", iou=doctor.iou(state["ink"]))
     # Join engine: every joint is checked on its own; failing joints are repaired with the pen / line / arc / shape tools and re-checked
     jn = dict(total=0, clean_first=0, fixed=dict(unite=0, pen=0, line=0, arc=0, shape=0), unresolved=[], built=0)
