@@ -13,7 +13,8 @@ from .fitting import initial_model
 
 def _chunks(mask, w, min_area):
     """Connected blobs of `mask` that are fat enough to be real strokes (thin edge slivers are removed by an opening)."""
-    k = 3
+    k = int(max(3, round(0.45 * w)))
+    k += (k + 1) % 2
     op = cv2.morphologyEx(mask.astype(np.uint8), cv2.MORPH_OPEN, cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (k, k)))
     n, lab, st, _ = cv2.connectedComponentsWithStats(op, connectivity=8)
     out = []
@@ -24,11 +25,11 @@ def _chunks(mask, w, min_area):
 
 
 def missing_chunks(D, ink, w):
-    return _chunks((D > 0.45) & (ink < 0.40), w, max(12, int(0.20 * w * w)))
+    return _chunks((D > 0.5) & (ink < 0.5), w, max(1.0 * w * w, 30))
 
 
 def extra_chunks(D, ink, w):
-    return _chunks((ink > 0.50) & (D < 0.25), w, max(16, int(0.35 * w * w)))
+    return _chunks((ink > 0.5) & (D < 0.3), w, max(1.0 * w * w, 30))
 
 
 def trace_missing(D, comp, w):
@@ -64,7 +65,7 @@ def repair(model: Model, D, ink_of, soft, state_cur, w, max_items=12):
         cand = Model(model.paths + valid_paths, model.width, model.height)
         ink2 = ink_of(cand)
         s2 = soft(ink2)
-        if s2 <= cur + max(1.5, 0.001 * cur):
+        if s2 < cur - 0.5:
             model, ink, cur = cand, ink2, s2
             added += len(valid_paths)
     for comp in extra_chunks(D, ink, w)[:max_items]:

@@ -512,11 +512,7 @@ def tool_pen(m: Model, J: Joint, merge_l=True):
                     p = mm.paths[0]
                     m.paths[i] = p
             q = m.paths[j]
-            if q.closed and len(q.A) == 4 and np.linalg.norm((q.A[0] + q.A[2]) - (q.A[1] + q.A[3])) < 0.25:
-                X, _ = _nearest_on(q, X)
-            else:
-                k = insert_anchor(q, X)
-                X = q.A[k].copy()
+            X, _ = _nearest_on(q, X)
             _set_end(p, e, X)
     else:
         if len(J.ends) == 2 and J.ends[0][0] != J.ends[1][0]:
