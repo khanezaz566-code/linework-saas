@@ -349,13 +349,13 @@ def de_flare_branch(P0, P2, L, Rr, N, rw):
     return P_out
 
 
-def refined_branches(D, S=2):
+def refined_branches(D, S=2, prune=None):
     """Full tracing stage -> list of dict(pts, w, sj, ej), coords in source pixel-index space."""
     mask = D > 0.5
     if not mask.any():
         return []
     dt = ndi.distance_transform_edt(mask)
-    br_raw = skeleton_branches(D, S)
+    br_raw = skeleton_branches(D, S, prune=prune)
     d_vals = []
     H, W_im = D.shape
     for b in br_raw:

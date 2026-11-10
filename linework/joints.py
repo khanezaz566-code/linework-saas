@@ -82,9 +82,12 @@ def find_joints(m: Model):
     if not ends:
         return []
     pts = [p.flat(0.5) for p in m.paths]
+    valid_pts = [(j, f) for j, f in enumerate(pts) if len(f) > 0]
+    if not valid_pts:
+        return []
     trees = [cKDTree(f) if len(f) else None for f in pts]
-    P = np.vstack(pts)
-    own = np.concatenate([[j] * len(pts[j]) for j in range(len(pts))])
+    P = np.vstack([f for _, f in valid_pts])
+    own = np.concatenate([[j] * len(f) for j, f in valid_pts])
     tree = cKDTree(P)
     n = len(ends)
     E = np.array([x[2] for x in ends])

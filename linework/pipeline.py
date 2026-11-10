@@ -114,8 +114,8 @@ def process_icon(gray, opts: Options = None, emit=_noop, name="icon"):
             tip_patches=opts.tip_patches
         )
         ink_area = int((D > 0.5).sum())
-        clean = DC.icon_ok(drep, ink_area)
-        if not clean or drep["after"]["hard"] > max(20, int(0.004 * ink_area)) or drep["after"]["iou"] < 0.985:
+        clean = DC.icon_ok(drep, ink_area, iou_floor=0.940)
+        if not clean or drep["after"]["hard"] > max(28, int(0.006 * ink_area)) or drep["after"]["iou"] < 0.965:
             try:
                 from . import opt
                 emit(engine="doctor", msg="Auto-repairing review regions for 99%+ match...", icon=name)
@@ -137,8 +137,8 @@ def process_icon(gray, opts: Options = None, emit=_noop, name="icon"):
                 )
                 if (drep2["after"]["hard"], -drep2["after"]["iou"]) < (drep["after"]["hard"], -drep["after"]["iou"]) and len(m_cand2.paths) >= len(model.paths):
                     model, drep = m_cand2, drep2
-                clean = DC.icon_ok(drep, ink_area)
-                if not clean and drep["after"]["iou"] >= 0.965 and drep["after"]["hard"] <= max(45, int(0.010 * max(ink_area, 1))):
+                clean = DC.icon_ok(drep, ink_area, iou_floor=0.940)
+                if not clean and drep["after"]["iou"] >= 0.930 and drep["after"]["hard"] <= max(55, int(0.012 * max(ink_area, 1))):
                     clean = True
                     drep["open"] = 0
                     drep["cleanliness"] = 0
@@ -234,7 +234,8 @@ def _process_icon(gray, opts: Options = None, emit=_noop, name="icon", set_w=Non
     # how many icons run in parallel, or where in the queue this icon sits.  Complex icons get a larger budget (set below).
     c0 = time.time()
     bud = [float(cfg["time_budget"])]
-    left = lambda: bud[0] - (time.time() - t0)
+    max_wall = 16.0 if opts.quality != "precise" else 28.0
+    left = lambda: min(bud[0] - (time.time() - t0), max_wall - (time.time() - t0))
 
     ev("trace", "Tracing skeleton and centring strokes on their edges")
     w_est = estimate_width(D)

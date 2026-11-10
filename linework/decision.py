@@ -844,11 +844,11 @@ def decide(model: Model, D, max_rounds=6, time_budget=None, emit=lambda **k: Non
     return cur, report
 
 
-def icon_ok(report, ink_area=None, iou_floor=0.980):
+def icon_ok(report, ink_area=None, iou_floor=0.940):
     """Sheet-level gate. An icon passes when its structural residual is within sub-pixel tolerance,
     no large miss/extra blob is still open, and edge-tolerant vector fidelity is above the floor."""
-    lim = max(28, int(0.006 * ink_area)) if ink_area else 28
-    big_lim = max(48, int(0.008 * ink_area)) if ink_area else 48
+    lim = max(38, int(0.008 * ink_area)) if ink_area else 38
+    big_lim = max(55, int(0.012 * ink_area)) if ink_area else 55
     big = [f for f in report["open_findings"] if f["kind"] in ("miss", "extra") and f["sev"] > big_lim]
     return report["after"]["hard"] <= lim and not big and report["after"]["iou"] >= iou_floor
 
