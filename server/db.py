@@ -210,41 +210,47 @@ def get_db():
     return conn
 
 
+def _safe_add_column(conn, table: str, col: str, col_type: str):
+    if IS_POSTGRES:
+        try:
+            cur = conn.cursor()
+            cur.execute(f"ALTER TABLE {table} ADD COLUMN IF NOT EXISTS {col} {col_type}")
+            conn.commit()
+        except Exception:
+            try:
+                conn.rollback()
+            except Exception:
+                pass
+    else:
+        try:
+            cur = conn.cursor()
+            cur.execute(f"PRAGMA table_info({table})")
+            cols = {row["name"] for row in cur.fetchall()}
+            if col not in cols:
+                cur.execute(f"ALTER TABLE {table} ADD COLUMN {col} {col_type}")
+                conn.commit()
+        except Exception:
+            pass
+
+
 def _migrate_db(conn):
     """Safely apply column additions to existing tables."""
-    cur = conn.cursor()
-    # Check users table columns
-    if IS_POSTGRES:
-        cur.execute("SELECT column_name AS name FROM information_schema.columns WHERE table_name = 'users'")
-    else:
-        cur.execute("PRAGMA table_info(users)")
-    existing_user_cols = {row["name"] for row in cur.fetchall()}
-    
+    # Ensure users table columns exist
     needed_user_cols = {
         "name": "TEXT",
         "phone": "TEXT",
         "whatsapp": "TEXT",
         "free_bg_used": "INTEGER DEFAULT 0",
         "last_active": "TEXT",
-        "last_seen_epoch": "INTEGER DEFAULT 0",
+        "last_seen_epoch": "BIGINT DEFAULT 0",
         "email": "TEXT",
         "provider": "TEXT DEFAULT 'direct'",
         "social_id": "TEXT"
     }
     for col, col_type in needed_user_cols.items():
-        if col not in existing_user_cols:
-            try:
-                cur.execute(f"ALTER TABLE users ADD COLUMN {col} {col_type}")
-            except Exception:
-                pass
+        _safe_add_column(conn, "users", col, col_type)
 
-    # Check payments table columns
-    if IS_POSTGRES:
-        cur.execute("SELECT column_name AS name FROM information_schema.columns WHERE table_name = 'payments'")
-    else:
-        cur.execute("PRAGMA table_info(payments)")
-    existing_pay_cols = {row["name"] for row in cur.fetchall()}
-    
+    # Ensure payments table columns exist
     needed_pay_cols = {
         "user_name": "TEXT",
         "whatsapp": "TEXT",
@@ -254,44 +260,38 @@ def _migrate_db(conn):
         "updated_at": "TEXT"
     }
     for col, col_type in needed_pay_cols.items():
-        if col not in existing_pay_cols:
-            try:
-                cur.execute(f"ALTER TABLE payments ADD COLUMN {col} {col_type}")
-            except Exception:
-                pass
+        _safe_add_column(conn, "payments", col, col_type)
+
+    # Ensure sessions table columns exist
+    needed_sess_cols = {
+        "last_seen": "TEXT",
+        "last_seen_epoch": "BIGINT DEFAULT 0"
+    }
+    for col, col_type in needed_sess_cols.items():
+        _safe_add_column(conn, "sessions", col, col_type)
 
     # Ensure admin has phone and name set
-    cur.execute("""
-    UPDATE users 
-    SET phone = ?, name = 'Super Admin', whatsapp = ? 
-    WHERE username = 'admin' AND (phone IS NULL OR phone = '')
-    """, (BKASH_NUMBER, BKASH_NUMBER))
-    
-    # Auto-grant admin role to Ezaz account
-    cur.execute("""
-    UPDATE users 
-    SET role = 'admin', plan = 'bundle_pro', pro_expires_at = '2099-12-31 23:59:59'
-    WHERE username = 'admin' OR phone = ? OR LOWER(name) = 'ezaz' OR username = '9872546789087654'
-    """, (BKASH_NUMBER,))
-    
-        # Check sessions table columns
-    if IS_POSTGRES:
-        cur.execute("SELECT column_name AS name FROM information_schema.columns WHERE table_name = 'sessions'")
-    else:
-        cur.execute("PRAGMA table_info(sessions)")
-    existing_sess_cols = {row["name"] for row in cur.fetchall()}
-    if "last_seen_epoch" not in existing_sess_cols:
-        try:
-            cur.execute("ALTER TABLE sessions ADD COLUMN last_seen_epoch INTEGER DEFAULT 0")
-        except Exception:
-            pass
-    existing_sess_cols = {row["name"] for row in cur.fetchall()}
-    if "last_seen" not in existing_sess_cols:
-        try:
-            cur.execute("ALTER TABLE sessions ADD COLUMN last_seen TEXT")
-        except Exception:
-            pass
-    conn.commit()
+    try:
+        cur = conn.cursor()
+        cur.execute("""
+        UPDATE users 
+        SET phone = ?, name = 'Super Admin', whatsapp = ? 
+        WHERE username = 'admin' AND (phone IS NULL OR phone = '')
+        """, (BKASH_NUMBER, BKASH_NUMBER))
+        
+        # Auto-grant admin role to Ezaz account
+        cur.execute("""
+        UPDATE users 
+        SET role = 'admin', plan = 'bundle_pro', pro_expires_at = '2099-12-31 23:59:59'
+        WHERE username = 'admin' OR phone = ? OR LOWER(name) = 'ezaz' OR username = '9872546789087654'
+        """, (BKASH_NUMBER,))
+        conn.commit()
+    except Exception:
+        if IS_POSTGRES:
+            try:
+                conn.rollback()
+            except Exception:
+                pass
 
 
 def init_db():
@@ -490,8 +490,8 @@ def register_user(name: str, phone: str, whatsapp: str, password: str, email: st
 
     if not name:
         return None, "Please provide your full name."
-    if len(phone_norm) < 11 and not email:
-        return None, "Please provide a valid 11-digit phone number or WhatsApp."
+    if len(phone_norm) < 6 and not email:
+        return None, "Please provide a valid phone number or WhatsApp."
     if not password and not social_id:
         return None, "Password must be at least 4 characters."
     if password and len(password) < 4:
@@ -537,12 +537,52 @@ def register_user(name: str, phone: str, whatsapp: str, password: str, email: st
         pwd_hash = _hash_password(password, salt)
         now_epoch = int(datetime.now().timestamp())
         now_iso = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        cur.execute("""
-        INSERT INTO users (username, name, phone, whatsapp, email, password_hash, salt, role, status, plan, free_sheets_used, free_bg_used, last_active, last_seen_epoch, provider, social_id)
-        VALUES (?, ?, ?, ?, ?, ?, ?, 'user', 'active', 'free', 0, 0, ?, ?, ?, ?)
-        """, (ident, name, phone_norm, wp_norm, email, pwd_hash, salt, now_iso, now_epoch, provider, social_id))
+
+        # Discover available columns dynamically for 100% database compatibility
+        avail_cols = set()
+        try:
+            if IS_POSTGRES:
+                cur.execute("SELECT column_name AS name FROM information_schema.columns WHERE table_name = 'users'")
+            else:
+                cur.execute("PRAGMA table_info(users)")
+            avail_cols = {row["name"] for row in cur.fetchall()}
+        except Exception:
+            if IS_POSTGRES:
+                try:
+                    conn.rollback()
+                except Exception:
+                    pass
+
+        user_data = {
+            "username": ident,
+            "name": name,
+            "phone": phone_norm,
+            "whatsapp": wp_norm,
+            "password_hash": pwd_hash,
+            "salt": salt,
+            "role": "user",
+            "status": "active",
+            "plan": "free",
+            "free_sheets_used": 0,
+            "free_bg_used": 0,
+            "last_active": now_iso,
+            "last_seen_epoch": now_epoch,
+            "email": email,
+            "provider": provider,
+            "social_id": social_id
+        }
+
+        cols_to_insert = [c for c in user_data if not avail_cols or c in avail_cols]
+        if not cols_to_insert:
+            cols_to_insert = ["username", "name", "phone", "whatsapp", "password_hash", "salt", "role", "status", "plan", "free_sheets_used", "free_bg_used", "last_active", "last_seen_epoch"]
+
+        placeholders = ", ".join(["?"] * len(cols_to_insert))
+        col_names = ", ".join(cols_to_insert)
+        vals = tuple(user_data[c] for c in cols_to_insert)
+
+        cur.execute(f"INSERT INTO users ({col_names}) VALUES ({placeholders})", vals)
         conn.commit()
-        
+
         cur.execute("SELECT * FROM users WHERE username = ? OR phone = ?", (ident, phone_norm))
         user_row = cur.fetchone()
         if user_row:

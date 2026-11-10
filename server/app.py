@@ -1735,67 +1735,77 @@ def bg_studio_redirect():
 @app.post("/api/auth/register")
 async def api_register(request: Request):
     try:
-        body = await request.json()
-    except Exception:
-        raise HTTPException(400, "Invalid JSON payload")
-    name = body.get("name")
-    phone = body.get("phone")
-    whatsapp = body.get("whatsapp") or phone
-    password = body.get("password")
-    email = body.get("email") or ""
-    provider = body.get("provider") or "direct"
-    social_id = body.get("social_id") or ""
-    
-    user, err = db.register_user(name, phone, whatsapp, password, email=email, provider=provider, social_id=social_id)
-    if err:
-        raise HTTPException(400, err)
-    
-    token = db.create_session(user["id"])
-    response = JSONResponse({
-        "ok": True,
-        "token": token,
-        "user": db.get_user_quota_info(user),
-        "message": "Account created successfully! 3 Free Icon Sets and 10 Backgrounds activated."
-    })
-    response.set_cookie("lw_token", token, max_age=30*86400, httponly=False, samesite="lax")
-    return response
+        try:
+            body = await request.json()
+        except Exception:
+            return JSONResponse({"ok": False, "detail": "Invalid JSON payload"}, status_code=400)
+        name = (body.get("name") or "").strip()
+        phone = (body.get("phone") or "").strip()
+        whatsapp = (body.get("whatsapp") or "").strip() or phone
+        password = (body.get("password") or "").strip()
+        email = (body.get("email") or "").strip().lower()
+        provider = (body.get("provider") or "direct").strip()
+        social_id = (body.get("social_id") or "").strip()
+        
+        user, err = db.register_user(name, phone, whatsapp, password, email=email, provider=provider, social_id=social_id)
+        if err or not user:
+            return JSONResponse({"ok": False, "detail": err or "Failed to register account"}, status_code=400)
+        
+        token = db.create_session(user["id"])
+        response = JSONResponse({
+            "ok": True,
+            "token": token,
+            "user": db.get_user_quota_info(user),
+            "message": "Account created successfully! 3 Free Icon Sets and 10 Backgrounds activated."
+        })
+        response.set_cookie("lw_token", token, max_age=30*86400, httponly=False, samesite="lax")
+        return response
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return JSONResponse({"ok": False, "detail": f"Registration error: {str(e)}"}, status_code=500)
 
 
 @app.post("/api/auth/social-auth")
 async def api_social_auth(request: Request):
     try:
-        body = await request.json()
-    except Exception:
-        raise HTTPException(400, "Invalid JSON payload")
-    provider = (body.get("provider") or "google").lower()
-    social_id = body.get("social_id") or ""
-    email = (body.get("email") or "").strip().lower()
-    name = (body.get("name") or "").strip()
-    phone = body.get("phone") or ""
-    whatsapp = body.get("whatsapp") or phone
-    password = body.get("password") or ""
-    
-    user, err = db.social_authenticate_or_register(
-        provider=provider,
-        social_id=social_id,
-        email=email,
-        name=name,
-        phone=phone,
-        whatsapp=whatsapp,
-        password=password
-    )
-    if err:
-        raise HTTPException(400, err)
-    
-    token = db.create_session(user["id"])
-    response = JSONResponse({
-        "ok": True,
-        "token": token,
-        "user": db.get_user_quota_info(user),
-        "message": f"Successfully authenticated with {provider.capitalize()}! Free Trial activated."
-    })
-    response.set_cookie("lw_token", token, max_age=30*86400, httponly=False, samesite="lax")
-    return response
+        try:
+            body = await request.json()
+        except Exception:
+            return JSONResponse({"ok": False, "detail": "Invalid JSON payload"}, status_code=400)
+        provider = (body.get("provider") or "google").lower()
+        social_id = (body.get("social_id") or "").strip()
+        email = (body.get("email") or "").strip().lower()
+        name = (body.get("name") or "").strip()
+        phone = (body.get("phone") or "").strip()
+        whatsapp = (body.get("whatsapp") or "").strip() or phone
+        password = (body.get("password") or "").strip()
+        
+        user, err = db.social_authenticate_or_register(
+            provider=provider,
+            social_id=social_id,
+            email=email,
+            name=name,
+            phone=phone,
+            whatsapp=whatsapp,
+            password=password
+        )
+        if err or not user:
+            return JSONResponse({"ok": False, "detail": err or "Failed to authenticate"}, status_code=400)
+        
+        token = db.create_session(user["id"])
+        response = JSONResponse({
+            "ok": True,
+            "token": token,
+            "user": db.get_user_quota_info(user),
+            "message": f"Successfully authenticated with {provider.capitalize()}! Free Trial activated."
+        })
+        response.set_cookie("lw_token", token, max_age=30*86400, httponly=False, samesite="lax")
+        return response
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return JSONResponse({"ok": False, "detail": f"Social auth error: {str(e)}"}, status_code=500)
 
 
 @app.post("/api/auth/login")

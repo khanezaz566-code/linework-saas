@@ -3212,54 +3212,82 @@
       }
 
       // Registration Form Submission (Step 2: Identification)
+      // Registration Form Submission (Step 2: Identification)
       const fReg = $('#registerForm');
-      if (fReg) {
-        fReg.addEventListener('submit', async (e) => {
-          e.preventDefault();
-          const name = $('#regName').value.trim();
-          const whatsapp = $('#regWhatsapp').value.trim();
-          const phone = ($('#regPhone') ? $('#regPhone').value.trim() : '') || whatsapp;
-          const password = $('#regPass').value.trim();
-          const provider = ($('#regProvider') ? $('#regProvider').value.trim() : '') || 'direct';
-          const social_id = ($('#regSocialId') ? $('#regSocialId').value.trim() : '') || '';
-          const email = ($('#regEmail') ? $('#regEmail').value.trim() : '') || '';
+      const btnReg = $('#btnSubmitRegister');
 
-          const btn = $('#btnSubmitRegister');
-          const oldTxt = btn.textContent;
+      const executeRegistration = async () => {
+        const name = ($('#regName') ? $('#regName').value.trim() : '');
+        const whatsapp = ($('#regWhatsapp') ? $('#regWhatsapp').value.trim() : '');
+        const phone = ($('#regPhone') ? $('#regPhone').value.trim() : '') || whatsapp;
+        const password = ($('#regPass') ? $('#regPass').value.trim() : '');
+        const provider = ($('#regProvider') ? $('#regProvider').value.trim() : '') || 'direct';
+        const social_id = ($('#regSocialId') ? $('#regSocialId').value.trim() : '') || '';
+        const email = ($('#regEmail') ? $('#regEmail').value.trim() : '') || '';
+
+        if (!name) {
+          toast('Please enter your full name.', 1);
+          const inp = $('#regName'); if (inp) inp.focus();
+          return;
+        }
+        if (!whatsapp && !phone && !email) {
+          toast('Please provide your WhatsApp or phone number.', 1);
+          const inp = $('#regWhatsapp'); if (inp) inp.focus();
+          return;
+        }
+
+        const btn = $('#btnSubmitRegister');
+        const oldTxt = btn ? btn.textContent : '';
+        if (btn) {
           btn.textContent = '🚀 একাউন্ট প্রস্তুত হচ্ছে...';
           btn.disabled = true;
+        }
 
-          try {
-            const r = await fetch('/api/auth/register', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ name, phone, whatsapp, password, email, provider, social_id })
-            });
-            const data = await r.json();
-            if (!r.ok) throw new Error(data.detail || 'Registration failed');
+        try {
+          const r = await fetch('/api/auth/register', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name, phone, whatsapp, password, email, provider, social_id })
+          });
+          const data = await r.json();
+          if (!r.ok || !data.ok) throw new Error(data.detail || 'Registration failed');
 
-            this.token = data.token;
-            sessionStorage.setItem('lw_token', data.token);
-            localStorage.setItem('lw_token', data.token);
-            localStorage.setItem('lw_saved_ident', phone || data.user.phone || data.user.username);
-            localStorage.setItem('lw_saved_pass', password);
-            localStorage.setItem('lw_user_profile', JSON.stringify({ name, phone, whatsapp, password, ...data.user }));
-            this.setLoggedInUser(data.user);
-            this.hideAuth();
-            closePicker();
-            toast(`🎉 স্বাগতম ${name}! আপনার ফ্রি ট্রায়াল (৩টি আইকন সেট + ১০টি ব্যাকগ্রাউন্ড) চালু হয়েছে।`);
+          this.token = data.token;
+          sessionStorage.setItem('lw_token', data.token);
+          localStorage.setItem('lw_token', data.token);
+          localStorage.setItem('lw_saved_ident', phone || data.user.phone || data.user.username);
+          localStorage.setItem('lw_saved_pass', password);
+          localStorage.setItem('lw_user_profile', JSON.stringify({ name, phone, whatsapp, password, ...data.user }));
+          this.setLoggedInUser(data.user);
+          this.hideAuth();
+          closePicker();
+          toast(`🎉 Welcome ${name}! Free Trial (3 Icon Sets + 10 Backgrounds) activated!`);
 
-            if (this.pendingAction) {
-              const act = this.pendingAction;
-              this.pendingAction = null;
-              act();
-            }
-          } catch (err) {
-            toast(err.message, 1);
-          } finally {
+          if (this.pendingAction) {
+            const act = this.pendingAction;
+            this.pendingAction = null;
+            act();
+          }
+        } catch (err) {
+          toast(err.message || 'Registration failed', 1);
+        } finally {
+          if (btn) {
             btn.textContent = oldTxt;
             btn.disabled = false;
           }
+        }
+      };
+
+      if (fReg) {
+        fReg.addEventListener('submit', (e) => {
+          e.preventDefault();
+          executeRegistration();
+        });
+      }
+      if (btnReg) {
+        btnReg.addEventListener('click', (e) => {
+          e.preventDefault();
+          executeRegistration();
         });
       }
 
