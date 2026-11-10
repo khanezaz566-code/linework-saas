@@ -1707,6 +1707,9 @@
     const activeIdx = S.template.highlight_index || 0;
     if (badge) badge.textContent = `#${activeIdx + 1} Selected`;
 
+    const customGrid = $('#customFeaturedIconGrid');
+    if (customGrid) customGrid.innerHTML = '';
+
     currentSheetIcons.forEach((ic, idx) => {
       const item = document.createElement('div');
       item.className = 'featured-icon-item' + (idx === activeIdx ? ' active' : '');
@@ -1718,12 +1721,18 @@
       `;
       item.onclick = () => selectFeaturedIcon(idx);
       grid.appendChild(item);
+
+      if (customGrid) {
+        const item2 = item.cloneNode(true);
+        item2.onclick = () => selectFeaturedIcon(idx);
+        customGrid.appendChild(item2);
+      }
     });
   }
 
   function selectFeaturedIcon(idx) {
     S.template.highlight_index = idx;
-    $$('#featuredIconGrid .featured-icon-item').forEach(el => {
+    $$('#featuredIconGrid .featured-icon-item, #customFeaturedIconGrid .featured-icon-item').forEach(el => {
       el.classList.toggle('active', parseInt(el.dataset.index, 10) === idx);
     });
     const badge = $('#featuredIconBadge');
@@ -2168,6 +2177,7 @@
     renderSavedTemplates();
     fetchAndRenderIconPicker();
     syncShowcaseShapeUI(S.template.showcase_shape || 'square_box');
+    initCustomTemplateFeatures();
     resetTemplateView();
     updateTemplatePreview();
   }
@@ -2242,6 +2252,76 @@
       element_spacing: S.template.element_spacing !== undefined ? S.template.element_spacing : 0,
     });
 
+    if (S.template.engine_mode === 'custom_image') {
+      params.set('design', 'custom_image');
+      if (S.template.custom_image_url) params.set('custom_image_url', S.template.custom_image_url);
+      params.set('custom_img_w', S.template.custom_img_w || 1920);
+      params.set('custom_img_h', S.template.custom_img_h || 1080);
+
+      const gx = $('#tplCustomGridX') ? parseFloat($('#tplCustomGridX').value) / 100 : 0.40;
+      const gy = $('#tplCustomGridY') ? parseFloat($('#tplCustomGridY').value) / 100 : 0.10;
+      const gw = $('#tplCustomGridW') ? parseFloat($('#tplCustomGridW').value) / 100 : 0.55;
+      const gh = $('#tplCustomGridH') ? parseFloat($('#tplCustomGridH').value) / 100 : 0.78;
+      params.set('custom_grid_x', gx);
+      params.set('custom_grid_y', gy);
+      params.set('custom_grid_w', gw);
+      params.set('custom_grid_h', gh);
+
+      const customStroke = $('#tplCustomIconStroke') ? $('#tplCustomIconStroke').value : '#FFFFFF';
+      const customScale = $('#tplCustomStrokeScale') ? $('#tplCustomStrokeScale').value : '1.0';
+      params.set('icon_stroke', customStroke);
+      params.set('stroke', customStroke);
+      params.set('scale', customScale);
+      params.set('stroke_scale', customScale);
+
+      const heroEnable = ($('#tplCustomHeroEnable') && $('#tplCustomHeroEnable').checked) ? 1 : 0;
+      params.set('custom_hero_enable', heroEnable);
+      const hx = $('#tplCustomHeroX') ? parseFloat($('#tplCustomHeroX').value) / 100 : 0.18;
+      const hy = $('#tplCustomHeroY') ? parseFloat($('#tplCustomHeroY').value) / 100 : 0.68;
+      const hs = $('#tplCustomHeroSize') ? parseFloat($('#tplCustomHeroSize').value) / 100 : 0.20;
+      params.set('custom_hero_x', hx);
+      params.set('custom_hero_y', hy);
+      params.set('custom_hero_size', hs);
+
+      const heroShape = $('#tplCustomShowcaseShape') ? $('#tplCustomShowcaseShape').value : 'squircle_super';
+      const heroStroke = $('#tplCustomHeroStroke') ? $('#tplCustomHeroStroke').value : '#FFFFFF';
+      const heroAccent = $('#tplCustomHeroAccent') ? $('#tplCustomHeroAccent').value : '#00F5A0';
+      const heroBg = $('#tplCustomHeroBg') ? $('#tplCustomHeroBg').value : '#181B24';
+      params.set('showcase_shape', heroShape);
+      params.set('highlight_stroke', heroStroke);
+      params.set('shape_accent', heroAccent);
+      params.set('accent', heroAccent);
+      params.set('highlight_bg', heroBg);
+
+      const textEnable = ($('#tplCustomTextEnable') && $('#tplCustomTextEnable').checked) ? 1 : 0;
+      params.set('custom_text_enable', textEnable);
+      const tVal = $('#tplCustomTitle') ? $('#tplCustomTitle').value : 'MINIMAL BLACK UI';
+      const tCol = $('#tplCustomTitleColor') ? $('#tplCustomTitleColor').value : '#FFFFFF';
+      const tx = $('#tplCustomTitleX') ? parseFloat($('#tplCustomTitleX').value) / 100 : 0.18;
+      const ty = $('#tplCustomTitleY') ? parseFloat($('#tplCustomTitleY').value) / 100 : 0.18;
+      params.set('title', tVal);
+      params.set('banner_text', tCol);
+      params.set('custom_title_x', tx);
+      params.set('custom_title_y', ty);
+
+      const sVal = $('#tplCustomSubtitle') ? $('#tplCustomSubtitle').value : 'Editable Line Icons';
+      const sCol = $('#tplCustomSubColor') ? $('#tplCustomSubColor').value : '#E2E8F0';
+      const sx = $('#tplCustomSubX') ? parseFloat($('#tplCustomSubX').value) / 100 : 0.18;
+      const sy = $('#tplCustomSubY') ? parseFloat($('#tplCustomSubY').value) / 100 : 0.24;
+      params.set('subtitle', sVal);
+      params.set('banner_sub', sCol);
+      params.set('custom_sub_x', sx);
+      params.set('custom_sub_y', sy);
+
+      const cVal = $('#tplCustomCount') ? $('#tplCustomCount').value : '24';
+      const cCol = $('#tplCustomCountColor') ? $('#tplCustomCountColor').value : '#FFFFFF';
+      const cx = $('#tplCustomCountX') ? parseFloat($('#tplCustomCountX').value) / 100 : 0.18;
+      const cy = $('#tplCustomCountY') ? parseFloat($('#tplCustomCountY').value) / 100 : 0.44;
+      params.set('count', cVal);
+      params.set('custom_count_x', cx);
+      params.set('custom_count_y', cy);
+    }
+
     // Update download links
     const dlSvg = $('#btnDlTemplateSvg');
     if (dlSvg) dlSvg.href = `/api/jobs/${jobId}/template.svg?${params.toString()}&download=1`;
@@ -2258,12 +2338,16 @@
     // Update dims indicator
     const dimsBadge = $('#tplDimsBadge');
     if (dimsBadge) {
-      let desc = '3840 × 2160 px · 16:9 Ultra-HD';
-      if (layout === 'landscape_16_10') desc = '1920 × 1200 px · 16:10 Widescreen';
-      else if (layout === 'landscape_4_3') desc = '2400 × 1800 px · 4:3 Microstock Standard';
-      else if (layout === 'square') desc = '2000 × 2000 px · 1:1 Square';
-      else if (layout === 'auto_dock') desc = 'Auto-Docked to Native Sheet Size';
-      dimsBadge.textContent = desc;
+      if (S.template.engine_mode === 'custom_image') {
+        dimsBadge.textContent = `${S.template.custom_img_w || 1920} × ${S.template.custom_img_h || 1080} px · Custom AI Template Mockup`;
+      } else {
+        let desc = '3840 × 2160 px · 16:9 Ultra-HD';
+        if (layout === 'landscape_16_10') desc = '1920 × 1200 px · 16:10 Widescreen';
+        else if (layout === 'landscape_4_3') desc = '2400 × 1800 px · 4:3 Microstock Standard';
+        else if (layout === 'square') desc = '2000 × 2000 px · 1:1 Square';
+        else if (layout === 'auto_dock') desc = 'Auto-Docked to Native Sheet Size';
+        dimsBadge.textContent = desc;
+      }
     }
 
     try {
@@ -2956,6 +3040,195 @@
       S.template.artboard_margin = parseFloat(tplMarginRange.value);
       scheduleTemplateUpdate();
     });
+  }
+
+  // =========================================================================
+  // Custom ChatGPT / Midjourney / AI Mockup Template Uploader Engine
+  // =========================================================================
+  let customTplInitialized = false;
+
+  function initCustomTemplateFeatures() {
+    if (customTplInitialized) return;
+    customTplInitialized = true;
+
+    // Mode Switcher: Modular Maker vs Custom ChatGPT Image
+    $$('#tplEngineModeSeg button').forEach(b => {
+      b.addEventListener('click', () => {
+        $$('#tplEngineModeSeg button').forEach(x => x.classList.toggle('on', x === b));
+        const mode = b.dataset.v;
+        S.template.engine_mode = mode;
+        const badge = $('#tplModeBadge');
+        if (badge) badge.textContent = mode === 'custom_image' ? 'ChatGPT Image' : 'Vector Shapes';
+
+        const customWrap = $('#customImageControlsWrap');
+        if (customWrap) customWrap.style.display = mode === 'custom_image' ? 'flex' : 'none';
+
+        ['makerElementsPanel', 'layoutSpacingPanel', 'artboardPanel'].forEach(id => {
+          const p = $('#' + id);
+          if (p) p.style.display = mode === 'custom_image' ? 'none' : '';
+        });
+
+        if (mode === 'custom_image' && !S.template.custom_image_url) {
+          loadCustomTemplateImage('/static/sample_templates/chatgpt_cyber_dark.jpg', 'chatgpt_cyber_dark.jpg', 1920, 1080);
+        }
+        scheduleTemplateUpdate();
+        toast(mode === 'custom_image' ? 'Switched to Custom ChatGPT Template mode' : 'Switched to Vector Shapes mode');
+      });
+    });
+
+    // Dropzone & File Input
+    const dropzone = $('#tplDropzone');
+    const fileInput = $('#tplCustomFileInput');
+    if (dropzone && fileInput) {
+      dropzone.addEventListener('click', () => fileInput.click());
+      dropzone.addEventListener('dragover', e => {
+        e.preventDefault();
+        dropzone.style.borderColor = 'var(--accent)';
+        dropzone.style.background = 'rgba(0,245,160,0.08)';
+      });
+      dropzone.addEventListener('dragleave', () => {
+        dropzone.style.borderColor = 'rgba(0,245,160,0.45)';
+        dropzone.style.background = 'rgba(0,245,160,0.02)';
+      });
+      dropzone.addEventListener('drop', e => {
+        e.preventDefault();
+        dropzone.style.borderColor = 'rgba(0,245,160,0.45)';
+        dropzone.style.background = 'rgba(0,245,160,0.02)';
+        if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+          handleCustomTemplateUpload(e.dataTransfer.files[0]);
+        }
+      });
+      fileInput.addEventListener('change', () => {
+        if (fileInput.files && fileInput.files[0]) {
+          handleCustomTemplateUpload(fileInput.files[0]);
+        }
+      });
+    }
+
+    const btnChange = $('#btnChangeCustomImg');
+    if (btnChange && fileInput) {
+      btnChange.addEventListener('click', () => fileInput.click());
+    }
+
+    // Sample AI Mockup buttons
+    $$('.sample-ai-tpl-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const imgPath = btn.dataset.img;
+        const name = imgPath.split('/').pop();
+        loadCustomTemplateImage(imgPath, name, 1920, 1080);
+        toast(`Loaded ${name} template!`);
+      });
+    });
+
+    // Bind sliders for Grid, Hero, Text
+    const bindSlider = (id, valId, mult = 1, suffix = '%') => {
+      const el = $('#' + id);
+      const valEl = $('#' + valId);
+      if (el) {
+        el.addEventListener('input', () => {
+          if (valEl) valEl.textContent = el.value + suffix;
+          scheduleTemplateUpdate();
+        });
+      }
+    };
+
+    bindSlider('tplCustomGridX', 'tplCustomGridXVal', 0.01);
+    bindSlider('tplCustomGridY', 'tplCustomGridYVal', 0.01);
+    bindSlider('tplCustomGridW', 'tplCustomGridWVal', 0.01);
+    bindSlider('tplCustomGridH', 'tplCustomGridHVal', 0.01);
+    bindSlider('tplCustomStrokeScale', 'tplCustomScaleVal', 1, 'x');
+
+    bindSlider('tplCustomHeroX', 'tplCustomHeroXVal', 0.01);
+    bindSlider('tplCustomHeroY', 'tplCustomHeroYVal', 0.01);
+    bindSlider('tplCustomHeroSize', 'tplCustomHeroSizeVal', 0.01);
+
+    bindSlider('tplCustomTitleX', 'tplCustomTitleXVal', 0.01);
+    bindSlider('tplCustomTitleY', 'tplCustomTitleYVal', 0.01);
+    bindSlider('tplCustomSubX', 'tplCustomSubXVal', 0.01);
+    bindSlider('tplCustomSubY', 'tplCustomSubYVal', 0.01);
+    bindSlider('tplCustomCountX', 'tplCustomCountXVal', 0.01);
+    bindSlider('tplCustomCountY', 'tplCustomCountYVal', 0.01);
+
+    // Color & text inputs live update
+    [
+      'tplCustomIconStroke', 'tplCustomHeroStroke', 'tplCustomHeroAccent', 'tplCustomHeroBg',
+      'tplCustomShowcaseShape', 'tplCustomTitle', 'tplCustomTitleColor',
+      'tplCustomSubtitle', 'tplCustomSubColor', 'tplCustomCount', 'tplCustomCountColor'
+    ].forEach(id => {
+      const el = $('#' + id);
+      if (el) {
+        el.addEventListener('input', () => scheduleTemplateUpdate());
+      }
+    });
+
+    // Checkbox toggles
+    const heroCheck = $('#tplCustomHeroEnable');
+    if (heroCheck) {
+      heroCheck.addEventListener('change', () => {
+        const body = $('#customHeroBody');
+        if (body) body.style.opacity = heroCheck.checked ? '1' : '0.4';
+        scheduleTemplateUpdate();
+      });
+    }
+
+    const textCheck = $('#tplCustomTextEnable');
+    if (textCheck) {
+      textCheck.addEventListener('change', () => {
+        const body = $('#customTextBody');
+        if (body) body.style.opacity = textCheck.checked ? '1' : '0.4';
+        scheduleTemplateUpdate();
+      });
+    }
+  }
+
+  function loadCustomTemplateImage(url, filename, width = 1920, height = 1080, b64 = '') {
+    S.template.custom_image_url = url;
+    S.template.custom_img_w = width;
+    S.template.custom_img_h = height;
+
+    const statusBox = $('#tplUploadedStatus');
+    const thumb = $('#tplThumbImg');
+    const nameEl = $('#tplFileName');
+    const dimsEl = $('#tplFileDims');
+
+    if (statusBox) statusBox.style.display = 'flex';
+    if (thumb) thumb.src = b64 || url;
+    if (nameEl) nameEl.textContent = filename || 'template.jpg';
+    if (dimsEl) dimsEl.textContent = `${width} × ${height} px`;
+
+    scheduleTemplateUpdate();
+  }
+
+  async function handleCustomTemplateUpload(file) {
+    if (!file) return;
+    toast('Uploading custom template image...');
+    const formData = new FormData();
+    formData.append('file', file);
+    try {
+      const res = await fetch('/api/custom_templates/upload', {
+        method: 'POST',
+        body: formData
+      });
+      if (res.ok) {
+        const data = await res.json();
+        loadCustomTemplateImage(data.url, data.filename, data.width, data.height, data.b64);
+        toast('ChatGPT / AI Template ready!');
+      } else {
+        const reader = new FileReader();
+        reader.onload = e => {
+          loadCustomTemplateImage(e.target.result, file.name, 1920, 1080, e.target.result);
+          toast('Loaded template image locally');
+        };
+        reader.readAsDataURL(file);
+      }
+    } catch (e) {
+      const reader = new FileReader();
+      reader.onload = e => {
+        loadCustomTemplateImage(e.target.result, file.name, 1920, 1080, e.target.result);
+        toast('Loaded template image locally');
+      };
+      reader.readAsDataURL(file);
+    }
   }
 
   // Zoom buttons

@@ -1256,6 +1256,287 @@
           <!-- Left Controls Column -->
           <div class="template-controls-sidebar">
 
+            <!-- Engine Mode Switcher (Built-in Vector Shapes vs Custom ChatGPT Template) -->
+            <div class="card panel tpl-panel" style="margin-bottom:12px; padding:10px 12px; background:linear-gradient(135deg, rgba(0,245,160,0.06), rgba(37,99,235,0.06)); border:1px solid rgba(0,245,160,0.25); border-radius:10px;">
+              <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+                <span style="font-size:11px; font-weight:800; color:var(--accent); text-transform:uppercase; letter-spacing:0.6px;">
+                  🚀 Template Mode (টেমপ্লেট মোড)
+                </span>
+                <span class="badge-live" id="tplModeBadge" style="font-size:9.5px;">Vector Shapes</span>
+              </div>
+              <div class="seg" id="tplEngineModeSeg" style="display:grid; grid-template-columns: 1fr 1fr; gap:5px; width:100%;">
+                <button type="button" data-v="modular_maker" class="on" style="font-size:11.5px; padding:7px 4px; font-weight:600;">
+                  🏆 Vector Shapes
+                </button>
+                <button type="button" data-v="custom_image" style="font-size:11.5px; padding:7px 4px; font-weight:600;">
+                  🖼️ Custom ChatGPT
+                </button>
+              </div>
+            </div>
+
+            <!-- ================= Custom ChatGPT / Image Template Panel ================= -->
+            <div id="customImageControlsWrap" style="display:none; flex-direction:column; gap:12px; margin-bottom:12px;">
+
+              <!-- 1. Template Image Uploader & Built-in AI Mockup Presets -->
+              <div class="card panel tpl-panel">
+                <div class="panel-header">
+                  <h3><span class="component-step-badge">1</span> Upload ChatGPT / AI Mockup Image</h3>
+                </div>
+                <div class="panel-body">
+                  <!-- Drag and drop zone -->
+                  <div id="tplDropzone" style="border:2px dashed rgba(0,245,160,0.45); border-radius:10px; padding:16px 12px; text-align:center; background:rgba(0,245,160,0.02); cursor:pointer; transition:all 0.2s ease;">
+                    <div style="font-size:24px; margin-bottom:4px;">📥</div>
+                    <div style="font-size:12.5px; font-weight:700; color:var(--text); margin-bottom:3px;">
+                      Click or Drag &amp; Drop Template Image
+                    </div>
+                    <div style="font-size:10.5px; color:var(--text-muted); line-height:1.35;">
+                      ChatGPT (DALL-E), Midjourney বা যেকোনো JPEG/PNG টেমপ্লেট এখানে আপলোড দিন
+                    </div>
+                    <input type="file" id="tplCustomFileInput" accept="image/png, image/jpeg, image/webp" style="display:none;">
+                  </div>
+
+                  <!-- Uploaded Image Status / Preview -->
+                  <div id="tplUploadedStatus" style="display:none; margin-top:8px; padding:8px 10px; background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.08); border-radius:8px; align-items:center; justify-content:space-between;">
+                    <div style="display:flex; align-items:center; gap:8px;">
+                      <img id="tplThumbImg" src="" style="width:40px; height:24px; object-fit:cover; border-radius:4px; border:1px solid rgba(255,255,255,0.15);">
+                      <div>
+                        <div id="tplFileName" style="font-size:11px; font-weight:700; color:var(--text); max-width:140px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">template.jpg</div>
+                        <div id="tplFileDims" style="font-size:9.5px; color:var(--accent);">1920 × 1080 px</div>
+                      </div>
+                    </div>
+                    <button type="button" class="btn btn-xs btn-outline" id="btnChangeCustomImg" style="font-size:10.5px; padding:3px 8px;">🔄 Change</button>
+                  </div>
+
+                  <!-- Quick Built-in AI Mockups -->
+                  <div style="margin-top:10px; border-top:1px solid rgba(255,255,255,0.07); padding-top:8px;">
+                    <span style="font-size:10.5px; color:var(--text-muted); font-weight:600; display:block; margin-bottom:6px;">
+                      ⚡ Test with Ready-made AI Mockups:
+                    </span>
+                    <div style="display:grid; grid-template-columns: repeat(3, 1fr); gap:5px;">
+                      <button type="button" class="btn btn-xs btn-outline sample-ai-tpl-btn" data-img="/static/sample_templates/chatgpt_cyber_dark.jpg" style="font-size:10px; padding:5px 4px; text-align:center;">
+                        Cyber Dark
+                      </button>
+                      <button type="button" class="btn btn-xs btn-outline sample-ai-tpl-btn" data-img="/static/sample_templates/chatgpt_gold_studio.jpg" style="font-size:10px; padding:5px 4px; text-align:center;">
+                        Gold Studio
+                      </button>
+                      <button type="button" class="btn btn-xs btn-outline sample-ai-tpl-btn" data-img="/static/sample_templates/chatgpt_royal_purple.jpg" style="font-size:10px; padding:5px 4px; text-align:center;">
+                        Royal Purple
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- 2. Sheet Icons Placement (Redraw আইকন সেট প্লেসমেন্ট) -->
+              <div class="card panel tpl-panel">
+                <div class="panel-header">
+                  <h3><span class="component-step-badge">2</span> Redraw Icons Grid Placement</h3>
+                </div>
+                <div class="panel-body">
+                  <div style="font-size:11px; color:var(--text-muted); margin-bottom:8px; line-height:1.35;">
+                    টেমপ্লেটের যে অংশে আপনার Redraw আইকন সেট বসাতে চান, স্লাইডার দিয়ে নিখুঁতভাবে সেট করুন:
+                  </div>
+
+                  <!-- Grid X & Y Sliders -->
+                  <div class="font-size-ctrl">
+                    <div class="ctrl-header">
+                      <span>Grid Position X (বাম ⇄ ডানে):</span>
+                      <b id="tplCustomGridXVal" class="val-pill">40%</b>
+                    </div>
+                    <input type="range" id="tplCustomGridX" min="2" max="85" step="1" value="40" style="width:100%;">
+                  </div>
+
+                  <div class="font-size-ctrl">
+                    <div class="ctrl-header">
+                      <span>Grid Position Y (উপরে ↕ নিচে):</span>
+                      <b id="tplCustomGridYVal" class="val-pill">10%</b>
+                    </div>
+                    <input type="range" id="tplCustomGridY" min="2" max="85" step="1" value="10" style="width:100%;">
+                  </div>
+
+                  <!-- Grid Width & Height Sliders -->
+                  <div class="font-size-ctrl">
+                    <div class="ctrl-header">
+                      <span>Grid Width (প্রস্থ):</span>
+                      <b id="tplCustomGridWVal" class="val-pill">55%</b>
+                    </div>
+                    <input type="range" id="tplCustomGridW" min="15" max="95" step="1" value="55" style="width:100%;">
+                  </div>
+
+                  <div class="font-size-ctrl">
+                    <div class="ctrl-header">
+                      <span>Grid Height (উচ্চতা):</span>
+                      <b id="tplCustomGridHVal" class="val-pill">78%</b>
+                    </div>
+                    <input type="range" id="tplCustomGridH" min="15" max="95" step="1" value="78" style="width:100%;">
+                  </div>
+
+                  <!-- Icon Styling: Stroke Color & Stroke Weight -->
+                  <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:8px; padding-top:8px; border-top:1px solid rgba(255,255,255,0.06);">
+                    <div>
+                      <label for="tplCustomIconStroke" style="font-size:11px; color:var(--text-muted); display:block; margin-bottom:4px;">
+                        Sheet Icon Color:
+                      </label>
+                      <input type="color" id="tplCustomIconStroke" value="#FFFFFF" style="width:100%; height:32px; border-radius:6px; cursor:pointer; background:transparent; border:1px solid rgba(255,255,255,0.18);">
+                    </div>
+                    <div>
+                      <label for="tplCustomStrokeScale" style="font-size:11px; color:var(--text-muted); display:block; margin-bottom:4px;">
+                        Stroke Weight: <b id="tplCustomScaleVal">100%</b>
+                      </label>
+                      <input type="range" id="tplCustomStrokeScale" min="0.5" max="2.5" step="0.05" value="1.0" style="width:100%; height:32px;">
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- 3. Hero Showcase Icon (হিরো আইকন সিলেকশন ও প্লেসমেন্ট) -->
+              <div class="card panel tpl-panel">
+                <div class="panel-header">
+                  <h3><span class="component-step-badge">3</span> Hero Icon Showcase</h3>
+                  <label class="check-row" style="margin:0;">
+                    <input type="checkbox" id="tplCustomHeroEnable" checked style="accent-color:var(--accent);">
+                    <span style="font-size:11.5px; font-weight:600;">Enable</span>
+                  </label>
+                </div>
+                <div class="panel-body" id="customHeroBody">
+                  <div style="font-size:11px; color:var(--text-muted); margin-bottom:8px;">
+                    Click any icon below to feature as Hero Icon (বড় হাইলাইট আইকন):
+                  </div>
+                  <div class="featured-icon-grid" id="customFeaturedIconGrid">
+                    <!-- Populated dynamically with icon cards -->
+                  </div>
+
+                  <!-- Hero Position & Size Sliders -->
+                  <div class="font-size-ctrl" style="margin-top:10px;">
+                    <div class="ctrl-header">
+                      <span>Hero Position X (বাম ⇄ ডানে):</span>
+                      <b id="tplCustomHeroXVal" class="val-pill">18%</b>
+                    </div>
+                    <input type="range" id="tplCustomHeroX" min="2" max="85" step="1" value="18" style="width:100%;">
+                  </div>
+
+                  <div class="font-size-ctrl">
+                    <div class="ctrl-header">
+                      <span>Hero Position Y (উপরে ↕ নিচে):</span>
+                      <b id="tplCustomHeroYVal" class="val-pill">68%</b>
+                    </div>
+                    <input type="range" id="tplCustomHeroY" min="2" max="85" step="1" value="68" style="width:100%;">
+                  </div>
+
+                  <div class="font-size-ctrl">
+                    <div class="ctrl-header">
+                      <span>Hero Box Size (আকার):</span>
+                      <b id="tplCustomHeroSizeVal" class="val-pill">20%</b>
+                    </div>
+                    <input type="range" id="tplCustomHeroSize" min="6" max="45" step="1" value="20" style="width:100%;">
+                  </div>
+
+                  <!-- Hero Frame Shape & Colors -->
+                  <div style="margin-top:10px; padding:10px; background:rgba(255,255,255,0.035); border:1px solid rgba(255,255,255,0.08); border-radius:8px;">
+                    <div class="param-row" style="margin-bottom:8px; flex-direction:column; gap:4px; align-items:flex-start;">
+                      <label style="font-size:11px; font-weight:600; color:var(--text-muted);">Hero Frame Shape (ফ্রেম শেপ):</label>
+                      <select id="tplCustomShowcaseShape" style="width:100%; font-size:11px; padding:5px 8px; background:var(--bg-card); border:1px solid rgba(255,255,255,0.18); border-radius:6px; color:var(--text);">
+                        <option value="squircle_super">1. Modern Soft Squircle</option>
+                        <option value="square_box">2. Classic Square Box</option>
+                        <option value="orbital_rings">3. Spotlight Orbital Rings</option>
+                        <option value="glass_card">4. Frosted Glass Card</option>
+                        <option value="floating_card">5. Elevated Floating Card</option>
+                        <option value="hud_tech_box">6. CAD HUD Tech Box</option>
+                        <option value="clean_glow">7. Clean Spotlight Halo Glow</option>
+                        <option value="clean_none">8. Pure Clean (No Frame)</option>
+                        <option value="hexagon_pod">9. Geometric Hexagon Pod</option>
+                      </select>
+                    </div>
+
+                    <div style="display:grid; grid-template-columns:repeat(3, 1fr); gap:6px;">
+                      <div>
+                        <span style="font-size:10px; color:var(--text-muted); display:block; margin-bottom:3px;">Hero Icon:</span>
+                        <input type="color" id="tplCustomHeroStroke" value="#FFFFFF" style="width:100%; height:28px; border-radius:6px; cursor:pointer; background:transparent; border:1px solid rgba(255,255,255,0.18);">
+                      </div>
+                      <div>
+                        <span style="font-size:10px; color:var(--text-muted); display:block; margin-bottom:3px;">Frame Glow:</span>
+                        <input type="color" id="tplCustomHeroAccent" value="#00F5A0" style="width:100%; height:28px; border-radius:6px; cursor:pointer; background:transparent; border:1px solid rgba(255,255,255,0.18);">
+                      </div>
+                      <div>
+                        <span style="font-size:10px; color:var(--text-muted); display:block; margin-bottom:3px;">Card Fill:</span>
+                        <input type="color" id="tplCustomHeroBg" value="#181B24" style="width:100%; height:28px; border-radius:6px; cursor:pointer; background:transparent; border:1px solid rgba(255,255,255,0.18);">
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- 4. Editable Text Overlays (টেমপ্লেটের টেক্সট এডিটর) -->
+              <div class="card panel tpl-panel">
+                <div class="panel-header">
+                  <h3><span class="component-step-badge">4</span> Editable Text Overlays</h3>
+                  <label class="check-row" style="margin:0;">
+                    <input type="checkbox" id="tplCustomTextEnable" checked style="accent-color:var(--accent);">
+                    <span style="font-size:11.5px; font-weight:600;">Enable Text</span>
+                  </label>
+                </div>
+                <div class="panel-body" id="customTextBody">
+                  <!-- Collection Title -->
+                  <div style="margin-bottom:12px; padding-bottom:10px; border-bottom:1px solid rgba(255,255,255,0.06);">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+                      <label style="font-size:11px; font-weight:700; color:var(--accent);">1. Collection Title</label>
+                      <input type="color" id="tplCustomTitleColor" value="#FFFFFF" style="width:28px; height:22px; border-radius:4px; cursor:pointer; background:transparent; border:1px solid rgba(255,255,255,0.18);" title="Title Color">
+                    </div>
+                    <input type="text" id="tplCustomTitle" value="MINIMAL BLACK UI" placeholder="Title..." style="width:100%; font-size:12px; margin-bottom:6px;">
+                    <div style="display:grid; grid-template-columns:1fr 1fr; gap:6px;">
+                      <div>
+                        <span style="font-size:10px; color:var(--text-muted);">X: <b id="tplCustomTitleXVal">18%</b></span>
+                        <input type="range" id="tplCustomTitleX" min="2" max="90" step="1" value="18" style="width:100%;">
+                      </div>
+                      <div>
+                        <span style="font-size:10px; color:var(--text-muted);">Y: <b id="tplCustomTitleYVal">18%</b></span>
+                        <input type="range" id="tplCustomTitleY" min="2" max="90" step="1" value="18" style="width:100%;">
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- Subtitle -->
+                  <div style="margin-bottom:12px; padding-bottom:10px; border-bottom:1px solid rgba(255,255,255,0.06);">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+                      <label style="font-size:11px; font-weight:700; color:var(--accent);">2. Subtitle Text</label>
+                      <input type="color" id="tplCustomSubColor" value="#E2E8F0" style="width:28px; height:22px; border-radius:4px; cursor:pointer; background:transparent; border:1px solid rgba(255,255,255,0.18);" title="Subtitle Color">
+                    </div>
+                    <input type="text" id="tplCustomSubtitle" value="Editable Line Icons" placeholder="Subtitle..." style="width:100%; font-size:12px; margin-bottom:6px;">
+                    <div style="display:grid; grid-template-columns:1fr 1fr; gap:6px;">
+                      <div>
+                        <span style="font-size:10px; color:var(--text-muted);">X: <b id="tplCustomSubXVal">18%</b></span>
+                        <input type="range" id="tplCustomSubX" min="2" max="90" step="1" value="18" style="width:100%;">
+                      </div>
+                      <div>
+                        <span style="font-size:10px; color:var(--text-muted);">Y: <b id="tplCustomSubYVal">24%</b></span>
+                        <input type="range" id="tplCustomSubY" min="2" max="90" step="1" value="24" style="width:100%;">
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- Count Numeral -->
+                  <div>
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+                      <label style="font-size:11px; font-weight:700; color:var(--accent);">3. Count Numeral</label>
+                      <input type="color" id="tplCustomCountColor" value="#FFFFFF" style="width:28px; height:22px; border-radius:4px; cursor:pointer; background:transparent; border:1px solid rgba(255,255,255,0.18);" title="Count Color">
+                    </div>
+                    <input type="text" id="tplCustomCount" value="24" placeholder="e.g. 24, 50" style="width:100%; font-size:12px; margin-bottom:6px;">
+                    <div style="display:grid; grid-template-columns:1fr 1fr; gap:6px;">
+                      <div>
+                        <span style="font-size:10px; color:var(--text-muted);">X: <b id="tplCustomCountXVal">18%</b></span>
+                        <input type="range" id="tplCustomCountX" min="2" max="90" step="1" value="18" style="width:100%;">
+                      </div>
+                      <div>
+                        <span style="font-size:10px; color:var(--text-muted);">Y: <b id="tplCustomCountYVal">44%</b></span>
+                        <input type="range" id="tplCustomCountY" min="2" max="90" step="1" value="44" style="width:100%;">
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+            </div>
+
             <!-- 1. Modular Template Maker Elements (100 Visual Shapes, Highlighters, Showcase Boxes & Grid Frames) -->
             <div class="card panel tpl-panel" id="makerElementsPanel">
               <div class="panel-header">

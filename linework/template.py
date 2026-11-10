@@ -298,7 +298,31 @@ def resolve_config(cfg: dict | None) -> dict[str, Any]:
         "badge_y_offset": 0,
         "showcase_scale": 1.0,
         "element_spacing": 0,
-        "show_showcase_badge": True
+        "show_showcase_badge": True,
+        # Custom Image Template (ChatGPT / AI Mockup) Parameters
+        "custom_image_url": "",
+        "custom_image_b64": "",
+        "custom_img_w": 1920.0,
+        "custom_img_h": 1080.0,
+        "custom_grid_x": 0.40,
+        "custom_grid_y": 0.10,
+        "custom_grid_w": 0.55,
+        "custom_grid_h": 0.78,
+        "custom_grid_cols": 0,
+        "custom_hero_enable": True,
+        "custom_hero_x": 0.18,
+        "custom_hero_y": 0.68,
+        "custom_hero_size": 0.20,
+        "custom_text_enable": True,
+        "custom_title_x": 0.18,
+        "custom_title_y": 0.18,
+        "custom_sub_x": 0.18,
+        "custom_sub_y": 0.24,
+        "custom_count_x": 0.18,
+        "custom_count_y": 0.44,
+        "custom_show_title": True,
+        "custom_show_sub": True,
+        "custom_show_count": True
     })
     if cfg:
         p_name = cfg.get("preset")
@@ -1770,6 +1794,152 @@ def _build_modular_template(model: Model, icons_meta: list[dict], c: dict, W: in
 </svg>"""
 
 
+def _build_custom_image_template(
+    model: Model, icons_meta: list[dict], c: dict, W: int, H: int
+) -> str:
+    """Renders custom uploaded JPEG/PNG template (ChatGPT / Midjourney / Canva / Stock Mockup)
+    with seamless overlay of sheet icons, hero showcase icon, and editable typography."""
+    img_src = str(c.get("custom_image_url") or c.get("custom_image_b64") or "").strip()
+
+    # If img_src is a relative server path /api/custom_templates/{id}/image, convert to base64 for resvg
+    if img_src.startswith("/api/custom_templates/"):
+        parts = img_src.split("/")
+        if len(parts) >= 4:
+            tpl_id = parts[3]
+            from pathlib import Path
+            import base64
+            for d in (Path("data/custom_templates"), Path("server/data/custom_templates")):
+                for ext in (".jpg", ".jpeg", ".png", ".webp"):
+                    p = d / f"{tpl_id}{ext}"
+                    if p.exists():
+                        mime = "image/png" if ext == ".png" else "image/jpeg"
+                        b64_data = base64.b64encode(p.read_bytes()).decode("ascii")
+                        img_src = f"data:{mime};base64,{b64_data}"
+                        break
+                if img_src.startswith("data:"):
+                    break
+    elif img_src.startswith("/static/"):
+        from pathlib import Path
+        import base64
+        local_p = Path("server") / img_src.lstrip("/")
+        if local_p.exists():
+            mime = "image/png" if local_p.suffix == ".png" else "image/jpeg"
+            b64_data = base64.b64encode(local_p.read_bytes()).decode("ascii")
+            img_src = f"data:{mime};base64,{b64_data}"
+
+    bg_svg = ""
+    if img_src:
+        bg_svg = f'<image href="{img_src}" x="0" y="0" width="{W}" height="{H}" preserveAspectRatio="xMidYMid slice"/>'
+    else:
+        bg_svg = (
+            f'<rect width="{W}" height="{H}" fill="#11141D"/>'
+            f'<rect x="{int(W*0.03)}" y="{int(H*0.05)}" width="{int(W*0.94)}" height="{int(H*0.90)}" rx="20" fill="#181B24" stroke="rgba(255,255,255,0.08)" stroke-width="2" stroke-dasharray="10,8"/>'
+            f'<text x="{W/2:.1f}" y="{H/2:.1f}" fill="#94A3B8" font-size="28" font-weight="700" text-anchor="middle" font-family="sans-serif">Upload your ChatGPT / AI Presentation Mockup Image</text>'
+        )
+
+    fonts_import, title_font, count_font, sub_font = _get_font_css(c.get("font_family", "bebas"))
+
+    # Editable Text Overlays
+    text_overlay_svg = ""
+    if c.get("custom_text_enable", True):
+        raw_t = str(c.get("title") or "TECHNOLOGY").strip()
+        if any(sep in raw_t for sep in ("_", "/", "\\")) or re.search(r'[0-9a-f]{6,}', raw_t, re.I):
+            title_val = sanitize_text(_clean_template_title(raw_t))
+        else:
+            title_val = sanitize_text(raw_t)
+        sub_val = sanitize_text((c.get("subtitle") or "Editable Line Icons").upper())
+        count_val = sanitize_text(c.get("count") or (len(icons_meta) if icons_meta else "24"))
+
+        banner_text = c.get("banner_text", "#FFFFFF")
+        banner_sub = c.get("banner_sub", "#E2E8F0")
+
+        title_fs = int(c.get("title_fs") or 56)
+        sub_fs = int(c.get("sub_fs") or 22)
+        count_fs = int(c.get("count_fs") or 140)
+
+        tx = float(c.get("custom_title_x", 0.18)) * W
+        ty = float(c.get("custom_title_y", 0.18)) * H
+        sx = float(c.get("custom_sub_x", 0.18)) * W
+        sy = float(c.get("custom_sub_y", 0.24)) * H
+        cx = float(c.get("custom_count_x", 0.18)) * W
+        cy = float(c.get("custom_count_y", 0.44)) * H
+
+        show_title = c.get("custom_show_title", True)
+        show_sub = c.get("custom_show_sub", True)
+        show_count = c.get("custom_show_count", True)
+
+        txt_parts = []
+        if show_title and title_val:
+            txt_parts.append(
+                f'<text x="{tx:.1f}" y="{ty:.1f}" font-size="{title_fs}" font-weight="900" letter-spacing="3" '
+                f'fill="{banner_text}" text-anchor="middle" style="font-family:{title_font};">{title_val}</text>'
+            )
+        if show_sub and sub_val:
+            txt_parts.append(
+                f'<text x="{sx:.1f}" y="{sy:.1f}" font-size="{sub_fs}" font-weight="800" letter-spacing="2.2" '
+                f'fill="{banner_sub}" text-anchor="middle" style="font-family:{sub_font};">{sub_val}</text>'
+            )
+        if show_count and count_val:
+            txt_parts.append(
+                f'<text x="{cx:.1f}" y="{cy:.1f}" font-size="{count_fs}" font-weight="900" letter-spacing="-3" '
+                f'fill="{banner_text}" text-anchor="middle" class="count">{count_val}</text>'
+            )
+        text_overlay_svg = f'<g id="customTextOverlays">{"".join(txt_parts)}</g>'
+
+    # Hero Showcase Icon
+    hero_svg = ""
+    if c.get("custom_hero_enable", True):
+        hx = float(c.get("custom_hero_x", 0.18)) * W
+        hy = float(c.get("custom_hero_y", 0.68)) * H
+        h_size = float(c.get("custom_hero_size", 0.20)) * min(W, H)
+        stroke_scale = float(c.get("stroke_scale", 1.0))
+        hero_svg = _render_showcase_box(
+            model, icons_meta, c,
+            cx=hx, cy=hy, w=h_size * 1.5, h=h_size * 1.5,
+            stroke_scale=stroke_scale
+        )
+
+    # Sheet Icons Grid Overlay
+    gx = float(c.get("custom_grid_x", 0.40)) * W
+    gy = float(c.get("custom_grid_y", 0.10)) * H
+    gw = float(c.get("custom_grid_w", 0.55)) * W
+    gh = float(c.get("custom_grid_h", 0.78)) * H
+
+    c_copy = dict(c)
+    if "custom_decor" in c:
+        c_copy["decor_element"] = c["custom_decor"]
+    else:
+        c_copy["decor_element"] = "none"
+
+    grid_icons_svg = _render_adaptive_sheet_icons(
+        model, icons_meta, c_copy,
+        sheet_x=gx, sheet_y=gy, sheet_w=gw, sheet_h=gh
+    )
+
+    return f"""<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {W} {H}" width="{W}" height="{H}">
+  <defs>
+    <style>
+      {fonts_import}
+      text {{ font-family: {sub_font}; }}
+      .title {{ font-family: {title_font}; }}
+      .count {{ font-family: {count_font}; }}
+      .sub {{ font-family: {sub_font}; }}
+      .mono {{ font-family: 'JetBrains Mono', 'Consolas', monospace; }}
+    </style>
+  </defs>
+  <!-- Background Image Template -->
+  {bg_svg}
+  <!-- Sheet Icons Overlay -->
+  <g id="customGridIconsGroup">
+    {grid_icons_svg}
+  </g>
+  <!-- Hero Showcase Icon -->
+  {hero_svg}
+  <!-- Editable Text Overlays -->
+  {text_overlay_svg}
+</svg>"""
+
+
 # =========================================================================
 # Master SVG Dispatcher
 # =========================================================================
@@ -1780,6 +1950,16 @@ def build_template_svg(model: Model, icons_meta: list[dict] | None = None, confi
 
     # Map legacy design names to modular settings if passed
     design = str(c.get("design") or "modular_maker").lower()
+    if design == "custom_image" or c.get("custom_image_url"):
+        try:
+            W = int(float(c.get("custom_img_w") or 1920))
+            H = int(float(c.get("custom_img_h") or 1080))
+        except Exception:
+            W, H = 1920, 1080
+        W = max(800, min(3840, W))
+        H = max(450, min(2160, H))
+        return _build_custom_image_template(model, icons_meta, c, W, H)
+
     if design == "vectuz_right" or design == "side_cover_right":
         c["panel_pos"] = "right"
     elif design == "top_banner":

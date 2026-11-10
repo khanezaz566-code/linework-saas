@@ -27,6 +27,8 @@ from server import remote_worker  # noqa: E402
 
 DATA = FsPath(os.environ.get("LINEWORK_DATA", ROOT / "data"))
 DATA.mkdir(parents=True, exist_ok=True)
+CUSTOM_TEMPLATES_DIR = DATA / "custom_templates"
+CUSTOM_TEMPLATES_DIR.mkdir(parents=True, exist_ok=True)
 MAX_BYTES = 15 * 1024 * 1024
 is_cloud = bool(os.environ.get("RENDER") or os.environ.get("PORT"))
 MAX_SIDE = 2000 if is_cloud else 5000
@@ -1445,8 +1447,54 @@ def _prepare_template_icons(job_id, job):
     return prepared
 
 
+@app.post("/api/custom_templates/upload")
+async def upload_custom_template(file: UploadFile = File(...)):
+    data = await file.read()
+    if len(data) > 25 * 1024 * 1024:
+        raise HTTPException(413, "Template image too large (25 MB max)")
+    ext = FsPath(file.filename or "template.jpg").suffix.lower()
+    if ext not in (".jpg", ".jpeg", ".png", ".webp"):
+        ext = ".jpg"
+    import uuid, io, base64
+    tpl_id = f"tpl_{uuid.uuid4().hex[:12]}"
+    out_file = CUSTOM_TEMPLATES_DIR / f"{tpl_id}{ext}"
+    out_file.write_bytes(data)
+
+    w, h = 1920, 1080
+    try:
+        from PIL import Image
+        with Image.open(io.BytesIO(data)) as im:
+            w, h = im.size
+    except Exception:
+        pass
+
+    mime = "image/png" if ext == ".png" else "image/jpeg"
+    b64_str = f"data:{mime};base64,{base64.b64encode(data).decode('ascii')}"
+
+    return {
+        "id": tpl_id,
+        "filename": file.filename or "custom_template.jpg",
+        "url": f"/api/custom_templates/{tpl_id}/image",
+        "b64": b64_str,
+        "width": w,
+        "height": h
+    }
+
+
+@app.get("/api/custom_templates/{tpl_id}/image")
+def get_custom_template_image(tpl_id: str):
+    clean_id = "".join(c for c in tpl_id if c.isalnum() or c in ("-", "_"))
+    for ext in (".jpg", ".jpeg", ".png", ".webp"):
+        fn = CUSTOM_TEMPLATES_DIR / f"{clean_id}{ext}"
+        if fn.exists():
+            mime = "image/png" if ext == ".png" else "image/jpeg"
+            return Response(fn.read_bytes(), media_type=mime, headers={"Cache-Control": "public, max-age=86400"})
+    raise HTTPException(404, "Template image not found")
+
+
 @app.get("/api/jobs/{job_id}/template.svg")
 def job_template_svg(
+    request: Request,
     job_id: str,
     design: str = "modular_maker",
     banner_shape: str = "square_solid",
@@ -1516,6 +1564,10 @@ def job_template_svg(
     if bg: cfg["artboard_bg"] = bg
     if panel_bg: cfg["banner_bg"] = panel_bg
     if accent: cfg["accent"] = accent
+    if request:
+        for k, v in request.query_params.items():
+            if k not in ("download", "job_id") and v != "":
+                cfg[k] = v
     
     icons_list = _prepare_template_icons(job_id, job)
     svg = build_template_svg(m, icons_list, cfg)
@@ -1527,6 +1579,7 @@ def job_template_svg(
 
 @app.get("/api/jobs/{job_id}/template.eps")
 def job_template_eps(
+    request: Request,
     job_id: str,
     design: str = "modular_maker",
     banner_shape: str = "square_solid",
@@ -1596,6 +1649,10 @@ def job_template_eps(
     if bg: cfg["artboard_bg"] = bg
     if panel_bg: cfg["banner_bg"] = panel_bg
     if accent: cfg["accent"] = accent
+    if request:
+        for k, v in request.query_params.items():
+            if k not in ("download", "job_id") and v != "":
+                cfg[k] = v
 
     icons_list = _prepare_template_icons(job_id, job)
     eps = build_template_eps(m, icons_list, cfg)
@@ -1607,6 +1664,7 @@ def job_template_eps(
 
 @app.get("/api/jobs/{job_id}/template.png")
 def job_template_png(
+    request: Request,
     job_id: str,
     design: str = "modular_maker",
     banner_shape: str = "square_solid",
@@ -1676,6 +1734,10 @@ def job_template_png(
     if bg: cfg["artboard_bg"] = bg
     if panel_bg: cfg["banner_bg"] = panel_bg
     if accent: cfg["accent"] = accent
+    if request:
+        for k, v in request.query_params.items():
+            if k not in ("download", "job_id") and v != "":
+                cfg[k] = v
 
     icons_list = _prepare_template_icons(job_id, job)
     svg = build_template_svg(m, icons_list, cfg)
