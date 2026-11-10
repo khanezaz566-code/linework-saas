@@ -685,7 +685,7 @@ def _dispatch_single_icon(args):
         if not remote_worker.has_active_remote_worker():
             break
         if remote_worker.has_active_pull_worker() and crop_b64:
-            res = remote_worker.dispatch_via_pull_queue(payload, timeout=18.0)
+            res = remote_worker.dispatch_via_pull_queue(payload, timeout=14.0)
             if res and res.get("ok"):
                 return k, off, res["model_json"], res["metrics"]
             continue

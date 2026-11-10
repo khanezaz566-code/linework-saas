@@ -234,7 +234,7 @@ def _process_icon(gray, opts: Options = None, emit=_noop, name="icon", set_w=Non
     # how many icons run in parallel, or where in the queue this icon sits.  Complex icons get a larger budget (set below).
     c0 = time.time()
     bud = [float(cfg["time_budget"])]
-    max_wall = 16.0 if opts.quality != "precise" else 28.0
+    max_wall = 12.0 if opts.quality != "precise" else 20.0
     left = lambda: min(bud[0] - (time.time() - t0), max_wall - (time.time() - t0))
 
     ev("trace", "Tracing skeleton and centring strokes on their edges")

@@ -228,7 +228,7 @@ def dispatch_via_pull_queue(payload: dict, timeout: float = 55.0) -> dict:
             rem = deadline - time.time()
             if rem <= 0:
                 break
-            if ev.wait(timeout=min(1.0, rem)):
+            if ev.wait(timeout=min(0.5, rem)):
                 break
             now_chk = time.time()
             with _CV:
@@ -237,10 +237,10 @@ def dispatch_via_pull_queue(payload: dict, timeout: float = 55.0) -> dict:
                 popped_at = entry.get("popped_at")
                 if popped_at is not None:
                     elapsed_pop = now_chk - popped_at
-                    # Aggressive 5.0s straggler hedging for the final 1-4 icons of a sheet; 8.5s otherwise
+                    # Fast 3.0s straggler hedging for the final 1-4 icons of a sheet; 6.0s otherwise
                     is_tail_straggler = (len(_PULL_QUEUE) == 0 and len(_INFLIGHT_TASKS) <= 4)
-                    hedge_threshold = 5.0 if is_tail_straggler else 8.5
-                    if elapsed_pop >= hedge_threshold and entry.get("requeued", 0) < 3:
+                    hedge_threshold = 3.0 if is_tail_straggler else 6.0
+                    if elapsed_pop >= hedge_threshold and entry.get("requeued", 0) < 4:
                         entry["requeued"] = entry.get("requeued", 0) + 1
                         entry["popped_at"] = now_chk
                         if not any(t["task_id"] == task_id for t in _PULL_QUEUE):
@@ -250,7 +250,7 @@ def dispatch_via_pull_queue(payload: dict, timeout: float = 55.0) -> dict:
                                 "created": now_chk,
                             })
                             _CV.notify_all()
-                elif now_chk - now >= 12.0 and not has_active_pull_worker():
+                elif now_chk - now >= 8.0 and not has_active_pull_worker():
                     break
 
         if not ev.is_set():
