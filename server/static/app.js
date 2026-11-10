@@ -2807,17 +2807,6 @@
     });
   }
 
-  const tplBadgeY = $('#tplBadgeY');
-  const tplBadgeYVal = $('#tplBadgeYVal');
-  if (tplBadgeY && tplBadgeYVal) {
-    tplBadgeY.addEventListener('input', () => {
-      const v = parseInt(tplBadgeY.value, 10);
-      tplBadgeYVal.textContent = (v > 0 ? '+' : '') + v + ' px';
-      S.template.badge_y_offset = v;
-      scheduleTemplateUpdate();
-    });
-  }
-
   const btnResetSpacing = $('#btnResetSpacing');
   if (btnResetSpacing) {
     btnResetSpacing.addEventListener('click', () => {
@@ -2842,9 +2831,6 @@
 
       if (tplShowcaseScale) tplShowcaseScale.value = 100;
       if (tplShowcaseScaleVal) tplShowcaseScaleVal.textContent = '100%';
-
-      if (tplBadgeY) tplBadgeY.value = 0;
-      if (tplBadgeYVal) tplBadgeYVal.textContent = '0 px';
 
       scheduleTemplateUpdate();
       toast('Reset layout spacing & positions to default');
