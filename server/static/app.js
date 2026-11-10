@@ -1542,6 +1542,7 @@
       name: 'Adobe Stock Gold / Yellow',
       banner_bg: '#F5B800',
       banner_text: '#1E1E1E',
+      banner_sub: '#374151',
       highlight_bg: '#181B24',
       highlight_stroke: '#FFFFFF',
       artboard_bg: 'checkered',
@@ -1553,6 +1554,7 @@
       name: 'Tech & AI Mint / Cyan',
       banner_bg: '#00D2A0',
       banner_text: '#064E3B',
+      banner_sub: '#047857',
       highlight_bg: '#0F172A',
       highlight_stroke: '#FFFFFF',
       artboard_bg: 'checkered',
@@ -1564,6 +1566,7 @@
       name: 'Beauty & Medical Coral',
       banner_bg: '#FF4757',
       banner_text: '#FFFFFF',
+      banner_sub: '#FFE4E6',
       highlight_bg: '#1E1322',
       highlight_stroke: '#FFFFFF',
       artboard_bg: 'checkered',
@@ -1575,6 +1578,7 @@
       name: 'Creative & App Iris Purple',
       banner_bg: '#8B5CF6',
       banner_text: '#FFFFFF',
+      banner_sub: '#EDE9FE',
       highlight_bg: '#120E24',
       highlight_stroke: '#FFFFFF',
       artboard_bg: 'checkered',
@@ -1586,6 +1590,7 @@
       name: 'Nature & Ecology Emerald',
       banner_bg: '#10B981',
       banner_text: '#FFFFFF',
+      banner_sub: '#D1FAE5',
       highlight_bg: '#061A14',
       highlight_stroke: '#FFFFFF',
       artboard_bg: 'checkered',
@@ -1597,6 +1602,7 @@
       name: 'Industry & Logistics Orange',
       banner_bg: '#F97316',
       banner_text: '#FFFFFF',
+      banner_sub: '#FFEDD5',
       highlight_bg: '#1C1917',
       highlight_stroke: '#FFFFFF',
       artboard_bg: 'checkered',
@@ -1608,6 +1614,7 @@
       name: 'Corporate & Finance Royal Blue',
       banner_bg: '#2563EB',
       banner_text: '#FFFFFF',
+      banner_sub: '#DBEAFE',
       highlight_bg: '#0B1329',
       highlight_stroke: '#FFFFFF',
       artboard_bg: 'checkered',
@@ -1619,6 +1626,7 @@
       name: 'Minimalist White Studio',
       banner_bg: '#F4F4F5',
       banner_text: '#18181B',
+      banner_sub: '#71717A',
       highlight_bg: '#18181B',
       highlight_stroke: '#FFFFFF',
       artboard_bg: '#FFFFFF',
@@ -1630,6 +1638,7 @@
       name: 'Midnight Dark Edition',
       banner_bg: '#18181B',
       banner_text: '#F4F4F5',
+      banner_sub: '#A1A1AA',
       highlight_bg: '#09090B',
       highlight_stroke: '#00F5A0',
       artboard_bg: '#0F172A',
@@ -1815,9 +1824,23 @@
     if ($('#tplBannerBg')) $('#tplBannerBg').value = p.banner_bg;
     S.template.banner_text = p.banner_text;
     $$('#tplBannerTextSeg button').forEach(b => b.classList.toggle('on', b.dataset.v === p.banner_text));
+    if ($('#tplBannerTextColor')) $('#tplBannerTextColor').value = p.banner_text;
+
+    const subCol = p.banner_sub || (p.banner_text === '#FFFFFF' ? '#E2E8F0' : '#475569');
+    S.template.banner_sub = subCol;
+    if ($('#tplBannerSub')) $('#tplBannerSub').value = subCol;
+    if ($('#tplBannerSubInline')) $('#tplBannerSubInline').value = subCol;
 
     if ($('#tplHighlightBg')) $('#tplHighlightBg').value = p.highlight_bg;
+    if ($('#tplShowcaseBgInline')) $('#tplShowcaseBgInline').value = p.highlight_bg;
+
     if ($('#tplHighlightStroke')) $('#tplHighlightStroke').value = p.highlight_stroke;
+    if ($('#tplHeroIconColor')) $('#tplHeroIconColor').value = p.highlight_stroke;
+
+    const accentCol = p.accent || p.banner_bg || '#181B24';
+    S.template.shape_accent = accentCol;
+    if ($('#tplShapeAccent')) $('#tplShapeAccent').value = accentCol;
+    if ($('#tplShowcaseAccentInline')) $('#tplShowcaseAccentInline').value = accentCol;
 
     S.template.artboard_bg = p.artboard_bg;
     $$('#tplArtboardBgSeg button').forEach(b => b.classList.toggle('on', b.dataset.v === p.artboard_bg));
@@ -1917,6 +1940,7 @@
     if (item.shape_accent) {
       S.template.shape_accent = item.shape_accent;
       if ($('#tplShapeAccent')) $('#tplShapeAccent').value = item.shape_accent;
+      if ($('#tplShowcaseAccentInline')) $('#tplShowcaseAccentInline').value = item.shape_accent;
     }
     renderMakerElements(activeMakerCat);
     if ($('#tplTitle') && item.title) $('#tplTitle').value = item.title;
@@ -1927,9 +1951,21 @@
     if (item.banner_text) {
       S.template.banner_text = item.banner_text;
       $$('#tplBannerTextSeg button').forEach(b => b.classList.toggle('on', b.dataset.v === item.banner_text));
+      if ($('#tplBannerTextColor')) $('#tplBannerTextColor').value = item.banner_text;
     }
-    if ($('#tplHighlightBg') && item.highlight_bg) $('#tplHighlightBg').value = item.highlight_bg;
-    if ($('#tplHighlightStroke') && item.highlight_stroke) $('#tplHighlightStroke').value = item.highlight_stroke;
+    if (item.banner_sub) {
+      S.template.banner_sub = item.banner_sub;
+      if ($('#tplBannerSub')) $('#tplBannerSub').value = item.banner_sub;
+      if ($('#tplBannerSubInline')) $('#tplBannerSubInline').value = item.banner_sub;
+    }
+    if ($('#tplHighlightBg') && item.highlight_bg) {
+      $('#tplHighlightBg').value = item.highlight_bg;
+      if ($('#tplShowcaseBgInline')) $('#tplShowcaseBgInline').value = item.highlight_bg;
+    }
+    if ($('#tplHighlightStroke') && item.highlight_stroke) {
+      $('#tplHighlightStroke').value = item.highlight_stroke;
+      if ($('#tplHeroIconColor')) $('#tplHeroIconColor').value = item.highlight_stroke;
+    }
 
     if (item.artboard_bg) {
       S.template.artboard_bg = item.artboard_bg;
@@ -2155,9 +2191,11 @@
     const count = $('#tplCount') ? $('#tplCount').value : '24';
     const subtitle = $('#tplSubtitle') ? $('#tplSubtitle').value : 'Editable Line Icons';
     const bannerBg = $('#tplBannerBg') ? $('#tplBannerBg').value : '#F5B800';
-    const bannerText = S.template.banner_text || '#1E1E1E';
+    const bannerText = S.template.banner_text || ($('#tplBannerTextColor') ? $('#tplBannerTextColor').value : '#1E1E1E');
+    const bannerSub = $('#tplBannerSub') ? $('#tplBannerSub').value : ($('#tplBannerSubInline') ? $('#tplBannerSubInline').value : (S.template.banner_sub || ''));
     const highlightBg = $('#tplHighlightBg') ? $('#tplHighlightBg').value : '#181B24';
     const highlightStroke = $('#tplHighlightStroke') ? $('#tplHighlightStroke').value : '#FFFFFF';
+    const shapeAccent = $('#tplShapeAccent') ? $('#tplShapeAccent').value : ($('#tplShowcaseAccentInline') ? $('#tplShowcaseAccentInline').value : (S.template.shape_accent || '#181B24'));
     const artboardBg = S.template.artboard_bg || 'checkered';
     const stroke = $('#tplStrokeColor') ? $('#tplStrokeColor').value : '#181B24';
     const scale = $('#tplStrokeScale') ? $('#tplStrokeScale').value : '1.0';
@@ -2170,13 +2208,15 @@
       panel_pos: S.template.panel_pos || 'left',
       banner_shape: S.template.banner_shape || 'square_solid',
       decor_element: S.template.decor_element || 'artboard_square_box',
-      shape_accent: $('#tplShapeAccent') ? $('#tplShapeAccent').value : (S.template.shape_accent || '#181B24'),
+      shape_accent: shapeAccent,
+      accent: shapeAccent,
       preset: S.template.preset || 'vectuz_yellow',
       title: title,
       count: count,
       subtitle: subtitle,
       banner_bg: bannerBg,
       banner_text: bannerText,
+      banner_sub: bannerSub,
       highlight_bg: highlightBg,
       highlight_stroke: highlightStroke,
       artboard_bg: artboardBg,
@@ -2541,24 +2581,83 @@
     });
   }
 
-  // Color inputs live preview
-  ['tplBannerBg', 'tplShapeAccent', 'tplHighlightBg', 'tplHighlightStroke', 'tplStrokeColor'].forEach(id => {
+  // Color inputs live preview with bidirectional synchronization
+  ['tplBannerBg', 'tplShapeAccent', 'tplHighlightBg', 'tplHighlightStroke', 'tplStrokeColor', 'tplBannerSub'].forEach(id => {
     const el = $('#' + id);
     if (el) {
       el.addEventListener('input', () => {
         $$('#presetList .preset-card').forEach(c => c.classList.remove('active'));
         const hint = $('#customColorHint');
         if (hint) hint.textContent = 'Custom Preset';
+        if (id === 'tplBannerSub' && $('#tplBannerSubInline')) $('#tplBannerSubInline').value = el.value;
+        if (id === 'tplShapeAccent' && $('#tplShowcaseAccentInline')) $('#tplShowcaseAccentInline').value = el.value;
+        if (id === 'tplHighlightBg' && $('#tplShowcaseBgInline')) $('#tplShowcaseBgInline').value = el.value;
+        if (id === 'tplHighlightStroke' && $('#tplHeroIconColor')) $('#tplHeroIconColor').value = el.value;
         scheduleTemplateUpdate();
       });
     }
   });
 
-  // Banner text segment
+  // Step 2 & Step 4 inline color controls
+  const heroIconColor = $('#tplHeroIconColor');
+  if (heroIconColor) {
+    heroIconColor.addEventListener('input', () => {
+      if ($('#tplHighlightStroke')) $('#tplHighlightStroke').value = heroIconColor.value;
+      $$('#presetList .preset-card').forEach(c => c.classList.remove('active'));
+      scheduleTemplateUpdate();
+    });
+  }
+
+  const scAccentInline = $('#tplShowcaseAccentInline');
+  if (scAccentInline) {
+    scAccentInline.addEventListener('input', () => {
+      if ($('#tplShapeAccent')) $('#tplShapeAccent').value = scAccentInline.value;
+      S.template.shape_accent = scAccentInline.value;
+      $$('#presetList .preset-card').forEach(c => c.classList.remove('active'));
+      scheduleTemplateUpdate();
+    });
+  }
+
+  const scBgInline = $('#tplShowcaseBgInline');
+  if (scBgInline) {
+    scBgInline.addEventListener('input', () => {
+      if ($('#tplHighlightBg')) $('#tplHighlightBg').value = scBgInline.value;
+      $$('#presetList .preset-card').forEach(c => c.classList.remove('active'));
+      scheduleTemplateUpdate();
+    });
+  }
+
+  const bannerSubInline = $('#tplBannerSubInline');
+  if (bannerSubInline) {
+    bannerSubInline.addEventListener('input', () => {
+      if ($('#tplBannerSub')) $('#tplBannerSub').value = bannerSubInline.value;
+      S.template.banner_sub = bannerSubInline.value;
+      $$('#presetList .preset-card').forEach(c => c.classList.remove('active'));
+      scheduleTemplateUpdate();
+    });
+  }
+
+  const bannerTextColor = $('#tplBannerTextColor');
+  if (bannerTextColor) {
+    bannerTextColor.addEventListener('input', () => {
+      S.template.banner_text = bannerTextColor.value;
+      $$('#tplBannerTextSeg button').forEach(b => b.classList.toggle('on', b.dataset.v.toLowerCase() === bannerTextColor.value.toLowerCase()));
+      $$('#presetList .preset-card').forEach(c => c.classList.remove('active'));
+      scheduleTemplateUpdate();
+    });
+  }
+
+  // Banner text segment (Light / Dark) with smart subtitle contrast
   $$('#tplBannerTextSeg button').forEach(b => {
     b.addEventListener('click', () => {
       $$('#tplBannerTextSeg button').forEach(x => x.classList.toggle('on', x === b));
       S.template.banner_text = b.dataset.v;
+      if ($('#tplBannerTextColor')) $('#tplBannerTextColor').value = b.dataset.v;
+      const newSub = b.dataset.v === '#FFFFFF' ? '#E2E8F0' : '#475569';
+      if ($('#tplBannerSub')) $('#tplBannerSub').value = newSub;
+      if ($('#tplBannerSubInline')) $('#tplBannerSubInline').value = newSub;
+      S.template.banner_sub = newSub;
+      $$('#presetList .preset-card').forEach(c => c.classList.remove('active'));
       scheduleTemplateUpdate();
     });
   });

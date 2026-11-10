@@ -1410,6 +1410,33 @@
                       <option value="isometric_stack">27. 3D Isometric Stack</option>
                     </select>
                   </div>
+
+                  <!-- Quick Inline Showcase Box Colors -->
+                  <div style="margin-top:10px; width:100%; padding:9px 10px; background:rgba(255,255,255,0.035); border:1px solid rgba(255,255,255,0.08); border-radius:8px;">
+                    <div style="font-size:11px; font-weight:700; color:var(--accent); text-transform:uppercase; letter-spacing:0.5px; margin-bottom:7px;">
+                      🎨 Showcase Colors (হিরো ফ্রেম ও আইকন কালার)
+                    </div>
+                    <div style="display:grid; grid-template-columns: repeat(3, 1fr); gap:8px;">
+                      <div>
+                        <label for="tplHeroIconColor" style="font-size:10.5px; color:var(--text-muted); display:block; margin-bottom:4px; font-weight:500;">
+                          Hero Icon:
+                        </label>
+                        <input type="color" id="tplHeroIconColor" value="#FFFFFF" style="width:100%; height:30px; border-radius:6px; cursor:pointer; background:transparent; border:1px solid rgba(255,255,255,0.18);" title="Hero Icon Stroke Color">
+                      </div>
+                      <div>
+                        <label for="tplShowcaseAccentInline" style="font-size:10.5px; color:var(--text-muted); display:block; margin-bottom:4px; font-weight:500;">
+                          Frame / Halo:
+                        </label>
+                        <input type="color" id="tplShowcaseAccentInline" value="#00F5A0" style="width:100%; height:30px; border-radius:6px; cursor:pointer; background:transparent; border:1px solid rgba(255,255,255,0.18);" title="Frame Outline &amp; Spotlight Glow Accent">
+                      </div>
+                      <div>
+                        <label for="tplShowcaseBgInline" style="font-size:10.5px; color:var(--text-muted); display:block; margin-bottom:4px; font-weight:500;">
+                          Box Fill:
+                        </label>
+                        <input type="color" id="tplShowcaseBgInline" value="#181B24" style="width:100%; height:30px; border-radius:6px; cursor:pointer; background:transparent; border:1px solid rgba(255,255,255,0.18);" title="Showcase Box Fill Background">
+                      </div>
+                    </div>
+                  </div>
                 </div>
                 <div style="font-size:11.5px; color:var(--text-muted); margin-bottom:6px; line-height:1.35;">
                   Click any icon from your sheet below to place it inside the Showcase Box:
@@ -1528,7 +1555,10 @@
                 </div>
                 <div class="param-row">
                   <label for="tplSubtitle">Subtitle Text</label>
-                  <input type="text" id="tplSubtitle" value="Editable Line Icons" placeholder="e.g. Editable Line Icons">
+                  <div style="display:flex; gap:6px; width:65%; align-items:center;">
+                    <input type="text" id="tplSubtitle" value="Editable Line Icons" placeholder="e.g. Editable Line Icons" style="flex:1;">
+                    <input type="color" id="tplBannerSubInline" value="#E2E8F0" style="width:34px; height:32px; border-radius:6px; cursor:pointer; background:transparent; border:1px solid rgba(255,255,255,0.18);" title="Subtitle Text Color (সাবটাইটেল কালার)">
+                  </div>
                 </div>
                 <div style="border-top:1px solid rgba(255,255,255,0.08); margin:12px 0 8px; padding-top:8px;">
                   <span style="font-size:11px; font-weight:700; color:var(--accent); text-transform:uppercase; letter-spacing:0.5px;">Text Size Sliders (বড় / ছোট করুন)</span>
@@ -1590,23 +1620,30 @@
                   <input type="color" id="tplBannerBg" value="#F5B800">
                 </div>
                 <div class="param-row">
-                  <label for="tplShapeAccent">Highlighter / Accent Color</label>
-                  <input type="color" id="tplShapeAccent" value="#181B24">
+                  <label>Cover Text (Title) Color</label>
+                  <div style="display:flex; gap:8px; align-items:center;">
+                    <div class="seg seg-compact" id="tplBannerTextSeg">
+                      <button type="button" data-v="#1E1E1E" class="on">Dark</button>
+                      <button type="button" data-v="#FFFFFF">Light</button>
+                    </div>
+                    <input type="color" id="tplBannerTextColor" value="#1E1E1E" style="width:34px; height:28px; border-radius:6px; cursor:pointer; background:transparent; border:1px solid rgba(255,255,255,0.18);" title="Custom Title Text Color">
+                  </div>
                 </div>
                 <div class="param-row">
-                  <label>Cover Text Color</label>
-                  <div class="seg seg-compact" id="tplBannerTextSeg">
-                    <button type="button" data-v="#1E1E1E" class="on">Dark</button>
-                    <button type="button" data-v="#FFFFFF">Light</button>
-                  </div>
+                  <label for="tplBannerSub">Subtitle Text Color</label>
+                  <input type="color" id="tplBannerSub" value="#374151">
+                </div>
+                <div class="param-row">
+                  <label for="tplHighlightStroke">Hero Icon Color</label>
+                  <input type="color" id="tplHighlightStroke" value="#FFFFFF">
+                </div>
+                <div class="param-row">
+                  <label for="tplShapeAccent">Showcase Frame &amp; Accent</label>
+                  <input type="color" id="tplShapeAccent" value="#181B24">
                 </div>
                 <div class="param-row">
                   <label for="tplHighlightBg">Showcase Box Fill</label>
                   <input type="color" id="tplHighlightBg" value="#181B24">
-                </div>
-                <div class="param-row">
-                  <label for="tplHighlightStroke">Showcase Icon Color</label>
-                  <input type="color" id="tplHighlightStroke" value="#FFFFFF">
                 </div>
                 <div class="param-row" style="flex-direction:column; gap:6px; align-items:flex-start;">
                   <label>Icon Box Background</label>

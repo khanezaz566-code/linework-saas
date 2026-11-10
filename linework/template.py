@@ -307,6 +307,25 @@ def resolve_config(cfg: dict | None) -> dict[str, Any]:
         for k, v in cfg.items():
             if v is not None and v != "":
                 c[k] = v
+
+    # Automatic high-contrast fallback for banner_sub if not explicitly specified
+    if not (cfg and "banner_sub" in cfg and cfg["banner_sub"]):
+        bt = str(c.get("banner_text", "")).lower()
+        if bt in ("#ffffff", "#f4f4f5", "#fff", "white") or bt.startswith("#f") or bt.startswith("#e"):
+            c["banner_sub"] = "#E2E8F0"
+        elif bt in ("#18181b", "#1e1e1e", "#0f172a", "#000000", "#000", "black"):
+            c["banner_sub"] = "#475569"
+
+    # Synchronize accent and shape_accent so both work interchangeably
+    if cfg and cfg.get("shape_accent"):
+        c["accent"] = cfg["shape_accent"]
+        c["shape_accent"] = cfg["shape_accent"]
+    elif cfg and cfg.get("accent"):
+        c["shape_accent"] = cfg["accent"]
+        c["accent"] = cfg["accent"]
+    elif not c.get("shape_accent") and c.get("accent"):
+        c["shape_accent"] = c["accent"]
+
     return c
 
 def sanitize_text(s: str) -> str:

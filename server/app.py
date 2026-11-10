@@ -1538,6 +1538,7 @@ def job_template_eps(
     subtitle: str = "Editable Line Icons",
     banner_bg: str = "",
     banner_text: str = "",
+    banner_sub: str = "",
     highlight_bg: str = "",
     highlight_stroke: str = "",
     artboard_bg: str = "",
@@ -1587,6 +1588,7 @@ def job_template_eps(
     )
     if banner_bg: cfg["banner_bg"] = banner_bg
     if banner_text: cfg["banner_text"] = banner_text
+    if banner_sub: cfg["banner_sub"] = banner_sub
     if highlight_bg: cfg["highlight_bg"] = highlight_bg
     if highlight_stroke: cfg["highlight_stroke"] = highlight_stroke
     if artboard_bg: cfg["artboard_bg"] = artboard_bg
@@ -1616,6 +1618,7 @@ def job_template_png(
     subtitle: str = "Editable Line Icons",
     banner_bg: str = "",
     banner_text: str = "",
+    banner_sub: str = "",
     highlight_bg: str = "",
     highlight_stroke: str = "",
     artboard_bg: str = "",
@@ -1640,6 +1643,9 @@ def job_template_png(
     badge_y_offset: float = 0.0,
     showcase_scale: float = 1.0,
     element_spacing: float = 0.0,
+    bg: str = "",
+    panel_bg: str = "",
+    accent: str = "",
     download: int = 0,
 ):
     from linework.template import build_template_svg
@@ -1662,10 +1668,14 @@ def job_template_png(
     )
     if banner_bg: cfg["banner_bg"] = banner_bg
     if banner_text: cfg["banner_text"] = banner_text
+    if banner_sub: cfg["banner_sub"] = banner_sub
     if highlight_bg: cfg["highlight_bg"] = highlight_bg
     if highlight_stroke: cfg["highlight_stroke"] = highlight_stroke
     if artboard_bg: cfg["artboard_bg"] = artboard_bg
     if stroke: cfg["icon_stroke"] = stroke
+    if bg: cfg["artboard_bg"] = bg
+    if panel_bg: cfg["banner_bg"] = panel_bg
+    if accent: cfg["accent"] = accent
 
     icons_list = _prepare_template_icons(job_id, job)
     svg = build_template_svg(m, icons_list, cfg)
