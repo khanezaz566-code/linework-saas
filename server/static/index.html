@@ -1360,6 +1360,57 @@
                     <button type="button" data-v="mini_6" style="font-size:11px; padding:5px 2px;">▦ 6 Icons</button>
                   </div>
                 </div>
+
+                <!-- Showcase Box Shape & Style Selector -->
+                <div class="param-row" style="margin-bottom:10px; flex-direction:column; gap:6px; align-items:flex-start;">
+                  <div style="display:flex; justify-content:space-between; width:100%; align-items:center;">
+                    <span style="font-size:11px; color:var(--text-muted); font-weight:600;">Showcase Frame Shape (হিরো ফ্রেম শেপ):</span>
+                    <span class="val-pill" id="tplShowcaseShapeBadge" style="font-size:10px;">Square Box</span>
+                  </div>
+                  <!-- Quick Visual Shape Buttons -->
+                  <div class="seg tpl-sc-shape-seg" id="tplShowcaseShapeQuickSeg" style="width:100%; display:grid; grid-template-columns: repeat(4, 1fr); gap:4px;">
+                    <button type="button" data-v="square_box" class="on" title="Classic Tech Square Box">⬛ Square</button>
+                    <button type="button" data-v="squircle_super" title="Modern Smooth Squircle">🔲 Squircle</button>
+                    <button type="button" data-v="orbital_rings" title="Spotlight Circle with Rings">⭕ Circle</button>
+                    <button type="button" data-v="glass_card" title="Frosted Glass Aesthetic">💎 Glass</button>
+                    <button type="button" data-v="floating_card" title="Elevated Floating Shadow Card">🪄 Floating</button>
+                    <button type="button" data-v="arch_window" title="Architectural Arch Dome">🏛️ Arch</button>
+                    <button type="button" data-v="hud_tech_box" title="Modern CAD / Blueprint HUD">📐 CAD HUD</button>
+                    <button type="button" data-v="clean_glow" title="Minimal Borderless Glow">✨ Clean Glow</button>
+                  </div>
+                  <!-- Dropdown with all shapes -->
+                  <div style="display:flex; width:100%; gap:6px; align-items:center; margin-top:2px;">
+                    <select id="tplShowcaseShapeSelect" style="flex:1; font-size:11px; padding:5px 8px; background:var(--bg-card); border:1px solid rgba(255,255,255,0.14); border-radius:6px; color:var(--text);">
+                      <option value="square_box">1. Classic Square Box</option>
+                      <option value="squircle_super">2. Modern Soft Squircle</option>
+                      <option value="orbital_rings">3. Spotlight Orbital Rings</option>
+                      <option value="glass_card">4. Frosted Glass Card</option>
+                      <option value="floating_card">5. Elevated Floating Card</option>
+                      <option value="arch_window">6. Architectural Arch Dome</option>
+                      <option value="hud_tech_box">7. CAD HUD Tech Box</option>
+                      <option value="clean_glow">8. Clean Spotlight Halo Glow</option>
+                      <option value="clean_none">9. Pure Borderless Icon</option>
+                      <option value="rounded_square">10. Rounded Square Card</option>
+                      <option value="double_border_square">11. Double Square Frame</option>
+                      <option value="dashed_square">12. Dashed Tech Square</option>
+                      <option value="offset_brutal_square">13. Offset Neo-Brutal Square</option>
+                      <option value="chamfer_square">14. Chamfered Hex-Corner Box</option>
+                      <option value="polaroid_frame">15. Polaroid Showcase Card</option>
+                      <option value="stamp_perforated">16. Perforated Stamp Edge</option>
+                      <option value="ticket_box">17. Ticket Notch Box</option>
+                      <option value="shield_crest">18. Security Shield Crest</option>
+                      <option value="hexagon_pod">19. Geometric Hexagon Pod</option>
+                      <option value="octagon_badge">20. Octagon Security Badge</option>
+                      <option value="diamond_rhombus">21. Diamond Rhombus</option>
+                      <option value="circle_clean">22. Minimal Solid Circle</option>
+                      <option value="starburst_seal">23. Starburst Premium Seal</option>
+                      <option value="folder_tab_box">24. Modern Folder Tab Box</option>
+                      <option value="browser_window">25. Minimal App Window</option>
+                      <option value="glow_neon_box">26. Neon Glowing Frame</option>
+                      <option value="isometric_stack">27. 3D Isometric Stack</option>
+                    </select>
+                  </div>
+                </div>
                 <div style="font-size:11.5px; color:var(--text-muted); margin-bottom:6px; line-height:1.35;">
                   Click any icon from your sheet below to place it inside the Showcase Box:
                 </div>
@@ -1377,10 +1428,98 @@
               </div>
             </div>
 
-            <!-- 3. Content, Typography & Live Font Sizing ("Text Boro/Choto") -->
+            <!-- 3. Vertical Positioning & Spacing Controls -->
+            <div class="card panel tpl-panel" id="layoutSpacingPanel">
+              <div class="panel-header">
+                <h3><span class="component-step-badge">3</span> Spacing &amp; Alignment</h3>
+                <button type="button" class="btn btn-xs btn-outline" id="btnResetSpacing" title="Reset all offsets and spacing to default" style="padding:2px 8px; font-size:11px;">↺ Reset</button>
+              </div>
+              <div class="panel-body">
+                <div style="font-size:11.5px; color:var(--text-muted); margin-bottom:10px; line-height:1.4;">
+                  Manually adjust the vertical position and spacing of each element on your cover (উপরে-নিচে ও স্পেসিং):
+                </div>
+
+                <!-- Section Spacing / Master Gap Slider -->
+                <div class="font-size-ctrl" style="margin-bottom:10px; background:rgba(255,255,255,0.03); padding:8px; border-radius:8px; border:1px solid rgba(255,255,255,0.06);">
+                  <div class="ctrl-header">
+                    <span style="font-weight:600; color:var(--accent);">↔ Section Spacing (গ্যাপ):</span>
+                    <b id="tplSpacingVal" class="val-pill">0 px (Normal)</b>
+                  </div>
+                  <input type="range" id="tplElementSpacing" min="-80" max="100" step="5" value="0" style="width:100%;">
+                  <div style="display:flex; justify-content:space-between; font-size:10px; color:var(--text-dim); margin-top:2px;">
+                    <span>Tighter (-80)</span>
+                    <span>Default (0)</span>
+                    <span>Expanded (+100)</span>
+                  </div>
+                </div>
+
+                <!-- Header Y-Offset Slider -->
+                <div class="font-size-ctrl">
+                  <div class="ctrl-header">
+                    <span>1. Header Title Position (ব্যানার হেডার):</span>
+                    <b id="tplHeaderYVal" class="val-pill">0 px</b>
+                  </div>
+                  <div style="display:flex; gap:6px; align-items:center;">
+                    <button type="button" class="btn btn-xs btn-outline" id="btnHeaderUp" title="Move Header Up (-15px)" style="padding:2px 7px;">▲ Up</button>
+                    <input type="range" id="tplHeaderY" min="-180" max="180" step="5" value="0" style="flex:1;">
+                    <button type="button" class="btn btn-xs btn-outline" id="btnHeaderDown" title="Move Header Down (+15px)" style="padding:2px 7px;">▼ Down</button>
+                  </div>
+                </div>
+
+                <!-- Count Badge Y-Offset Slider -->
+                <div class="font-size-ctrl">
+                  <div class="ctrl-header">
+                    <span>2. Count Badge Position (আইকন কাউন্ট ১২):</span>
+                    <b id="tplCountYVal" class="val-pill">0 px</b>
+                  </div>
+                  <div style="display:flex; gap:6px; align-items:center;">
+                    <button type="button" class="btn btn-xs btn-outline" id="btnCountUp" title="Move Count Up (-15px)" style="padding:2px 7px;">▲ Up</button>
+                    <input type="range" id="tplCountY" min="-180" max="180" step="5" value="0" style="flex:1;">
+                    <button type="button" class="btn btn-xs btn-outline" id="btnCountDown" title="Move Count Down (+15px)" style="padding:2px 7px;">▼ Down</button>
+                  </div>
+                </div>
+
+                <!-- Hero Showcase Y-Offset Slider -->
+                <div class="font-size-ctrl">
+                  <div class="ctrl-header">
+                    <span>3. Hero Showcase Box Position (হিরো বক্স):</span>
+                    <b id="tplShowcaseYVal" class="val-pill">0 px</b>
+                  </div>
+                  <div style="display:flex; gap:6px; align-items:center;">
+                    <button type="button" class="btn btn-xs btn-outline" id="btnShowcaseUp" title="Move Showcase Up (-15px)" style="padding:2px 7px;">▲ Up</button>
+                    <input type="range" id="tplShowcaseY" min="-180" max="180" step="5" value="0" style="flex:1;">
+                    <button type="button" class="btn btn-xs btn-outline" id="btnShowcaseDown" title="Move Showcase Down (+15px)" style="padding:2px 7px;">▼ Down</button>
+                  </div>
+                </div>
+
+                <!-- Hero Box Scale Slider -->
+                <div class="font-size-ctrl">
+                  <div class="ctrl-header">
+                    <span>4. Hero Box Size (শোকেস সাইজ বড়/ছোট):</span>
+                    <b id="tplShowcaseScaleVal" class="val-pill">100%</b>
+                  </div>
+                  <div style="display:flex; gap:6px; align-items:center;">
+                    <button type="button" class="btn btn-xs btn-outline" id="btnShowcaseScaleDown" title="Smaller (-10%)" style="padding:2px 7px;">−</button>
+                    <input type="range" id="tplShowcaseScale" min="60" max="140" step="5" value="100" style="flex:1;">
+                    <button type="button" class="btn btn-xs btn-outline" id="btnShowcaseScaleUp" title="Larger (+10%)" style="padding:2px 7px;">+</button>
+                  </div>
+                </div>
+
+                <!-- Bottom Badges Y-Offset Slider -->
+                <div class="font-size-ctrl">
+                  <div class="ctrl-header">
+                    <span>5. Deliverable Badges (SVG/EPS ফুটার):</span>
+                    <b id="tplBadgeYVal" class="val-pill">0 px</b>
+                  </div>
+                  <input type="range" id="tplBadgeY" min="-120" max="80" step="5" value="0" style="width:100%;">
+                </div>
+              </div>
+            </div>
+
+            <!-- 4. Content, Typography & Live Font Sizing ("Text Boro/Choto") -->
             <div class="card panel tpl-panel" id="typographyPanel">
               <div class="panel-header">
-                <h3><span class="component-step-badge">3</span> Text &amp; Font Sizing</h3>
+                <h3><span class="component-step-badge">4</span> Text &amp; Font Sizing</h3>
               </div>
               <div class="panel-body">
                 <div class="param-row">
@@ -1444,10 +1583,10 @@
               </div>
             </div>
 
-            <!-- 4. Colors & Theme Palette -->
+            <!-- 5. Colors & Theme Palette -->
             <div class="card panel tpl-panel" id="colorsPanel">
               <div class="panel-header">
-                <h3><span class="component-step-badge">4</span> Colors &amp; Stroke</h3>
+                <h3><span class="component-step-badge">5</span> Colors &amp; Stroke</h3>
                 <span id="customColorHint" style="font-size:11px; color:var(--text-dim);">Custom Palette</span>
               </div>
               <div class="panel-body">
@@ -1500,10 +1639,10 @@
               </div>
             </div>
 
-            <!-- 5. Square Artboard Ratio & Margins -->
+            <!-- 6. Square Artboard Ratio & Margins -->
             <div class="card panel tpl-panel" id="artboardPanel">
               <div class="panel-header">
-                <h3><span class="component-step-badge">5</span> Square Box &amp; Grid</h3>
+                <h3><span class="component-step-badge">6</span> Square Box &amp; Grid</h3>
               </div>
               <div class="panel-body">
                 <div class="param-row" style="flex-direction:column; gap:6px; align-items:flex-start;">

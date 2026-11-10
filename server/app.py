@@ -1477,6 +1477,12 @@ def job_template_svg(
     count_fs: int = 0,
     sub_fs: int = 0,
     shape_accent: str = "",
+    header_y_offset: float = 0.0,
+    count_y_offset: float = 0.0,
+    showcase_y_offset: float = 0.0,
+    badge_y_offset: float = 0.0,
+    showcase_scale: float = 1.0,
+    element_spacing: float = 0.0,
     bg: str = "",
     panel_bg: str = "",
     accent: str = "",
@@ -1495,7 +1501,10 @@ def job_template_svg(
         font_family=font_family, title_highlight=title_highlight, showcase_shape=showcase_shape,
         icon_layout=icon_layout, artboard_margin=float(artboard_margin),
         highlight_index=int(highlight_index), title_fs=int(title_fs), count_fs=int(count_fs), sub_fs=int(sub_fs),
-        shape_accent=shape_accent
+        shape_accent=shape_accent,
+        header_y_offset=float(header_y_offset), count_y_offset=float(count_y_offset),
+        showcase_y_offset=float(showcase_y_offset), badge_y_offset=float(badge_y_offset),
+        showcase_scale=float(showcase_scale), element_spacing=float(element_spacing)
     )
     if banner_bg: cfg["banner_bg"] = banner_bg
     if banner_text: cfg["banner_text"] = banner_text
@@ -1547,6 +1556,12 @@ def job_template_eps(
     count_fs: int = 0,
     sub_fs: int = 0,
     shape_accent: str = "",
+    header_y_offset: float = 0.0,
+    count_y_offset: float = 0.0,
+    showcase_y_offset: float = 0.0,
+    badge_y_offset: float = 0.0,
+    showcase_scale: float = 1.0,
+    element_spacing: float = 0.0,
     bg: str = "",
     panel_bg: str = "",
     accent: str = "",
@@ -1565,7 +1580,10 @@ def job_template_eps(
         font_family=font_family, title_highlight=title_highlight, showcase_shape=showcase_shape,
         icon_layout=icon_layout, artboard_margin=float(artboard_margin),
         highlight_index=int(highlight_index), title_fs=int(title_fs), count_fs=int(count_fs), sub_fs=int(sub_fs),
-        shape_accent=shape_accent
+        shape_accent=shape_accent,
+        header_y_offset=float(header_y_offset), count_y_offset=float(count_y_offset),
+        showcase_y_offset=float(showcase_y_offset), badge_y_offset=float(badge_y_offset),
+        showcase_scale=float(showcase_scale), element_spacing=float(element_spacing)
     )
     if banner_bg: cfg["banner_bg"] = banner_bg
     if banner_text: cfg["banner_text"] = banner_text
@@ -1616,6 +1634,12 @@ def job_template_png(
     showcase_shape: str = "square_box",
     icon_layout: str = "auto_grid",
     artboard_margin: float = 0.06,
+    header_y_offset: float = 0.0,
+    count_y_offset: float = 0.0,
+    showcase_y_offset: float = 0.0,
+    badge_y_offset: float = 0.0,
+    showcase_scale: float = 1.0,
+    element_spacing: float = 0.0,
     download: int = 0,
 ):
     from linework.template import build_template_svg
@@ -1631,7 +1655,10 @@ def job_template_png(
         font_family=font_family, title_highlight=title_highlight, showcase_shape=showcase_shape,
         icon_layout=icon_layout, artboard_margin=float(artboard_margin),
         highlight_index=int(highlight_index), title_fs=int(title_fs), count_fs=int(count_fs), sub_fs=int(sub_fs),
-        shape_accent=shape_accent
+        shape_accent=shape_accent,
+        header_y_offset=float(header_y_offset), count_y_offset=float(count_y_offset),
+        showcase_y_offset=float(showcase_y_offset), badge_y_offset=float(badge_y_offset),
+        showcase_scale=float(showcase_scale), element_spacing=float(element_spacing)
     )
     if banner_bg: cfg["banner_bg"] = banner_bg
     if banner_text: cfg["banner_text"] = banner_text

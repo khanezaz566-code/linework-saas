@@ -1501,7 +1501,10 @@
       { id: 'browser_window', name: '22. App Window Box', svg: '<rect x="26" y="7" width="38" height="36" rx="4" fill="#181b24" stroke="#94a3b8" stroke-width="1.5"/><line x1="26" y1="15" x2="64" y2="15" stroke="#94a3b8" stroke-width="1"/><circle cx="31" cy="11" r="1.5" fill="#ef4444"/><circle cx="36" cy="11" r="1.5" fill="#f5b800"/><circle cx="41" cy="11" r="1.5" fill="#10b981"/>' },
       { id: 'crosshair_grid_box', name: '23. CAD Grid Box', svg: '<rect x="27" y="7" width="36" height="36" fill="#181b24" stroke="#00f5a0" stroke-width="1.6"/><line x1="45" y1="7" x2="45" y2="43" stroke="#00f5a0" stroke-width="0.7" stroke-dasharray="2,2"/><line x1="27" y1="25" x2="63" y2="25" stroke="#00f5a0" stroke-width="0.7" stroke-dasharray="2,2"/>' },
       { id: 'glow_neon_box', name: '24. Neon Frame Box', svg: '<rect x="25" y="5" width="40" height="40" rx="5" fill="none" stroke="#00f5a0" stroke-width="2" opacity="0.4"/><rect x="28" y="8" width="34" height="34" rx="3" fill="#181b24" stroke="#00f5a0" stroke-width="1.8"/>' },
-      { id: 'isometric_stack', name: '25. 3D Layer Square', svg: '<rect x="31" y="11" width="32" height="32" rx="3" fill="#38bdf8" opacity="0.35"/><rect x="29" y="9" width="32" height="32" rx="3" fill="#00f5a0" opacity="0.6"/><rect x="26" y="6" width="32" height="32" rx="3" fill="#181b24" stroke="#fff" stroke-width="1.5"/>' }
+      { id: 'isometric_stack', name: '25. 3D Layer Square', svg: '<rect x="31" y="11" width="32" height="32" rx="3" fill="#38bdf8" opacity="0.35"/><rect x="29" y="9" width="32" height="32" rx="3" fill="#00f5a0" opacity="0.6"/><rect x="26" y="6" width="32" height="32" rx="3" fill="#181b24" stroke="#fff" stroke-width="1.5"/>' },
+      { id: 'floating_card', name: '26. Floating Card', svg: '<rect x="30" y="10" width="34" height="34" rx="6" fill="#000000" opacity="0.35"/><rect x="26" y="6" width="34" height="34" rx="6" fill="#181b24" stroke="#ffffff" stroke-width="1.5"/><circle cx="43" cy="23" r="6" fill="none" stroke="#38bdf8" stroke-width="1.5"/>' },
+      { id: 'clean_glow', name: '27. Clean Glow Halo', svg: '<circle cx="45" cy="25" r="19" fill="#38bdf8" opacity="0.20"/><circle cx="45" cy="25" r="14" fill="#181b24" stroke="#38bdf8" stroke-width="1.2"/><circle cx="45" cy="25" r="6" fill="none" stroke="#ffffff" stroke-width="1.5"/>' },
+      { id: 'clean_none', name: '28. Pure Borderless', svg: '<circle cx="45" cy="25" r="15" fill="none" stroke="#38bdf8" stroke-width="1.2" stroke-dasharray="3,3"/><circle cx="45" cy="25" r="6" fill="none" stroke="#ffffff" stroke-width="1.8"/>' }
     ],
 
     decor_element: [
@@ -1656,6 +1659,12 @@
     font_family: 'bebas',
     icon_layout: 'auto_grid',
     artboard_margin: 0.06,
+    header_y_offset: 0,
+    count_y_offset: 0,
+    showcase_y_offset: 0,
+    badge_y_offset: 0,
+    showcase_scale: 1.0,
+    element_spacing: 0,
   };
 
   let currentSheetIcons = [];
@@ -1753,6 +1762,9 @@
     $$('#makerElementGrid .maker-el-card').forEach(el => {
       el.classList.toggle('active', el.dataset.id === id);
     });
+    if (cat === 'showcase_shape') {
+      syncShowcaseShapeUI(id);
+    }
     scheduleTemplateUpdate();
     toast(`Selected ${name}`);
   }
@@ -1859,8 +1871,12 @@
       title_fs: S.template.title_fs !== undefined ? S.template.title_fs : 54,
       count_fs: S.template.count_fs !== undefined ? S.template.count_fs : 160,
       sub_fs: S.template.sub_fs !== undefined ? S.template.sub_fs : 20,
-      icon_layout: S.template.icon_layout || 'auto_grid',
-      artboard_margin: S.template.artboard_margin !== undefined ? S.template.artboard_margin : 0.06,
+      header_y_offset: S.template.header_y_offset !== undefined ? S.template.header_y_offset : 0,
+      count_y_offset: S.template.count_y_offset !== undefined ? S.template.count_y_offset : 0,
+      showcase_y_offset: S.template.showcase_y_offset !== undefined ? S.template.showcase_y_offset : 0,
+      badge_y_offset: S.template.badge_y_offset !== undefined ? S.template.badge_y_offset : 0,
+      showcase_scale: S.template.showcase_scale !== undefined ? S.template.showcase_scale : 1.0,
+      element_spacing: S.template.element_spacing !== undefined ? S.template.element_spacing : 0,
       title: $('#tplTitle') ? $('#tplTitle').value : 'TECHNOLOGY',
       subtitle: $('#tplSubtitle') ? $('#tplSubtitle').value : 'Editable Line Icons',
       count: $('#tplCount') ? $('#tplCount').value : '24',
@@ -1945,7 +1961,39 @@
     }
     if (item.showcase_shape) {
       S.template.showcase_shape = item.showcase_shape;
-      $$('#tplShowcaseShapeSeg button').forEach(b => b.classList.toggle('on', b.dataset.v === item.showcase_shape));
+      syncShowcaseShapeUI(item.showcase_shape);
+    }
+    if (item.element_spacing !== undefined && $('#tplElementSpacing')) {
+      S.template.element_spacing = item.element_spacing;
+      $('#tplElementSpacing').value = item.element_spacing;
+      const sv = item.element_spacing;
+      if ($('#tplSpacingVal')) $('#tplSpacingVal').textContent = sv + ' px ' + (sv === 0 ? '(Normal)' : (sv < 0 ? '(Tighter)' : '(Expanded)'));
+    }
+    if (item.header_y_offset !== undefined && $('#tplHeaderY')) {
+      S.template.header_y_offset = item.header_y_offset;
+      $('#tplHeaderY').value = item.header_y_offset;
+      if ($('#tplHeaderYVal')) $('#tplHeaderYVal').textContent = (item.header_y_offset > 0 ? '+' : '') + item.header_y_offset + ' px';
+    }
+    if (item.count_y_offset !== undefined && $('#tplCountY')) {
+      S.template.count_y_offset = item.count_y_offset;
+      $('#tplCountY').value = item.count_y_offset;
+      if ($('#tplCountYVal')) $('#tplCountYVal').textContent = (item.count_y_offset > 0 ? '+' : '') + item.count_y_offset + ' px';
+    }
+    if (item.showcase_y_offset !== undefined && $('#tplShowcaseY')) {
+      S.template.showcase_y_offset = item.showcase_y_offset;
+      $('#tplShowcaseY').value = item.showcase_y_offset;
+      if ($('#tplShowcaseYVal')) $('#tplShowcaseYVal').textContent = (item.showcase_y_offset > 0 ? '+' : '') + item.showcase_y_offset + ' px';
+    }
+    if (item.showcase_scale !== undefined && $('#tplShowcaseScale')) {
+      S.template.showcase_scale = item.showcase_scale;
+      const scPct = Math.round(item.showcase_scale * 100);
+      $('#tplShowcaseScale').value = scPct;
+      if ($('#tplShowcaseScaleVal')) $('#tplShowcaseScaleVal').textContent = scPct + '%';
+    }
+    if (item.badge_y_offset !== undefined && $('#tplBadgeY')) {
+      S.template.badge_y_offset = item.badge_y_offset;
+      $('#tplBadgeY').value = item.badge_y_offset;
+      if ($('#tplBadgeYVal')) $('#tplBadgeYVal').textContent = (item.badge_y_offset > 0 ? '+' : '') + item.badge_y_offset + ' px';
     }
     if (item.icon_layout) {
       S.template.icon_layout = item.icon_layout;
@@ -2083,6 +2131,7 @@
     renderPresetCards();
     renderSavedTemplates();
     fetchAndRenderIconPicker();
+    syncShowcaseShapeUI(S.template.showcase_shape || 'square_box');
     resetTemplateView();
     updateTemplatePreview();
   }
@@ -2145,8 +2194,12 @@
       showcase_shape: S.template.showcase_shape || 'square_box',
       icon_layout: S.template.icon_layout || 'auto_grid',
       artboard_margin: S.template.artboard_margin !== undefined ? S.template.artboard_margin : 0.06,
-      icon_layout: S.template.icon_layout || 'auto_grid',
-      artboard_margin: S.template.artboard_margin !== undefined ? S.template.artboard_margin : 0.06,
+      header_y_offset: S.template.header_y_offset !== undefined ? S.template.header_y_offset : 0,
+      count_y_offset: S.template.count_y_offset !== undefined ? S.template.count_y_offset : 0,
+      showcase_y_offset: S.template.showcase_y_offset !== undefined ? S.template.showcase_y_offset : 0,
+      badge_y_offset: S.template.badge_y_offset !== undefined ? S.template.badge_y_offset : 0,
+      showcase_scale: S.template.showcase_scale !== undefined ? S.template.showcase_scale : 1.0,
+      element_spacing: S.template.element_spacing !== undefined ? S.template.element_spacing : 0,
     });
 
     // Update download links
@@ -2571,15 +2624,232 @@
     });
   });
 
-  // Showcase card design
-  $$('#tplShowcaseShapeSeg button').forEach(b => {
+  // Showcase card design & quick selector synchronization
+  function syncShowcaseShapeUI(shapeId) {
+    if (!shapeId) return;
+    S.template.showcase_shape = shapeId;
+
+    // Quick buttons in Panel 2
+    $$('#tplShowcaseShapeQuickSeg button').forEach(b => {
+      b.classList.toggle('on', b.dataset.v === shapeId);
+    });
+    // Dropdown in Panel 2
+    const scSel = $('#tplShowcaseShapeSelect');
+    if (scSel) {
+      scSel.value = shapeId;
+    }
+    // Pill badge in Panel 2
+    const scBadge = $('#tplShowcaseShapeBadge');
+    if (scBadge) {
+      const match = (MAKER_ELEMENTS.showcase_shape || []).find(x => x.id === shapeId);
+      scBadge.textContent = match ? match.name.replace(/^\d+\.\s*/, '') : shapeId;
+    }
+    // Panel 1 Tab 3 elements
+    if (activeMakerCat === 'showcase_shape') {
+      $$('#makerElementGrid .maker-el-card').forEach(el => {
+        el.classList.toggle('active', el.dataset.id === shapeId);
+      });
+    }
+  }
+
+  $$('#tplShowcaseShapeQuickSeg button').forEach(b => {
     b.addEventListener('click', () => {
-      $$('#tplShowcaseShapeSeg button').forEach(x => x.classList.toggle('on', x === b));
-      S.template.showcase_shape = b.dataset.v;
+      syncShowcaseShapeUI(b.dataset.v);
       scheduleTemplateUpdate();
-      toast(`Showcase design: ${b.textContent}`);
+      toast(`Hero frame: ${b.textContent.trim()}`);
     });
   });
+
+  const tplScSelect = $('#tplShowcaseShapeSelect');
+  if (tplScSelect) {
+    tplScSelect.addEventListener('change', () => {
+      syncShowcaseShapeUI(tplScSelect.value);
+      scheduleTemplateUpdate();
+      toast(`Hero frame: ${tplScSelect.options[tplScSelect.selectedIndex].text}`);
+    });
+  }
+
+  // Vertical Positioning & Spacing Controls (Step 3)
+  const tplElemSpacing = $('#tplElementSpacing');
+  const tplSpacingVal = $('#tplSpacingVal');
+  if (tplElemSpacing && tplSpacingVal) {
+    tplElemSpacing.addEventListener('input', () => {
+      const v = parseInt(tplElemSpacing.value, 10);
+      tplSpacingVal.textContent = v + ' px ' + (v === 0 ? '(Normal)' : (v < 0 ? '(Tighter)' : '(Expanded)'));
+      S.template.element_spacing = v;
+      scheduleTemplateUpdate();
+    });
+  }
+
+  const tplHeaderY = $('#tplHeaderY');
+  const tplHeaderYVal = $('#tplHeaderYVal');
+  if (tplHeaderY && tplHeaderYVal) {
+    tplHeaderY.addEventListener('input', () => {
+      const v = parseInt(tplHeaderY.value, 10);
+      tplHeaderYVal.textContent = (v > 0 ? '+' : '') + v + ' px';
+      S.template.header_y_offset = v;
+      scheduleTemplateUpdate();
+    });
+  }
+  const btnHeaderUp = $('#btnHeaderUp');
+  if (btnHeaderUp && tplHeaderY && tplHeaderYVal) {
+    btnHeaderUp.addEventListener('click', () => {
+      const v = Math.max(-180, (S.template.header_y_offset || 0) - 15);
+      tplHeaderY.value = v;
+      tplHeaderYVal.textContent = (v > 0 ? '+' : '') + v + ' px';
+      S.template.header_y_offset = v;
+      scheduleTemplateUpdate();
+    });
+  }
+  const btnHeaderDown = $('#btnHeaderDown');
+  if (btnHeaderDown && tplHeaderY && tplHeaderYVal) {
+    btnHeaderDown.addEventListener('click', () => {
+      const v = Math.min(180, (S.template.header_y_offset || 0) + 15);
+      tplHeaderY.value = v;
+      tplHeaderYVal.textContent = (v > 0 ? '+' : '') + v + ' px';
+      S.template.header_y_offset = v;
+      scheduleTemplateUpdate();
+    });
+  }
+
+  const tplCountY = $('#tplCountY');
+  const tplCountYVal = $('#tplCountYVal');
+  if (tplCountY && tplCountYVal) {
+    tplCountY.addEventListener('input', () => {
+      const v = parseInt(tplCountY.value, 10);
+      tplCountYVal.textContent = (v > 0 ? '+' : '') + v + ' px';
+      S.template.count_y_offset = v;
+      scheduleTemplateUpdate();
+    });
+  }
+  const btnCountUp = $('#btnCountUp');
+  if (btnCountUp && tplCountY && tplCountYVal) {
+    btnCountUp.addEventListener('click', () => {
+      const v = Math.max(-180, (S.template.count_y_offset || 0) - 15);
+      tplCountY.value = v;
+      tplCountYVal.textContent = (v > 0 ? '+' : '') + v + ' px';
+      S.template.count_y_offset = v;
+      scheduleTemplateUpdate();
+    });
+  }
+  const btnCountDown = $('#btnCountDown');
+  if (btnCountDown && tplCountY && tplCountYVal) {
+    btnCountDown.addEventListener('click', () => {
+      const v = Math.min(180, (S.template.count_y_offset || 0) + 15);
+      tplCountY.value = v;
+      tplCountYVal.textContent = (v > 0 ? '+' : '') + v + ' px';
+      S.template.count_y_offset = v;
+      scheduleTemplateUpdate();
+    });
+  }
+
+  const tplShowcaseY = $('#tplShowcaseY');
+  const tplShowcaseYVal = $('#tplShowcaseYVal');
+  if (tplShowcaseY && tplShowcaseYVal) {
+    tplShowcaseY.addEventListener('input', () => {
+      const v = parseInt(tplShowcaseY.value, 10);
+      tplShowcaseYVal.textContent = (v > 0 ? '+' : '') + v + ' px';
+      S.template.showcase_y_offset = v;
+      scheduleTemplateUpdate();
+    });
+  }
+  const btnShowcaseUp = $('#btnShowcaseUp');
+  if (btnShowcaseUp && tplShowcaseY && tplShowcaseYVal) {
+    btnShowcaseUp.addEventListener('click', () => {
+      const v = Math.max(-180, (S.template.showcase_y_offset || 0) - 15);
+      tplShowcaseY.value = v;
+      tplShowcaseYVal.textContent = (v > 0 ? '+' : '') + v + ' px';
+      S.template.showcase_y_offset = v;
+      scheduleTemplateUpdate();
+    });
+  }
+  const btnShowcaseDown = $('#btnShowcaseDown');
+  if (btnShowcaseDown && tplShowcaseY && tplShowcaseYVal) {
+    btnShowcaseDown.addEventListener('click', () => {
+      const v = Math.min(180, (S.template.showcase_y_offset || 0) + 15);
+      tplShowcaseY.value = v;
+      tplShowcaseYVal.textContent = (v > 0 ? '+' : '') + v + ' px';
+      S.template.showcase_y_offset = v;
+      scheduleTemplateUpdate();
+    });
+  }
+
+  const tplShowcaseScale = $('#tplShowcaseScale');
+  const tplShowcaseScaleVal = $('#tplShowcaseScaleVal');
+  if (tplShowcaseScale && tplShowcaseScaleVal) {
+    tplShowcaseScale.addEventListener('input', () => {
+      const pct = parseInt(tplShowcaseScale.value, 10);
+      tplShowcaseScaleVal.textContent = pct + '%';
+      S.template.showcase_scale = pct / 100.0;
+      scheduleTemplateUpdate();
+    });
+  }
+  const btnScScaleDown = $('#btnShowcaseScaleDown');
+  if (btnScScaleDown && tplShowcaseScale && tplShowcaseScaleVal) {
+    btnScScaleDown.addEventListener('click', () => {
+      const curPct = Math.round((S.template.showcase_scale || 1.0) * 100);
+      const newPct = Math.max(60, curPct - 10);
+      tplShowcaseScale.value = newPct;
+      tplShowcaseScaleVal.textContent = newPct + '%';
+      S.template.showcase_scale = newPct / 100.0;
+      scheduleTemplateUpdate();
+    });
+  }
+  const btnScScaleUp = $('#btnShowcaseScaleUp');
+  if (btnScScaleUp && tplShowcaseScale && tplShowcaseScaleVal) {
+    btnScScaleUp.addEventListener('click', () => {
+      const curPct = Math.round((S.template.showcase_scale || 1.0) * 100);
+      const newPct = Math.min(140, curPct + 10);
+      tplShowcaseScale.value = newPct;
+      tplShowcaseScaleVal.textContent = newPct + '%';
+      S.template.showcase_scale = newPct / 100.0;
+      scheduleTemplateUpdate();
+    });
+  }
+
+  const tplBadgeY = $('#tplBadgeY');
+  const tplBadgeYVal = $('#tplBadgeYVal');
+  if (tplBadgeY && tplBadgeYVal) {
+    tplBadgeY.addEventListener('input', () => {
+      const v = parseInt(tplBadgeY.value, 10);
+      tplBadgeYVal.textContent = (v > 0 ? '+' : '') + v + ' px';
+      S.template.badge_y_offset = v;
+      scheduleTemplateUpdate();
+    });
+  }
+
+  const btnResetSpacing = $('#btnResetSpacing');
+  if (btnResetSpacing) {
+    btnResetSpacing.addEventListener('click', () => {
+      S.template.element_spacing = 0;
+      S.template.header_y_offset = 0;
+      S.template.count_y_offset = 0;
+      S.template.showcase_y_offset = 0;
+      S.template.badge_y_offset = 0;
+      S.template.showcase_scale = 1.0;
+
+      if (tplElemSpacing) tplElemSpacing.value = 0;
+      if (tplSpacingVal) tplSpacingVal.textContent = '0 px (Normal)';
+
+      if (tplHeaderY) tplHeaderY.value = 0;
+      if (tplHeaderYVal) tplHeaderYVal.textContent = '0 px';
+
+      if (tplCountY) tplCountY.value = 0;
+      if (tplCountYVal) tplCountYVal.textContent = '0 px';
+
+      if (tplShowcaseY) tplShowcaseY.value = 0;
+      if (tplShowcaseYVal) tplShowcaseYVal.textContent = '0 px';
+
+      if (tplShowcaseScale) tplShowcaseScale.value = 100;
+      if (tplShowcaseScaleVal) tplShowcaseScaleVal.textContent = '100%';
+
+      if (tplBadgeY) tplBadgeY.value = 0;
+      if (tplBadgeYVal) tplBadgeYVal.textContent = '0 px';
+
+      scheduleTemplateUpdate();
+      toast('Reset layout spacing & positions to default');
+    });
+  }
 
   // Icon sheet auto-grid & layout switcher
   $$('#tplIconLayoutSeg button').forEach(b => {

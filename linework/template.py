@@ -291,7 +291,14 @@ def resolve_config(cfg: dict | None) -> dict[str, Any]:
         "title_fs": 0,
         "count_fs": 0,
         "sub_fs": 0,
-        "shape_accent": ""
+        "shape_accent": "",
+        "header_y_offset": 0,
+        "count_y_offset": 0,
+        "showcase_y_offset": 0,
+        "badge_y_offset": 0,
+        "showcase_scale": 1.0,
+        "element_spacing": 0,
+        "show_showcase_badge": True
     })
     if cfg:
         p_name = cfg.get("preset")
@@ -994,16 +1001,18 @@ def _render_showcase_box(
         f'<line x1="{cx:.1f}" y1="{by+20:.1f}" x2="{cx:.1f}" y2="{by+side-20:.1f}" stroke="#ffffff" stroke-opacity="0.05" stroke-width="1.2"/>'
     )
 
-    # Top micro-badge on the showcase card
-    badge_w = min(side * 0.66, 230)
-    badge_h = max(24, int(side * 0.072))
-    badge_fs = max(11, int(badge_h * 0.50))
-    showcase_badge = (
-        f'<rect x="{cx - badge_w/2:.1f}" y="{by - badge_h/2:.1f}" width="{badge_w:.1f}" height="{badge_h:.1f}" rx="{badge_h//2}" '
-        f'fill="{accent}" stroke="{hl_bg}" stroke-width="3"/>'
-        f'<text x="{cx:.1f}" y="{by + badge_fs*0.36:.1f}" font-size="{badge_fs}" font-weight="900" letter-spacing="2" '
-        f'fill="#09090B" text-anchor="middle" class="mono">FEATURED PREVIEW</text>'
-    )
+    # Top micro-badge on the showcase card (hidden on clean/minimal modes or if disabled)
+    showcase_badge = ""
+    if c.get("show_showcase_badge", True) and shape not in ("clean_none", "pure_clean", "clean"):
+        badge_w = min(side * 0.66, 230)
+        badge_h = max(24, int(side * 0.072))
+        badge_fs = max(11, int(badge_h * 0.50))
+        showcase_badge = (
+            f'<rect x="{cx - badge_w/2:.1f}" y="{by - badge_h/2:.1f}" width="{badge_w:.1f}" height="{badge_h:.1f}" rx="{badge_h//2}" '
+            f'fill="{accent}" stroke="{hl_bg}" stroke-width="3"/>'
+            f'<text x="{cx:.1f}" y="{by + badge_fs*0.36:.1f}" font-size="{badge_fs}" font-weight="900" letter-spacing="2" '
+            f'fill="#09090B" text-anchor="middle" class="mono">FEATURED PREVIEW</text>'
+        )
 
     frame_svg = ""
     if shape in ("square_box", "square"):
@@ -1041,19 +1050,40 @@ def _render_showcase_box(
         x1, y1, x2, y2 = bx, by, bx + side, by + side
         pts = f"{x1+c_cut:.1f},{y1:.1f} {x2-c_cut:.1f},{y1:.1f} {x2:.1f},{y1+c_cut:.1f} {x2:.1f},{y2-c_cut:.1f} {x2-c_cut:.1f},{y2:.1f} {x1+c_cut:.1f},{y2:.1f} {x1:.1f},{y2-c_cut:.1f} {x1:.1f},{y1+c_cut:.1f}"
         frame_svg = f'<polygon points="{pts}" fill="{hl_bg}" stroke="{accent}" stroke-width="3"/>'
-    elif shape == "hud_tech_box":
+    elif shape in ("hud_tech_box", "modern_cad_box"):
         L = side * 0.18
         x1, y1, x2, y2 = bx, by, bx + side, by + side
         frame_svg = (
-            f'<rect x="{bx:.1f}" y="{by:.1f}" width="{side:.1f}" height="{side:.1f}" fill="{hl_bg}" stroke="rgba(255,255,255,0.18)" stroke-width="1.5"/>'
+            f'<rect x="{bx:.1f}" y="{by:.1f}" width="{side:.1f}" height="{side:.1f}" rx="4" fill="{hl_bg}" stroke="rgba(255,255,255,0.18)" stroke-width="1.5"/>'
             f'<path d="M{x1:.1f},{y1+L:.1f} V{y1:.1f} H{x1+L:.1f} M{x2-L:.1f},{y1:.1f} H{x2:.1f} V{y1+L:.1f} '
-            f'M{x1:.1f},{y2-L:.1f} V{y2:.1f} H{x1+L:.1f} M{x2-L:.1f},{y2:.1f} H{x2:.1f} V{y2-L:.1f}" fill="none" stroke="{accent}" stroke-width="6"/>'
+            f'M{x1:.1f},{y2-L:.1f} V{y2:.1f} H{x1+L:.1f} M{x2-L:.1f},{y2:.1f} H{x2:.1f} V{y2-L:.1f}" fill="none" stroke="{accent}" stroke-width="5" stroke-linecap="round"/>'
+            f'<circle cx="{cx:.1f}" cy="{cy:.1f}" r="3.5" fill="{accent}"/>'
         )
-    elif shape == "glass_card":
+    elif shape in ("glass_card", "frosted_glass"):
         frame_svg = (
             f'<rect x="{bx+8:.1f}" y="{by+12:.1f}" width="{side:.1f}" height="{side:.1f}" rx="28" fill="#000000" fill-opacity="0.22"/>'
             f'<rect x="{bx:.1f}" y="{by:.1f}" width="{side:.1f}" height="{side:.1f}" rx="28" fill="{hl_bg}" fill-opacity="0.92" stroke="#ffffff" stroke-opacity="0.45" stroke-width="2.5"/>'
             f'<path d="M{bx+28:.1f},{by:.1f} H{bx+side*0.55:.1f} L{bx:.1f},{by+side*0.55:.1f} V{by+28:.1f} Z" fill="#ffffff" fill-opacity="0.08"/>'
+        )
+    elif shape in ("floating_card", "elevated_card"):
+        frame_svg = (
+            f'<rect x="{bx+14:.1f}" y="{by+20:.1f}" width="{side:.1f}" height="{side:.1f}" rx="24" fill="#000000" fill-opacity="0.30"/>'
+            f'<rect x="{bx+6:.1f}" y="{by+10:.1f}" width="{side:.1f}" height="{side:.1f}" rx="24" fill="#000000" fill-opacity="0.18"/>'
+            f'<rect x="{bx:.1f}" y="{by:.1f}" width="{side:.1f}" height="{side:.1f}" rx="24" fill="{hl_bg}" stroke="rgba(255,255,255,0.28)" stroke-width="2"/>'
+            f'<rect x="{bx+8:.1f}" y="{by+8:.1f}" width="{side-16:.1f}" height="{side-16:.1f}" rx="18" fill="none" stroke="{accent}" stroke-opacity="0.25" stroke-width="1.2"/>'
+        )
+    elif shape in ("clean_glow", "clean_spotlight"):
+        r = side * 0.46
+        frame_svg = (
+            f'<circle cx="{cx:.1f}" cy="{cy:.1f}" r="{r+22:.1f}" fill="{accent}" fill-opacity="0.14"/>'
+            f'<circle cx="{cx:.1f}" cy="{cy:.1f}" r="{r:.1f}" fill="{hl_bg}" fill-opacity="0.80" stroke="{accent}" stroke-opacity="0.5" stroke-width="1.8"/>'
+            f'<circle cx="{cx:.1f}" cy="{cy:.1f}" r="{r-12:.1f}" fill="none" stroke="#ffffff" stroke-opacity="0.12" stroke-width="1.2" stroke-dasharray="6,6"/>'
+        )
+    elif shape in ("clean_none", "pure_clean", "clean"):
+        r = side * 0.44
+        frame_svg = (
+            f'<circle cx="{cx:.1f}" cy="{cy:.1f}" r="{r+16:.1f}" fill="{accent}" fill-opacity="0.10"/>'
+            f'<circle cx="{cx:.1f}" cy="{cy:.1f}" r="{r:.1f}" fill="none" stroke="{accent}" stroke-opacity="0.25" stroke-width="1.2" stroke-dasharray="4,8"/>'
         )
     elif shape == "polaroid_frame":
         frame_svg = (
@@ -1095,10 +1125,11 @@ def _render_showcase_box(
     elif shape == "circle_clean":
         r = side * 0.50
         frame_svg = f'<circle cx="{cx:.1f}" cy="{cy:.1f}" r="{r:.1f}" fill="{hl_bg}" stroke="rgba(255,255,255,0.28)" stroke-width="2.5"/>'
-    elif shape in ("orbital_rings", "circle"):
+    elif shape in ("orbital_rings", "circle_spotlight", "circle"):
         r = side * 0.46
         frame_svg = (
-            f'<circle cx="{cx:.1f}" cy="{cy:.1f}" r="{r+18:.1f}" fill="none" stroke="rgba(255,255,255,0.3)" stroke-width="1.8" stroke-dasharray="8,6"/>'
+            f'<circle cx="{cx:.1f}" cy="{cy:.1f}" r="{r+20:.1f}" fill="none" stroke="{accent}" stroke-opacity="0.45" stroke-width="1.8" stroke-dasharray="8,6"/>'
+            f'<circle cx="{cx:.1f}" cy="{cy:.1f}" r="{r+8:.1f}" fill="none" stroke="rgba(255,255,255,0.15)" stroke-width="1"/>'
             f'<circle cx="{cx:.1f}" cy="{cy:.1f}" r="{r:.1f}" fill="{hl_bg}" stroke="{accent}" stroke-width="2.5"/>'
         )
     elif shape == "starburst_seal":
@@ -1109,16 +1140,22 @@ def _render_showcase_box(
             ang = math.pi * k / n_pts
             pts_list.append(f"{cx + rad * math.cos(ang):.1f},{cy + rad * math.sin(ang):.1f}")
         frame_svg = f'<polygon points="{" ".join(pts_list)}" fill="{hl_bg}" stroke="{accent}" stroke-width="2"/>'
-    elif shape == "squircle_super":
+    elif shape in ("squircle_super", "minimal_squircle", "squircle_modern", "squircle"):
+        rx_val = int(side * 0.28)
         frame_svg = (
-            f'<rect x="{bx+8:.1f}" y="{by+12:.1f}" width="{side:.1f}" height="{side:.1f}" rx="{int(side*0.30)}" fill="#000000" fill-opacity="0.22"/>'
-            f'<rect x="{bx:.1f}" y="{by:.1f}" width="{side:.1f}" height="{side:.1f}" rx="{int(side*0.30)}" fill="{hl_bg}" stroke="rgba(255,255,255,0.32)" stroke-width="2.5"/>'
+            f'<rect x="{bx+10:.1f}" y="{by+16:.1f}" width="{side:.1f}" height="{side:.1f}" rx="{rx_val}" fill="#000000" fill-opacity="0.26"/>'
+            f'<rect x="{bx:.1f}" y="{by:.1f}" width="{side:.1f}" height="{side:.1f}" rx="{rx_val}" fill="{hl_bg}" stroke="rgba(255,255,255,0.32)" stroke-width="2.5"/>'
+            f'<rect x="{bx+10:.1f}" y="{by+10:.1f}" width="{side-20:.1f}" height="{side-20:.1f}" rx="{max(6, rx_val-8)}" fill="none" stroke="{accent}" stroke-opacity="0.35" stroke-width="1.5"/>'
         )
-    elif shape == "arch_window":
+    elif shape in ("arch_window", "arch_capsule"):
         r = side / 2
         x1, y1, x2, y2 = bx, by, bx + side, by + side
         d = f"M{x1:.1f},{y1+r:.1f} A{r:.1f},{r:.1f} 0 0,1 {x2:.1f},{y1+r:.1f} V{y2:.1f} H{x1:.1f} Z"
-        frame_svg = f'<path d="{d}" fill="{hl_bg}" stroke="rgba(255,255,255,0.3)" stroke-width="2.5"/>'
+        frame_svg = (
+            f'<path d="M{x1+8:.1f},{y1+r+10:.1f} A{r:.1f},{r:.1f} 0 0,1 {x2+8:.1f},{y1+r+10:.1f} V{y2+10:.1f} H{x1+8:.1f} Z" fill="#000000" fill-opacity="0.25"/>'
+            f'<path d="{d}" fill="{hl_bg}" stroke="{accent}" stroke-width="2.5"/>'
+            f'<path d="M{x1+10:.1f},{y1+r+8:.1f} A{r-10:.1f},{r-10:.1f} 0 0,1 {x2-10:.1f},{y1+r+8:.1f} V{y2-10:.1f} H{x1+10:.1f} Z" fill="none" stroke="rgba(255,255,255,0.18)" stroke-width="1.5"/>'
+        )
     elif shape == "folder_tab_box":
         x1, y1, x2, y2 = bx, by, bx + side, by + side
         d = f"M{x1:.1f},{y1-14:.1f} H{x1+side*0.42:.1f} L{x1+side*0.50:.1f},{y1:.1f} H{x2:.1f} V{y2:.1f} H{x1:.1f} Z"
@@ -1542,9 +1579,17 @@ def _build_modular_template(model: Model, icons_meta: list[dict], c: dict, W: in
         count_fs = int(round(raw_c_fs * ui_scale * 0.72)) if (0 < raw_c_fs <= 260) else (raw_c_fs or max(110, int(round(bar_h * 0.48))))
         sub_fs = int(round(raw_s_fs * ui_scale * 0.85)) if (0 < raw_s_fs <= 48) else (raw_s_fs or max(20, int(round(bar_h * 0.075))))
 
+        header_y_off = float(c.get("header_y_offset") or 0.0) * ui_scale
+        count_y_off = float(c.get("count_y_offset") or 0.0) * ui_scale
+        showcase_y_off = float(c.get("showcase_y_offset") or 0.0) * ui_scale
+        spacing_val = float(c.get("element_spacing") or 0.0) * ui_scale
+        sc_scale = float(c.get("showcase_scale") or 1.0)
+        if sc_scale <= 0:
+            sc_scale = 1.0
+
         title_svg = _render_title_highlight(
             title=c["title"], subtitle=c["subtitle"],
-            cx=int(W * 0.44), cy=bar_y + int(bar_h * 0.48),
+            cx=int(W * 0.44), cy=bar_y + int(bar_h * 0.48) + int(header_y_off),
             title_fs=title_fs, sub_fs=sub_fs,
             banner_text=banner_text, banner_sub=banner_sub,
             title_font=title_font, sub_font=sub_font,
@@ -1554,10 +1599,10 @@ def _build_modular_template(model: Model, icons_meta: list[dict], c: dict, W: in
 
         hl_svg = ""
         if show_highlight:
-            sc_size = int(bar_h * 0.84)
+            sc_size = int(bar_h * 0.84 * sc_scale)
             hl_svg = _render_showcase_box(
                 model, icons_meta, c,
-                cx=W - int(W * 0.11), cy=bar_y + bar_h / 2,
+                cx=W - int(W * 0.11), cy=bar_y + bar_h / 2 + int(showcase_y_off),
                 w=sc_size, h=sc_size, stroke_scale=stroke_scale
             )
 
@@ -1565,7 +1610,7 @@ def _build_modular_template(model: Model, icons_meta: list[dict], c: dict, W: in
         count_box_x = int(W * 0.04)
         count_box_w = int(W * 0.14)
         count_box_h = int(bar_h * 0.74)
-        count_box_y = bar_y + (bar_h - count_box_h) // 2
+        count_box_y = bar_y + (bar_h - count_box_h) // 2 + int(count_y_off)
 
         return f"""<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {W} {H}" width="{W}" height="{H}">
   <defs>
@@ -1626,14 +1671,25 @@ def _build_modular_template(model: Model, icons_meta: list[dict], c: dict, W: in
     count_fs = int(round(raw_c_fs * ui_scale * 0.88)) if (0 < raw_c_fs <= 260) else (raw_c_fs or max(180, int(round(banner_w * 0.27))))
     sub_fs = int(round(raw_s_fs * ui_scale * 0.82)) if (0 < raw_s_fs <= 48) else (raw_s_fs or max(24, int(round(banner_w * 0.032))))
 
+    header_y_off = float(c.get("header_y_offset") or 0.0) * ui_scale
+    count_y_off = float(c.get("count_y_offset") or 0.0) * ui_scale
+    showcase_y_off = float(c.get("showcase_y_offset") or 0.0) * ui_scale
+    badge_y_off = float(c.get("badge_y_offset") or 0.0) * ui_scale
+    spacing_val = float(c.get("element_spacing") or 0.0) * ui_scale
+    sc_scale = float(c.get("showcase_scale") or 1.0)
+    if sc_scale <= 0:
+        sc_scale = 1.0
+
     if show_highlight:
-        title_cy = int(H * 0.135)
-        count_cy = int(H * 0.405)
-        box_cy = int(H * 0.725)
-        box_size = min(inner_w * 0.82, H * 0.35)
+        # spacing_val smoothly expands the gap: header moves up (-spacing_val), showcase moves down (+spacing_val)
+        title_cy = int(H * 0.135 + header_y_off - spacing_val)
+        count_cy = int(H * 0.405 + count_y_off)
+        box_cy = int(H * 0.725 + showcase_y_off + spacing_val)
+        base_size = min(inner_w * 0.82, H * 0.35)
+        box_size = max(50.0, base_size * sc_scale)
     else:
-        title_cy = int(H * 0.24)
-        count_cy = int(H * 0.60)
+        title_cy = int(H * 0.24 + header_y_off - spacing_val)
+        count_cy = int(H * 0.60 + count_y_off + spacing_val)
         box_cy = 0
         box_size = 0
 
@@ -1653,7 +1709,7 @@ def _build_modular_template(model: Model, icons_meta: list[dict], c: dict, W: in
     )
 
     hl_svg = ""
-    if show_highlight and box_size > 80:
+    if show_highlight and box_size > 50:
         hl_svg = _render_showcase_box(
             model, icons_meta, c,
             cx=inner_cx, cy=box_cy,
@@ -1661,8 +1717,9 @@ def _build_modular_template(model: Model, icons_meta: list[dict], c: dict, W: in
             stroke_scale=stroke_scale
         )
 
+    badges_y = int(H * 0.928 + badge_y_off + (spacing_val * 0.3))
     format_badges_svg = _render_format_badges_bar_svg(
-        cx=inner_cx, y=int(H * 0.928), inner_w=inner_w, banner_text=banner_text, hl_bg=hl_bg
+        cx=inner_cx, y=badges_y, inner_w=inner_w, banner_text=banner_text, hl_bg=hl_bg
     )
 
     return f"""<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {W} {H}" width="{W}" height="{H}">
