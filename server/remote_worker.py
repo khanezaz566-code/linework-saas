@@ -195,7 +195,7 @@ def release_worker(url: str, failed: bool = False):
         _CV.notify_all()
 
 
-def dispatch_via_pull_queue(payload: dict, timeout: float = 55.0) -> dict:
+def dispatch_via_pull_queue(payload: dict, timeout: float = 45.0) -> dict:
     """Enqueue an icon task for any Zero-Tunnel Pull Worker with Speculative Straggler Hedging.
     If the last 1-4 icons on a sheet are held by a slow or rotating worker node, they are
     automatically cloned back to the front of _PULL_QUEUE so idle cluster nodes race to finish them first!
@@ -237,10 +237,10 @@ def dispatch_via_pull_queue(payload: dict, timeout: float = 55.0) -> dict:
                 popped_at = entry.get("popped_at")
                 if popped_at is not None:
                     elapsed_pop = now_chk - popped_at
-                    # Fast 3.0s straggler hedging for the final 1-4 icons of a sheet; 6.0s otherwise
+                    # Balanced straggler hedging: allow complex icons up to 12.0s before racing duplicate
                     is_tail_straggler = (len(_PULL_QUEUE) == 0 and len(_INFLIGHT_TASKS) <= 4)
-                    hedge_threshold = 3.0 if is_tail_straggler else 6.0
-                    if elapsed_pop >= hedge_threshold and entry.get("requeued", 0) < 4:
+                    hedge_threshold = 12.0 if is_tail_straggler else 18.0
+                    if elapsed_pop >= hedge_threshold and entry.get("requeued", 0) < 2:
                         entry["requeued"] = entry.get("requeued", 0) + 1
                         entry["popped_at"] = now_chk
                         if not any(t["task_id"] == task_id for t in _PULL_QUEUE):
@@ -250,7 +250,7 @@ def dispatch_via_pull_queue(payload: dict, timeout: float = 55.0) -> dict:
                                 "created": now_chk,
                             })
                             _CV.notify_all()
-                elif now_chk - now >= 8.0 and not has_active_pull_worker():
+                elif now_chk - now >= 12.0 and not has_active_pull_worker():
                     break
 
         if not ev.is_set():

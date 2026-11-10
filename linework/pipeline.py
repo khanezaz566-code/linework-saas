@@ -100,22 +100,25 @@ def process_icon(gray, opts: Options = None, emit=_noop, name="icon"):
         emit(engine="doctor", msg="Re-used the stored result for this icon (same version)", icon=name, iou=prev["metrics"].get("iou"), final=True)
         met = dict(prev["metrics"], from_memory=True)
         return dict(model=m, svg=m.svg(), metrics=met, decision=met.get("decision"), clean=met.get("clean", True), model_pre_decision=m.copy())
+    t_icon_start = time.time()
+    t_icon_deadline = t_icon_start + (10.0 if opts.quality != "precise" else 18.0)
+    time_icon_ok = lambda: time.time() < t_icon_deadline
     r = _process_icon_scaled(gray, opts, emit, name)
     from . import decision as DC
     r["model_pre_decision"] = r["model"].copy()
-    if opts.decision:
+    if opts.decision and time_icon_ok():
         emit(engine="decision", msg="Decision engine: measuring residual", icon=name)
         D = ink_map(gray)
         model, drep = DC.decide_best(
             r["model"], D,
-            time_budget=opts.decision_budget,
+            time_budget=min(opts.decision_budget, max(0.5, t_icon_deadline - time.time())),
             emit=emit,
             name=name,
             tip_patches=opts.tip_patches
         )
         ink_area = int((D > 0.5).sum())
         clean = DC.icon_ok(drep, ink_area, iou_floor=0.940)
-        if not clean or drep["after"]["hard"] > max(28, int(0.006 * ink_area)) or drep["after"]["iou"] < 0.965:
+        if (not clean or drep["after"]["hard"] > max(28, int(0.006 * ink_area)) or drep["after"]["iou"] < 0.965) and time.time() < t_icon_deadline - 1.5:
             try:
                 from . import opt
                 emit(engine="doctor", msg="Auto-repairing review regions for 99%+ match...", icon=name)
@@ -227,6 +230,8 @@ def _process_icon(gray, opts: Options = None, emit=_noop, name="icon", set_w=Non
     opts = opts or Options()
     cfg = opts.resolved()
     t0 = time.time()
+    t_deadline = t0 + (7.0 if opts.quality != "precise" else 15.0)
+    time_ok = lambda: time.time() < t_deadline
     D = ink_map(gray)
     H, W = D.shape
     ev = lambda engine, msg, **kw: emit(engine=engine, msg=msg, icon=name, t=round(time.time() - t0, 2), **kw)
@@ -234,8 +239,7 @@ def _process_icon(gray, opts: Options = None, emit=_noop, name="icon", set_w=Non
     # how many icons run in parallel, or where in the queue this icon sits.  Complex icons get a larger budget (set below).
     c0 = time.time()
     bud = [float(cfg["time_budget"])]
-    max_wall = 8.0 if opts.quality != "precise" else 16.0
-    left = lambda: min(bud[0] - (time.time() - t0), max_wall - (time.time() - t0))
+    left = lambda: min(bud[0] - (time.time() - t0), t_deadline - time.time())
 
     ev("trace", "Tracing skeleton and centring strokes on their edges")
     w_est = estimate_width(D)
@@ -334,6 +338,8 @@ def _process_icon(gray, opts: Options = None, emit=_noop, name="icon", set_w=Non
         acts = [a for a in T._plan(state["model"]) if _gkey(a) not in gap_waived]
         n = 0
         for a in acts:
+            if not time_ok():
+                break
             new = state["model"].copy()
             T._move_end(new.paths[a[1]], a[2], a[5])
             if a[4] is not None:
@@ -419,6 +425,8 @@ def _process_icon(gray, opts: Options = None, emit=_noop, name="icon", set_w=Non
         ap = rj = 0
         open_all(rep)
         for cmd in pending(Doctor.cosmetic_commands(rep)):
+            if not time_ok():
+                break
             if cmd["op"] == "weld":
                 a_, r_ = do_weld()
                 ap += a_
@@ -463,27 +471,27 @@ def _process_icon(gray, opts: Options = None, emit=_noop, name="icon", set_w=Non
             run(cmd)
     # safety net: big missing pieces are traced and added, big stray pieces removed (each verified by a re-render)
     nm = nr = 0
-    if opts.repair and left() > -1e9:
+    if opts.repair and time_ok():
         m2, ink2, cur2, nm, nr = RP.repair(state["model"], D, ink_of, doctor.soft, state["cur"], W0)
         if nm or nr:
             state.update(model=m2, ink=ink2, cur=cur2)
             ev("doctor", f"Safety net: {nm} missing piece(s) restored, {nr} stray piece(s) removed", iou=doctor.iou(ink2))
     # Structure engine: skeleton of the render vs skeleton of the source; lumps, wobble, fused or displaced strokes are snapped / smoothed / re-traced
     sx = dict(before=0.0, after=0.0, found=0, fixed=0, sites=[], unresolved=[])
-    if opts.structure:
+    if opts.structure and time_ok():
         sc0 = time.process_time()
         scap = min(2.4, max(1.4, 0.14 * bud[0]))
-        m6, ink6, cur6, sx = SF.run_structure_engine(state["model"], D, doctor, ink_of, state["cur"], W0, time_ok=lambda: time.process_time() - sc0 < scap,
+        m6, ink6, cur6, sx = SF.run_structure_engine(state["model"], D, doctor, ink_of, state["cur"], W0, time_ok=lambda: time.process_time() - sc0 < scap and time_ok(),
                                                     memory_skip=(LS.skip_kinds() if opts.memory else ()))
         if sx["fixed"]:
             state.update(model=m6, ink=ink6, cur=cur6)
         ev("doctor", f"Structure check: score {sx['before']:.2f} -> {sx['after']:.2f}, {sx['fixed']}/{sx['found']} site(s) repaired, {len(sx['unresolved'])} left for review", iou=doctor.iou(state["ink"]))
     # Finisher: inspect this icon on its own and fix the few places that still look machine-made (each fix verified)
     fin = dict(found=0, fixed=0, sites=[])
-    if opts.finish:
+    if opts.finish and time_ok():
         fc0 = time.process_time()
         fcap = min(2.6, max(1.5, 0.15 * bud[0]))
-        m3, ink3, cur3, fin = FN.finish(state["model"], D, doctor, ink_of, state["cur"], W0, time_ok=lambda: time.process_time() - fc0 < fcap,
+        m3, ink3, cur3, fin = FN.finish(state["model"], D, doctor, ink_of, state["cur"], W0, time_ok=lambda: time.process_time() - fc0 < fcap and time_ok(),
                                        set_w=set_w, skip=(LS.skip_kinds() if opts.memory else ()))
         if fin["fixed"]:
             iou_pre_fin = doctor.iou(state["ink"])
@@ -493,10 +501,10 @@ def _process_icon(gray, opts: Options = None, emit=_noop, name="icon", set_w=Non
         ev("doctor", f"Finisher: {fin['found']} site(s) inspected, {fin['fixed']} fixed", iou=doctor.iou(state["ink"]))
     # Join engine: every joint is checked on its own; failing joints are repaired with the pen / line / arc / shape tools and re-checked
     jn = dict(total=0, clean_first=0, fixed=dict(unite=0, pen=0, line=0, arc=0, shape=0), unresolved=[], built=0)
-    if opts.joins:
+    if opts.joins and time_ok():
         jc0 = time.process_time()
         jcap = min(2.4, max(1.4, 0.14 * bud[0]))
-        m5, ink5, cur5, jn = JN.run_join_engine(state["model"], D, doctor, ink_of, state["cur"], W0, time_ok=lambda: time.process_time() - jc0 < jcap)
+        m5, ink5, cur5, jn = JN.run_join_engine(state["model"], D, doctor, ink_of, state["cur"], W0, time_ok=lambda: time.process_time() - jc0 < jcap and time_ok())
         # Quality Guard: only accept join modifications if it does not degrade the icon match!
         iou_pre_join = doctor.iou(state["ink"])
         iou_post_join = doctor.iou(ink5)
@@ -506,13 +514,13 @@ def _process_icon(gray, opts: Options = None, emit=_noop, name="icon", set_w=Non
         ev("doctor", f"Join check: {jn['total']} joint(s), {jn['clean_first']} clean at first look, {jn['built']} built, {nf} repaired, {len(jn['unresolved'])} left for review", iou=doctor.iou(state["ink"]))
     # Join policy guard: re-judge round / bevel / miter (+ miter limit) of every path with a corner on the real render; spikes are punished
     nsp = 0
-    if opts.joins and not os.environ.get("DISABLE_SPIKE_GUARD"):
+    if opts.joins and not os.environ.get("DISABLE_SPIKE_GUARD") and time_ok():
         pc0 = time.process_time()
-        m8, ink8, cur8, nsp = JP.spike_guard(state["model"], D, doctor, ink_of, state["cur"], time_ok=lambda: time.process_time() - pc0 < min(2.0, max(1.2, 0.12 * bud[0])))
+        m8, ink8, cur8, nsp = JP.spike_guard(state["model"], D, doctor, ink_of, state["cur"], time_ok=lambda: time.process_time() - pc0 < min(2.0, max(1.2, 0.12 * bud[0])) and time_ok())
         if nsp:
             state.update(model=m8, ink=ink8, cur=cur8)
         ev("doctor", f"Join policy: {nsp} path(s) got a better join type / miter limit", iou=doctor.iou(state["ink"]))
-    if opts.joins:
+    if opts.joins and time_ok():
         m_lock = JN.lock_joints(state["model"])
         ink_lock = ink_of(m_lock)
         s_lock = doctor.soft(ink_lock)
