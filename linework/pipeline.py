@@ -129,7 +129,7 @@ def process_icon(gray, opts: Options = None, emit=_noop, name="icon"):
                 m_rp, ink_rp, cur_rp, nm_rp, nr_rp = RP.repair(model, D, ink_of, doc_tmp.soft, cur_tmp, w0_tmp)
                 # Never discard valid paths in auto-repair; only add restored missing strokes
                 m_cand = m_rp if (nm_rp and len(m_rp.paths) >= len(model.paths)) else model.copy()
-                m_cand = opt.refine(m_cand, D, taus=(0.55, 0.32), iters=16, lam_pos=0.06, lam_w=0.025, fit_width=True)
+                m_cand = opt.refine(m_cand, D, taus=(0.55, 0.32), iters=16, lam_pos=0.15, lam_w=0.25, fit_width=True)
                 m_cand = JN.lock_joints(m_cand)
                 m_cand2, drep2 = DC.decide_best(
                     m_cand, D,
@@ -547,7 +547,7 @@ def _process_icon(gray, opts: Options = None, emit=_noop, name="icon", set_w=Non
         from . import opt
         cur_soft = doctor.soft(ink)
         cur_iou = doctor.iou(ink)
-        m_ref = opt.refine(model, D, taus=(0.6, 0.35), iters=18, lam_pos=0.05, lam_w=0.02, fit_width=True)
+        m_ref = opt.refine(model, D, taus=(0.6, 0.35), iters=18, lam_pos=0.15, lam_w=0.25, fit_width=True)
         ink_ref = ink_of(m_ref)
         s_ref = doctor.soft(ink_ref)
         iou_ref = doctor.iou(ink_ref)

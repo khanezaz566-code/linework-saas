@@ -579,29 +579,36 @@ def _harmonize_sheet_strokes_fast(job, d, jobs=None) -> int:
             offs[k] = (int(icons[k]["box"][0]), int(icons[k]["box"][1]))
     mets = {k: icons[k].get("metrics") or {} for k in ok if k < len(icons)}
     models = {}
-    all_ws = []
     for k in ok:
         try:
-            m = Model.from_json((d / f"icon_local_{k}.json").read_text())
-            models[k] = m
-            for p in m.paths:
-                if p.w > 0:
-                    all_ws.append(float(p.w))
+            models[k] = Model.from_json((d / f"icon_local_{k}.json").read_text())
         except Exception:
             pass
-    if not all_ws:
+    allp, own, local_idx = [], [], []
+    for k in ok:
+        m = models.get(k)
+        if m:
+            for pi, p in enumerate(m.paths):
+                allp.append(p)
+                own.append(k)
+                local_idx.append(pi)
+    if len(allp) < 2:
         return 0
-    sheet_med_w = round(float(np.median(all_ws)), 2)
+    from linework import finisher as FN
+    big = Model(allp, 0, 0)
+    plan = FN.width_plan(big, ratio=1.22, max_dev=0.35)
     changed = 0
-    for k, m in models.items():
-        mod_changed = False
-        for p in m.paths:
-            if abs(float(p.w) - sheet_med_w) > 0.05:
-                p.w = sheet_med_w
-                mod_changed = True
-        if mod_changed:
-            changed += 1
-            _store_icon(job, d, k, m.to_json(), offs[k], mets.get(k, {}))
+    mod_changed_set = set()
+    for gi, w_target in plan.items():
+        k = own[gi]
+        pi = local_idx[gi]
+        p = models[k].paths[pi]
+        if abs(float(p.w) - float(w_target)) > 0.05:
+            p.w = float(w_target)
+            mod_changed_set.add(k)
+    for k in mod_changed_set:
+        changed += 1
+        _store_icon(job, d, k, models[k].to_json(), offs[k], mets.get(k, {}))
     return changed
 
 

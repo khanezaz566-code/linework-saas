@@ -1263,7 +1263,7 @@ def craft_model(model: Model, D: np.ndarray, doctor: Doctor, W0: float = 10.0) -
         xs_s = np.clip(np.round(line_pts[:, 0] - 0.5).astype(int), 0, W_im - 1)
         ys_s = np.clip(np.round(line_pts[:, 1] - 0.5).astype(int), 0, H_im - 1)
         ink_vals = D[ys_s, xs_s]
-        if float((ink_vals > 0.42).mean()) < 0.72 or float(ink_vals.min()) < 0.28:
+        if float((ink_vals > 0.35).mean()) < 0.65 or float(ink_vals.min()) < 0.16:
             continue
         T._move_end(cand.paths[gi], ge, best_target)
         if gf is not None:
@@ -1807,7 +1807,7 @@ def craft_model(model: Model, D: np.ndarray, doctor: Doctor, W0: float = 10.0) -
                     dent = abs(float((s1[3] - s1[0]) @ perp_br))
                     is_switchback = float((s1[3] - s1[0]) @ (s2[3] - s2[0])) < 0.0
                     has_ink_br = _has_ink_line(s1[0], s2[3], min_frac=0.90)
-                    max_dent = 1.15 * p.w if has_ink_br else 0.75 * p.w
+                    max_dent = min(1.8, 0.20 * p.w) if has_ink_br else min(1.2, 0.15 * p.w)
                     if not ((0.0 if is_switchback else 0.35) <= dent <= max_dent):
                         continue
                     if (min(l1, l2) >= 1.35 * p.w or max(l1, l2) >= 2.5 * p.w) and not has_ink_br:
@@ -2141,7 +2141,8 @@ def craft_model(model: Model, D: np.ndarray, doctor: Doctor, W0: float = 10.0) -
             dx = abs(ch[0])
             dy = abs(ch[1])
             is_ortho = False
-            if not nb_curved and L >= 1.4 * p.w and _has_ink_line(s[0], s[3], min_frac=0.88):
+            # Only permit orthogonal straightening if the handles are already close to the chord (never flatten curves/arches/notches)
+            if not nb_curved and L >= 1.4 * p.w and max(dev1, dev2) <= max(0.45, 0.055 * p.w) and _has_ink_line(s[0], s[3], min_frac=0.88):
                 if dy <= 0.28 * p.w and dx >= 1.4 * p.w and dy < 0.22 * dx:
                     is_ortho = True
                 elif dx <= 0.28 * p.w and dy >= 1.4 * p.w and dx < 0.22 * dy:
