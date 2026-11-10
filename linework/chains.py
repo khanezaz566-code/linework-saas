@@ -478,16 +478,7 @@ def build_chains(branches, snap_width=True):
 
     def ext_pts(key, toward_junction):
         A, E = info[key]["A"], ext[key]
-        dist_ae = float(np.linalg.norm(E - A))
-        n = max(2, int(dist_ae) + 1)
-        if (info[key].get("is_curve") or info[key].get("is_arch")) and dist_ae > 1.5:
-            d_s = info[key]["d"]
-            u_c = (E - A) / dist_ae
-            dot_c = float(d_s @ u_c)
-            if np.cos(np.radians(38.0)) <= dot_c < np.cos(np.radians(2.0)):
-                d_e = unit(2.0 * dot_c * u_c - d_s)
-                seg = hermite(A, d_s, E, -d_e)
-                return seg[1:] if toward_junction else seg[::-1][:-1]
+        n = max(2, int(np.linalg.norm(E - A)) + 1)
         seg = np.linspace(A, E, n)
         return seg[1:] if toward_junction else seg[::-1][:-1]
 

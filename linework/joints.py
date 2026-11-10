@@ -254,7 +254,6 @@ def _is_part_of_curve(p: Path, e: int) -> bool:
 
 
 def _set_end_clean_handles(p: Path, e: int, X: np.ndarray, d: np.ndarray, was_str: bool):
-    part_of_curve = _is_part_of_curve(p, e)
     if e == 0:
         v = p.A[1] - p.A[0]
         L = float(np.linalg.norm(v))
@@ -263,12 +262,11 @@ def _set_end_clean_handles(p: Path, e: int, X: np.ndarray, d: np.ndarray, was_st
             perp = np.array([-u[1], u[0]])
             dev0 = float((p.Hout[0] - p.A[0]) @ perp)
             dev1 = float((p.Hin[1] - p.A[0]) @ perp)
-            is_scurve = (dev0 * dev1 < 0) and (abs(dev0) + abs(dev1) < 0.40 * p.w)
-            tol_sh = max(0.35, 0.045 * p.w) if part_of_curve else max(0.85, 0.12 * p.w)
-            is_shallow = (max(abs(dev0), abs(dev1)) <= tol_sh) and (not part_of_curve or L >= 2.2 * p.w)
+            is_scurve = (dev0 * dev1 < 0) and (abs(dev0) + abs(dev1) < 0.45 * p.w)
+            is_shallow = max(abs(dev0), abs(dev1)) <= max(0.95, 0.16 * p.w)
         else:
             is_scurve, is_shallow = True, True
-        if (was_str and not part_of_curve) or is_scurve or is_shallow or np.linalg.norm(p.Hout[0] - p.A[0]) < 0.12 * min(p.w, max(L, 1.0)):
+        if was_str or is_scurve or is_shallow or np.linalg.norm(p.Hout[0] - p.A[0]) < 0.22 * p.w:
             p.Hout[0] = p.A[0] + v / 3.0
             p.Hin[1] = p.A[0] + 2.0 * v / 3.0
         else:
@@ -281,12 +279,11 @@ def _set_end_clean_handles(p: Path, e: int, X: np.ndarray, d: np.ndarray, was_st
             perp = np.array([-u[1], u[0]])
             dev0 = float((p.Hout[-2] - p.A[-2]) @ perp)
             dev1 = float((p.Hin[-1] - p.A[-2]) @ perp)
-            is_scurve = (dev0 * dev1 < 0) and (abs(dev0) + abs(dev1) < 0.40 * p.w)
-            tol_sh = max(0.35, 0.045 * p.w) if part_of_curve else max(0.85, 0.12 * p.w)
-            is_shallow = (max(abs(dev0), abs(dev1)) <= tol_sh) and (not part_of_curve or L >= 2.2 * p.w)
+            is_scurve = (dev0 * dev1 < 0) and (abs(dev0) + abs(dev1) < 0.45 * p.w)
+            is_shallow = max(abs(dev0), abs(dev1)) <= max(0.95, 0.16 * p.w)
         else:
             is_scurve, is_shallow = True, True
-        if (was_str and not part_of_curve) or is_scurve or is_shallow or np.linalg.norm(p.Hin[-1] - p.A[-1]) < 0.12 * min(p.w, max(L, 1.0)):
+        if was_str or is_scurve or is_shallow or np.linalg.norm(p.Hin[-1] - p.A[-1]) < 0.22 * p.w:
             p.Hout[-2] = p.A[-2] + v / 3.0
             p.Hin[-1] = p.A[-2] + 2.0 * v / 3.0
         else:

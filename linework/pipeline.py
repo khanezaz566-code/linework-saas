@@ -21,9 +21,9 @@ from . import lessons as LS
 from .split import find_icons, crop_icon, estimate_width
 
 PRESETS = {
-    "fast": dict(max_rounds=1, time_budget=15, region_edits=2, iters=18, taus=(1.0, 0.45)),
-    "standard": dict(max_rounds=3, time_budget=35, region_edits=6, iters=24, taus=(1.0, 0.5, 0.35)),
-    "precise": dict(max_rounds=5, time_budget=60, region_edits=10, iters=30, taus=(1.2, 0.8, 0.5, 0.34)),
+    "fast": dict(max_rounds=0, time_budget=7, region_edits=0, iters=14, taus=(1.0, 0.45)),
+    "standard": dict(max_rounds=1, time_budget=12, region_edits=2, iters=18, taus=(1.0, 0.5, 0.35)),
+    "precise": dict(max_rounds=2, time_budget=22, region_edits=4, iters=24, taus=(1.2, 0.8, 0.5, 0.34)),
 }
 
 
@@ -38,7 +38,7 @@ class Options:
     time_budget: float | None = None
     region_edits: int | None = None
     repair: bool = True  # final safety net for missing / stray pieces
-    max_stroke: float = 48.0  # sources with thicker strokes (big / hi-res sheets) are processed at norm_stroke and scaled back
+    max_stroke: float = 36.0  # sources with thicker strokes (big / hi-res sheets) are processed at norm_stroke and scaled back
     norm_stroke: float = 10.0
     memory: bool = True  # remember best results / lessons between runs (linework/lessons.py)
     fresh: bool = False  # do not re-use a stored result for the same icon (still never return something worse than the stored best)
@@ -47,12 +47,12 @@ class Options:
     joins: bool = True  # Join engine: build every joint, check it, repair failures with the pen / line / arc / shape tools (linework/joints.py)
     finish: bool = True  # Finisher engine: per-icon inspection of the last few machine-made spots
     rings: bool = True  # detect exact circles in the image and snap strokes onto them
-    trace_good: float = 0.985  # stop trying trace settings once the first render matches this well
-    trace_ok: float = 0.94  # ... or at least this well (then the optimiser does the rest; saves ~10 s per dense icon)
+    trace_good: float = 0.980  # stop trying trace settings once the first render matches this well
+    trace_ok: float = 0.935  # ... or at least this well (then the optimiser does the rest; saves ~10 s per dense icon)
     superres: int | None = None  # trace at k-times resolution (auto: thin strokes get 2-3x)
     dedupe_tol: float = 0.0025  # fraction of ink area we will sacrifice to remove a duplicate centerline
     decision: bool = True  # Decision engine: per-icon decision + verification of the last few percent
-    decision_budget: float = 10.0
+    decision_budget: float = 4.0
     tip_patches: bool = False  # Pure single-centerline vector mode: never append overlapping corner stub paths
 
     def resolved(self):
@@ -101,7 +101,7 @@ def process_icon(gray, opts: Options = None, emit=_noop, name="icon"):
         met = dict(prev["metrics"], from_memory=True)
         return dict(model=m, svg=m.svg(), metrics=met, decision=met.get("decision"), clean=met.get("clean", True), model_pre_decision=m.copy())
     t_icon_start = time.time()
-    t_icon_deadline = t_icon_start + (25.0 if opts.quality != "precise" else 45.0)
+    t_icon_deadline = t_icon_start + (14.0 if opts.quality != "precise" else 24.0)
     time_icon_ok = lambda: time.time() < t_icon_deadline
     r = _process_icon_scaled(gray, opts, emit, name)
     from . import decision as DC
@@ -230,7 +230,7 @@ def _process_icon(gray, opts: Options = None, emit=_noop, name="icon", set_w=Non
     opts = opts or Options()
     cfg = opts.resolved()
     t0 = time.time()
-    t_deadline = t0 + (22.0 if opts.quality != "precise" else 40.0)
+    t_deadline = t0 + (10.0 if opts.quality != "precise" else 18.0)
     time_ok = lambda: time.time() < t_deadline
     D = ink_map(gray)
     H, W = D.shape

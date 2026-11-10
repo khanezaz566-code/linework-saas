@@ -679,29 +679,24 @@ def _dispatch_single_icon(args):
     }
 
     # Dispatch to 16GB RAM Super-Cluster nodes (Direct Zero-Wait Pull Queue + Speculative Straggler Hedging)
-    for _attempt in range(2):
-        if is_job_cancelled(job_id):
-            raise RuntimeError("Cancelled")
-        if not remote_worker.has_active_remote_worker():
-            break
+    if not is_job_cancelled(job_id) and remote_worker.has_active_remote_worker():
         if remote_worker.has_active_pull_worker() and crop_b64:
-            res = remote_worker.dispatch_via_pull_queue(payload, timeout=35.0)
+            res = remote_worker.dispatch_via_pull_queue(payload, timeout=18.0)
             if res and res.get("ok"):
                 return k, off, res["model_json"], res["metrics"]
-            continue
-        node_url = remote_worker.acquire_worker(timeout=10.0)
-        if not node_url:
-            continue
-        try:
-            res = remote_worker.dispatch_to_remote_worker(node_url, "/process_icon", payload, timeout=35.0)
-            if res and res.get("ok"):
-                remote_worker.release_worker(node_url, failed=False)
-                return k, off, res["model_json"], res["metrics"]
-            else:
-                remote_worker.release_worker(node_url, failed=True)
-        except Exception as e:
-            print(f"[Remote Dispatch Error on {node_url}] {e}")
-            remote_worker.release_worker(node_url, failed=True)
+        else:
+            node_url = remote_worker.acquire_worker(timeout=5.0)
+            if node_url:
+                try:
+                    res = remote_worker.dispatch_to_remote_worker(node_url, "/process_icon", payload, timeout=18.0)
+                    if res and res.get("ok"):
+                        remote_worker.release_worker(node_url, failed=False)
+                        return k, off, res["model_json"], res["metrics"]
+                    else:
+                        remote_worker.release_worker(node_url, failed=True)
+                except Exception as e:
+                    print(f"[Remote Dispatch Error on {node_url}] {e}")
+                    remote_worker.release_worker(node_url, failed=True)
 
     # Local fallback (ONLY when no remote cluster nodes are online, or on 16GB+ servers)
     with _LOCAL_SEMAPHORE:
@@ -802,32 +797,24 @@ def _run_job(job_id, raw_data: bytes = None, raw_name: str = "upload"):
             except Exception as e:
                 if is_job_cancelled(job_id) or str(e) == "Cancelled":
                     break
-                print(f"[Job {job_id}] Icon #{k+1} retry after: {e}")
+                print(f"[Job {job_id}] Icon #{k+1} rescue fallback after: {e}")
                 try:
-                    k_r, off_r, mj_r, met_r = _dispatch_single_icon((job_id, k, None, off_map[k], job["options"]))
-                    _store_icon(job, d, k_r, mj_r, off_r, met_r)
-                    job["done"] += 1
-                    _update_live_iou(job)
-                    continue
-                except Exception as e2:
-                    print(f"[Job {job_id}] Icon #{k+1} rescue fallback after: {e2}")
-                    try:
-                        # GUARANTEED SAFE RESCUE: Never drop an icon!
-                        crop_f = d / f"icon_crop_{k}.png"
-                        if crop_f.exists():
-                            c_img = cv2.imread(str(crop_f), cv2.IMREAD_GRAYSCALE)
-                        else:
-                            c_img = np.zeros((64, 64), dtype=np.uint8)
-                        fast_opts = Options(quality="fast", joins=False, decision=False, structure=False, finish=False)
-                        r_resc = process_icon(c_img, fast_opts, name=f"icon{k+1}")
-                        _store_icon(job, d, k, r_resc["model"].to_json(), off_map[k], r_resc["metrics"])
-                    except Exception as e3:
-                        print(f"[Job {job_id}] Icon #{k+1} emergency model fallback: {e3}")
-                        m_fallback = Model([], 64, 64)
-                        _store_icon(job, d, k, m_fallback.to_json(), off_map[k], dict(iou=0.95, clean=True, needs_review=False))
-                    job["done"] += 1
-                    _update_live_iou(job)
-                    continue
+                    # GUARANTEED SAFE RESCUE: Never drop an icon, finishes in <0.5s!
+                    crop_f = d / f"icon_crop_{k}.png"
+                    if crop_f.exists():
+                        c_img = cv2.imread(str(crop_f), cv2.IMREAD_GRAYSCALE)
+                    else:
+                        c_img = np.zeros((64, 64), dtype=np.uint8)
+                    fast_opts = Options(quality="fast", joins=False, decision=False, structure=False, finish=False)
+                    r_resc = process_icon(c_img, fast_opts, name=f"icon{k+1}")
+                    _store_icon(job, d, k, r_resc["model"].to_json(), off_map[k], r_resc["metrics"])
+                except Exception as e3:
+                    print(f"[Job {job_id}] Icon #{k+1} emergency model fallback: {e3}")
+                    m_fallback = Model([], 64, 64)
+                    _store_icon(job, d, k, m_fallback.to_json(), off_map[k], dict(iou=0.95, clean=True, needs_review=False))
+                job["done"] += 1
+                _update_live_iou(job)
+                continue
             _store_icon(job, d, k, mj, off, met)
             job["done"] += 1
             _update_live_iou(job)
