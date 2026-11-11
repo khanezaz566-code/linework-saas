@@ -37,9 +37,12 @@ def build_chains(branches, snap_width=True):
         v_ch = q[-1] - q[0]
         lv_ch = float(np.linalg.norm(v_ch))
         arch_dev = float(np.max(np.abs((q - q[0]) @ (np.array([-v_ch[1], v_ch[0]]) / lv_ch)))) if lv_ch > 1e-3 else 0.0
+        if n < 4:
+            d = unit(q[-1] - q[0]) if lv_ch > 1e-6 else np.array([1.0, 0.0])
+            return dict(A=q[-1].copy(), d=d, kept=q, full=q, arch_dev=arch_dev)
         if b["sj"] not in (0, -1) and b["ej"] not in (0, -1) and L[-1] < 4.2 * T and arch_dev >= 0.18 * T and n >= 5:
             t_cut = min(0.65 * T, 0.30 * L[-1])
-            k = max(n - 1 - int(np.searchsorted(L, t_cut)), 2)
+            k = min(max(n - 1 - int(np.searchsorted(L, t_cut)), 2), n - 1)
             step_a = max(3, int(round(0.55 * T)))
             d = unit(q[k] - q[max(k - step_a, 0)])
             return dict(A=q[k].copy(), d=d, kept=q[: k + 1], full=q, is_arch=True, arch_dev=arch_dev)
@@ -55,11 +58,11 @@ def build_chains(branches, snap_width=True):
                 k_vfar = n - 1 - int(np.searchsorted(L, min(2.8 * T, 0.95 * L[-1])))
                 straight_before = (k_far > k_vfar + 1) and (d_far @ unit(q[k_far] - q[k_vfar]) > np.cos(np.radians(8)))
                 if not straight_before and (d_near @ d_far < np.cos(np.radians(32)) and d_tip @ d_near >= np.cos(np.radians(22))):
-                    k = max(n - 1 - int(np.searchsorted(L, 0.35 * T)), 2)
+                    k = min(max(n - 1 - int(np.searchsorted(L, 0.35 * T)), 2), n - 1)
                     return dict(A=q[k].copy(), d=d_near, kept=q[: k + 1], full=q, arch_dev=arch_dev)
         T_eff = min(T, 0.45 * L[-1]) if L[-1] < 2.2 * T else (0.72 * T if arch_dev >= 0.22 * T else T)
         k = n - 1 - int(np.searchsorted(L, T_eff))
-        k = max(k, 2)
+        k = min(max(k, 2), n - 1)
         step = max(8, int(round(1.35 * T)))
         lo = max(k - step, 0)
         d = unit(q[k] - q[lo]) if k > lo else unit(q[-1] - q[0])

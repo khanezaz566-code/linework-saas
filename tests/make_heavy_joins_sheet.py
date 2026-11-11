@@ -487,7 +487,7 @@ def draw_dial_gauge(canvas, cx, cy, sw, seed=0):
     # Center pivot & needle
     circle(canvas, cx, cy, 7, sw)
     rot_needle = math.radians(255 + (seed * 60) % 180)
-    line(canvas, [pt(cx, cy, 0, 0), pt(cx, cy, 26 * math.cos(rot_needle), 26 * math.sin(rot_needle))], sw)
+    line(canvas, [pt(cx, cy, 0, 0), pt(cx, cy, 22 * math.cos(rot_needle), 22 * math.sin(rot_needle))], sw)
 
 def draw_racket_grid(canvas, cx, cy, sw, seed=0):
     """33. Racket String Grid: Oval head + handle shaft + tight orthogonal string grid."""
