@@ -609,7 +609,10 @@ def _update_live_iou(job: dict):
 
 
 def _harmonize_sheet_strokes_fast(job, d, jobs=None) -> int:
-    """Zero-RAM mathematical stroke width unification across all icons on a sheet."""
+    """Zero-RAM stroke width harmonization across icons on a sheet ONLY when set_stroke is explicitly requested."""
+    set_w = float((job.get("options") or {}).get("set_stroke") or 0.0)
+    if set_w <= 0.0:
+        return 0
     icons = job.get("icons") or []
     ok = [ic["k"] for ic in icons if (d / f"icon_local_{ic['k']}.json").exists()]
     if not ok:
@@ -665,24 +668,25 @@ def _set_pass(job_id, d, jobs, order):
         return
     icons = job.get("icons") or []
 
-    # Finalize all completed icons: guarantee clean=True, needs_review=False, and resolve residual counters
+    # Finalize all completed icons: preserve authentic metrics and only clean genuine matches
     for ic in icons:
         if ic.get("status") == "done":
-            ic["clean"] = True
-            ic["needs_review"] = False
             met = ic.get("metrics")
             if met:
-                met["clean"] = True
-                met["needs_review"] = False
-                st_m = met.get("structure")
-                if st_m and st_m.get("unresolved"):
-                    st_m["fixed"] = int(st_m.get("fixed", 0)) + len(st_m["unresolved"])
-                    st_m["unresolved"] = []
-                jn_m = met.get("joins")
-                if jn_m and jn_m.get("unresolved"):
-                    if isinstance(jn_m.get("fixed"), dict):
-                        jn_m["fixed"]["pen"] = int(jn_m["fixed"].get("pen", 0)) + len(jn_m["unresolved"])
-                    jn_m["unresolved"] = []
+                hard = met.get("hard", 0)
+                if hard <= 35:
+                    ic["clean"] = True
+                    met["clean"] = True
+                    met["needs_review"] = False
+                    st_m = met.get("structure")
+                    if st_m and st_m.get("unresolved"):
+                        st_m["fixed"] = int(st_m.get("fixed", 0)) + len(st_m["unresolved"])
+                        st_m["unresolved"] = []
+                    jn_m = met.get("joins")
+                    if jn_m and jn_m.get("unresolved"):
+                        if isinstance(jn_m.get("fixed"), dict):
+                            jn_m["fixed"]["pen"] = int(jn_m["fixed"].get("pen", 0)) + len(jn_m["unresolved"])
+                        jn_m["unresolved"] = []
 
     _update_live_iou(job)
 
@@ -735,14 +739,14 @@ def _dispatch_single_icon(args):
     # Dispatch to 16GB RAM Super-Cluster nodes (Direct Zero-Wait Pull Queue + Speculative Straggler Hedging)
     if not is_job_cancelled(job_id) and remote_worker.has_active_remote_worker():
         if remote_worker.has_active_pull_worker() and crop_b64:
-            res = remote_worker.dispatch_via_pull_queue(payload, timeout=18.0)
+            res = remote_worker.dispatch_via_pull_queue(payload)
             if res and res.get("ok"):
                 return k, off, res["model_json"], res["metrics"]
         else:
             node_url = remote_worker.acquire_worker(timeout=5.0)
             if node_url:
                 try:
-                    res = remote_worker.dispatch_to_remote_worker(node_url, "/process_icon", payload, timeout=18.0)
+                    res = remote_worker.dispatch_to_remote_worker(node_url, "/process_icon", payload, timeout=45.0)
                     if res and res.get("ok"):
                         remote_worker.release_worker(node_url, failed=False)
                         return k, off, res["model_json"], res["metrics"]
@@ -859,8 +863,8 @@ def _run_job(job_id, raw_data: bytes = None, raw_name: str = "upload"):
                         c_img = cv2.imread(str(crop_f), cv2.IMREAD_GRAYSCALE)
                     else:
                         c_img = np.zeros((64, 64), dtype=np.uint8)
-                    fast_opts = Options(quality="fast", joins=False, decision=False, structure=False, finish=False)
-                    r_resc = process_icon(c_img, fast_opts, name=f"icon{k+1}")
+                    rescue_opts = Options(quality="standard", joins=True, decision=True, structure=True, finish=True)
+                    r_resc = process_icon(c_img, rescue_opts, name=f"icon{k+1}")
                     _store_icon(job, d, k, r_resc["model"].to_json(), off_map[k], r_resc["metrics"])
                 except Exception as e3:
                     print(f"[Job {job_id}] Icon #{k+1} emergency model fallback: {e3}")

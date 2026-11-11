@@ -195,11 +195,15 @@ def release_worker(url: str, failed: bool = False):
         _CV.notify_all()
 
 
-def dispatch_via_pull_queue(payload: dict, timeout: float = 45.0) -> dict:
+def dispatch_via_pull_queue(payload: dict, timeout: float = None) -> dict:
     """Enqueue an icon task for any Zero-Tunnel Pull Worker with Speculative Straggler Hedging.
     If the last 1-4 icons on a sheet are held by a slow or rotating worker node, they are
     automatically cloned back to the front of _PULL_QUEUE so idle cluster nodes race to finish them first!
     """
+    active = max(1, get_active_nodes_count())
+    q_len = len(_PULL_QUEUE)
+    calc_timeout = max(90.0, 30.0 + (q_len / active) * 15.0)
+    timeout = calc_timeout if timeout is None else max(timeout, calc_timeout)
     task_id = uuid.uuid4().hex[:16]
     ev = threading.Event()
     now = time.time()
@@ -237,10 +241,10 @@ def dispatch_via_pull_queue(payload: dict, timeout: float = 45.0) -> dict:
                 popped_at = entry.get("popped_at")
                 if popped_at is not None:
                     elapsed_pop = now_chk - popped_at
-                    # Balanced straggler hedging: allow complex icons up to 12.0s before racing duplicate
+                    # Fast tail straggler hedging: allow tail icons up to 8.0s before racing duplicate across cluster
                     is_tail_straggler = (len(_PULL_QUEUE) == 0 and len(_INFLIGHT_TASKS) <= 4)
-                    hedge_threshold = 12.0 if is_tail_straggler else 18.0
-                    if elapsed_pop >= hedge_threshold and entry.get("requeued", 0) < 2:
+                    hedge_threshold = 8.0 if is_tail_straggler else 14.0
+                    if elapsed_pop >= hedge_threshold and entry.get("requeued", 0) < 3:
                         entry["requeued"] = entry.get("requeued", 0) + 1
                         entry["popped_at"] = now_chk
                         if not any(t["task_id"] == task_id for t in _PULL_QUEUE):

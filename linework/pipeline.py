@@ -566,7 +566,7 @@ def _process_icon(gray, opts: Options = None, emit=_noop, name="icon", set_w=Non
         iou_post_craft = doctor.iou(ink_c)
         soft_post_craft = doctor.soft(ink_c)
         # Quality Non-Regression Guard (craft_model enforces strict per-step try_accept internally)
-        if iou_post_craft >= iou_pre_craft - 0.0350 and soft_post_craft <= soft_pre_craft + max(180.0, 0.030 * doctor.area):
+        if iou_post_craft >= iou_pre_craft - 0.0035 and soft_post_craft <= soft_pre_craft + max(30.0, 0.004 * doctor.area):
             model, ink = m_craft, ink_c
             state.update(model=model, ink=ink, cur=soft_post_craft)
         else:

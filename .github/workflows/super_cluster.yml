@@ -9,8 +9,8 @@ on:
     - cron: '15 */5 * * *'
 
 concurrency:
-  group: linework-super-cluster
-  cancel-in-progress: true
+  group: linework-cluster-${{ github.repository }}-${{ github.workflow }}
+  cancel-in-progress: false
 
 jobs:
   super-worker-cluster:
@@ -40,10 +40,11 @@ jobs:
 
       - name: Run 4-Core Super-Worker Connected to Render
         env:
-          MASTER_SERVER_URL: "https://linework-saas.onrender.com"
-          LINEWORK_WORKER_SECRET: "linework_super_secret_2026"
+          MASTER_SERVER_URL: ${{ secrets.MASTER_SERVER_URL || 'https://linework-saas.onrender.com' }}
+          LINEWORK_WORKER_SECRET: ${{ secrets.LINEWORK_WORKER_SECRET || 'linework_super_secret_2026' }}
           MATRIX_NODE_ID: "${{ matrix.node }}"
           GITHUB_REPOSITORY_OWNER: "${{ github.repository_owner }}"
+          WORKER_NODE_ID: "pull://gh-${{ github.repository_owner }}-n${{ matrix.node }}-${{ github.run_id }}"
           WORKER_MAX_SECONDS: "18600"
           WORKER_PORT: "5000"
         run: |
