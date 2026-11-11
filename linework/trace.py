@@ -14,7 +14,24 @@ def ink_map(gray: np.ndarray) -> np.ndarray:
     """Normalised ink coverage in [0,1] (1 = ink). Handles dark-on-light and light-on-dark."""
     g_u8 = gray if gray.dtype == np.uint8 else np.clip(gray, 0, 255).astype(np.uint8)
     border = np.r_[g_u8[0], g_u8[-1], g_u8[:, 0], g_u8[:, -1]]
-    if np.median(border) < 128:
+    is_dark_bg = np.median(border) < 128
+    if is_dark_bg and min(g_u8.shape) >= 20:
+        pad = min(8, min(g_u8.shape) // 10)
+        if pad > 0:
+            inset = np.r_[g_u8[pad], g_u8[-pad - 1], g_u8[:, pad], g_u8[:, -pad - 1]]
+            # If inset margin is bright or image has predominantly light pixels, border is an outer frame/matte
+            if np.median(inset) > 160 or (g_u8 > 160).sum() > 0.45 * g_u8.size:
+                is_dark_bg = False
+                dark_mask = (g_u8 < 128).astype(np.uint8)
+                n_comp, lab_comp, st_comp, _ = cv2.connectedComponentsWithStats(dark_mask)
+                H_c, W_c = g_u8.shape
+                bg_val = int(np.median(inset))
+                for i_c in range(1, n_comp):
+                    x_c, y_c, bw_c, bh_c, _ = st_comp[i_c]
+                    if bw_c >= 0.85 * W_c and bh_c >= 0.85 * H_c:
+                        g_u8 = g_u8.copy()
+                        g_u8[lab_comp == i_c] = bg_val
+    if is_dark_bg:
         g_u8 = 255 - g_u8
     t, _ = cv2.threshold(g_u8, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
     dark, light = g_u8[g_u8 <= t], g_u8[g_u8 > t]

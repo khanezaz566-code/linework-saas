@@ -674,9 +674,10 @@ def process_sheet(gray, opts: Options = None, emit=_noop, worker=None):
     opts = opts or Options()
     D = ink_map(gray)
     w, icons, lab = find_icons(D, merge=opts.merge)
-    del D
     H, W = gray.shape
-    bg = int(np.median(np.r_[gray[0], gray[-1], gray[:, 0], gray[:, -1]]))
+    no_ink = (D < 0.1)
+    bg = int(np.median(gray[no_ink])) if no_ink.any() else int(np.median(gray))
+    del D
     emit(engine="split", msg=f"Found {len(icons)} icon(s), stroke ≈ {w:.1f}px", icons=[ic["box"] for ic in icons], width=w)
     jobs = []
     for k, ic in enumerate(icons):

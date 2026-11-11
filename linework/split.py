@@ -36,6 +36,15 @@ def estimate_width(D):
 def find_icons(D, merge=1.15, min_area_w2=6.0):
     """Return (w_est, list of dict(box=(x0,y0,x1,y1), label_mask_fn)) in reading order."""
     mask = (D > 0.5).astype(np.uint8)
+    H_m, W_m = mask.shape
+    # Filter out outer border/matte components spanning the whole sheet
+    if min(H_m, W_m) >= 40:
+        n_raw, lab_raw, st_raw, _ = cv2.connectedComponentsWithStats(mask)
+        for i_r in range(1, n_raw):
+            x_r, y_r, bw_r, bh_r, _ = st_raw[i_r]
+            if bw_r >= 0.85 * W_m and bh_r >= 0.85 * H_m:
+                mask = mask.copy()
+                mask[lab_raw == i_r] = 0
     w = estimate_width(D)
     k = int(max(3, round(2 * merge * w)))
     k += (k + 1) % 2
