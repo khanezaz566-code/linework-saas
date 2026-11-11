@@ -925,7 +925,7 @@ def corner_pairs(m: Model, tol=1.2, D=None, reach=1.55):
             d = float(np.linalg.norm(a - b))
             if abs(wa - wb) > 0.25 * w_max:
                 continue
-            pair_tol = max(eff_tol, 0.40 * min(wa, wb))
+            pair_tol = max(eff_tol, 0.65 * min(wa, wb))
             
             # Close meeting point
             if d <= pair_tol:
@@ -935,7 +935,7 @@ def corner_pairs(m: Model, tol=1.2, D=None, reach=1.55):
                     if k in (i, j):
                         continue
                     f = q.flat(1.0)
-                    if np.linalg.norm(f - mid, axis=1).min() < 0.6 * w_max:
+                    if np.linalg.norm(f - mid, axis=1).min() < 1.15 * w_max:
                         third = True
                         break
                 if not third:
@@ -946,7 +946,7 @@ def corner_pairs(m: Model, tol=1.2, D=None, reach=1.55):
             if d <= reach * w_max:
                 mid = (a + b) / 2
                 if any(
-                    np.linalg.norm(q.flat(1.0) - mid, axis=1).min() < 0.6 * w_max
+                    np.linalg.norm(q.flat(1.0) - mid, axis=1).min() < 1.15 * w_max
                     for k, q in enumerate(m.paths) if k not in (i, j)
                 ):
                     continue
@@ -971,12 +971,12 @@ def corner_pairs(m: Model, tol=1.2, D=None, reach=1.55):
                 diff = b - a
                 sP = float(diff[0] * uQ[1] - diff[1] * uQ[0]) / den
                 sQ = float(diff[1] * uP[0] - diff[0] * uP[1]) / den
-                if sP < -0.25 * w_max or sQ < -0.25 * w_max:
+                if sP < -0.75 * w_max or sQ < -0.75 * w_max:
                     continue
-                if sP > 1.65 * w_max or sQ > 1.65 * w_max:
+                if sP > 2.5 * w_max or sQ > 2.5 * w_max:
                     continue
                 Xc = a + sP * uP
-                if np.linalg.norm(Xc - (a + b) / 2) > 1.35 * w_max:
+                if np.linalg.norm(Xc - (a + b) / 2) > 2.5 * w_max:
                     continue
                 if any(
                     np.linalg.norm(q.flat(1.0) - Xc, axis=1).min() < 0.75 * w_max
@@ -1041,7 +1041,7 @@ def merge_corners(m: Model, pairs, joint_ends=None, D=None):
                 if abs(den) >= 0.15:
                     sP = float((cQ - cP)[0] * tQ_g[1] - (cQ - cP)[1] * tQ_g[0]) / den
                     Xc = cP + sP * tP_g
-                    if np.linalg.norm(Xc - mid) <= 1.25 * w_max:
+                    if np.linalg.norm(Xc - mid) <= 2.5 * w_max:
                         X_corner = Xc
         if X_corner is None:
             fP, fQ = P.flat(0.5), Q.flat(0.5)
@@ -1053,7 +1053,7 @@ def merge_corners(m: Model, pairs, joint_ends=None, D=None):
             if abs(den) >= 0.15:
                 sP = float((Q.A[0] - P.A[-1])[0] * tQ_f[1] - (Q.A[0] - P.A[-1])[1] * tQ_f[0]) / den
                 Xc = P.A[-1] + sP * tP_f
-                if np.linalg.norm(Xc - mid) <= 1.25 * w_max:
+                if np.linalg.norm(Xc - mid) <= 2.5 * w_max:
                     X_corner = Xc
         corner_pt = mid if X_corner is None else X_corner
 
@@ -1125,11 +1125,30 @@ def merge_corners(m: Model, pairs, joint_ends=None, D=None):
         join_type = "round" if is_round else ("miter" if (P.join == "miter" or Q.join == "miter") else P.join)
         ml_val = min(4.0, P.ml, Q.ml)  # was max(): a limit of 10 spread to merged paths and made spikes at acute joints
         closed = False
-        if np.linalg.norm(A[0] - A[-1]) <= max(1.5, 0.25 * w_merged) and (LP + LQ) >= 3.5 * w_merged and len(A) >= 4:
-            A[-1] = A[0].copy()
-            Hin[0] = Hin[-1].copy()
-            Hout[-1] = Hout[0].copy()
-            closed = True
+        d_close = float(np.linalg.norm(A[0] - A[-1]))
+        if (LP + LQ) >= 3.5 * w_merged and len(A) >= 4:
+            if d_close <= max(2.5, 0.75 * w_merged):
+                A[-1] = A[0].copy()
+                Hin[0] = Hin[-1].copy()
+                Hout[-1] = Hout[0].copy()
+                closed = True
+            elif d_close <= 1.65 * w_merged:
+                t0_c = unit(A[0] - A[1])
+                t1_c = unit(A[-1] - A[-2])
+                den_c = float(t0_c[0] * t1_c[1] - t0_c[1] * t1_c[0])
+                if abs(den_c) >= 0.15:
+                    diff_c = A[-1] - A[0]
+                    s0_c = float(diff_c[0] * t1_c[1] - diff_c[1] * t1_c[0]) / den_c
+                    s1_c = float(diff_c[1] * t0_c[0] - diff_c[0] * t0_c[1]) / den_c
+                    if -0.75 * w_merged <= s0_c <= 2.5 * w_merged and -0.75 * w_merged <= s1_c <= 2.5 * w_merged:
+                        Xc_c = A[0] + s0_c * t0_c
+                        if np.linalg.norm(Xc_c - (A[0] + A[-1]) / 2.0) <= 2.5 * w_merged:
+                            A[0] = Xc_c.copy()
+                            A[-1] = Xc_c.copy()
+                            Hin[0] = Xc_c - t0_c * (w_merged / 3.0)
+                            Hout[-1] = Xc_c - t1_c * (w_merged / 3.0)
+                            closed = True
+                            join_type = "miter"
         if is_round:
             m.paths[i] = Path(A, Hin, Hout, w_merged, join_type, ml_val, closed)
         else:
@@ -1275,10 +1294,103 @@ def _collapse_pass(p: Path, max_dev: float, ang_deg: float, snap_line: bool = Fa
     return _from_segs_exact(new_segs, q.w, closed=q.closed, join=q.join, ml=q.ml)
 
 
+def bridge_junction_dents(p: Path) -> Path:
+    """Detect collinear straight runs on a path separated by a small junction dent/blob pull,
+    and collapse them into a single continuous straight segment.
+    """
+    segs = p.segs()
+    n = len(segs)
+    if n < 3:
+        return p
+
+    is_straight = []
+    seg_u = []
+    seg_L = []
+    for s in segs:
+        v = s[3] - s[0]
+        L = float(np.linalg.norm(v))
+        if L > 1e-3:
+            u = v / L
+            n_vec = np.array([-u[1], u[0]])
+            pts = bez(s, np.linspace(0, 1, 9))
+            dev = np.abs((pts - s[0]) @ n_vec).max()
+            straight = (dev <= max(0.4, 0.08 * p.w)) and (L >= 0.8 * p.w)
+        else:
+            u = np.zeros(2)
+            straight = False
+        is_straight.append(straight)
+        seg_u.append(u)
+        seg_L.append(L)
+
+    skip_to = -1
+    new_segs = []
+    i = 0
+    changed = False
+
+    while i < n:
+        if i <= skip_to:
+            i += 1
+            continue
+
+        if not is_straight[i]:
+            new_segs.append(segs[i].copy())
+            i += 1
+            continue
+
+        u_a = seg_u[i]
+        n_a = np.array([-u_a[1], u_a[0]])
+        found_b = -1
+
+        max_look = min(n, i + 5)
+        for j in range(i + 2, max_look):
+            if not is_straight[j]:
+                continue
+            u_b = seg_u[j]
+            if u_a @ u_b < 0.985:
+                continue
+            offset_start = abs(float((segs[j][0] - segs[i][0]) @ n_a))
+            offset_end = abs(float((segs[j][3] - segs[i][0]) @ n_a))
+            if offset_start > 0.18 * p.w or offset_end > 0.18 * p.w:
+                continue
+
+            gap_dist = float(np.linalg.norm(segs[j][0] - segs[i][3]))
+            if gap_dist > 3.8 * p.w:
+                continue
+
+            inter_ok = True
+            for k in range(i + 1, j):
+                pts_k = bez(segs[k], np.linspace(0, 1, 9))
+                dev_k = np.abs((pts_k - segs[i][0]) @ n_a).max()
+                if dev_k > 0.65 * p.w:
+                    inter_ok = False
+                    break
+            if inter_ok:
+                found_b = j
+
+        if found_b != -1:
+            P0 = segs[i][0].copy()
+            P1 = segs[found_b][3].copy()
+            P_chord = P1 - P0
+            new_seg = np.array([P0, P0 + P_chord / 3.0, P0 + 2.0 * P_chord / 3.0, P1])
+            new_segs.append(new_seg)
+            skip_to = found_b
+            i = found_b + 1
+            changed = True
+        else:
+            new_segs.append(segs[i].copy())
+            i += 1
+
+    if not changed:
+        return p
+    return _from_segs_exact(new_segs, p.w, closed=p.closed, join=p.join, ml=p.ml)
+
+
 def collapse_straight_runs(p: Path):
-    q = _collapse_pass(p, max_dev=0.22, ang_deg=3.5, snap_line=False)
+    p_in = _rotate_closed_to_turn(p) if p.closed else p
+    q = _collapse_pass(p_in, max_dev=0.22, ang_deg=3.5, snap_line=False)
     q2 = _collapse_pass(q, max_dev=max(0.5, 0.11 * p.w), ang_deg=12.0, snap_line=True)
-    return q2, q
+    q3 = bridge_junction_dents(q2)
+    return q3, q
 
 
 def _fit_single_cubic(pts, t0=None, t1=None):
@@ -1811,10 +1923,11 @@ def finish(model: Model, D, doctor, ink_of, cur, w, time_ok=lambda: True, max_ho
         s2 = doctor.soft(ink2)
         lim = st["cur"] - 0.5 if improve else st["cur"] + (tol_for(st["cur"]) if tol is None else tol)
         ok = s2 <= lim and (s2 - start) <= drift_cap
-        if not ok and tol is not None and (s2 - start) <= drift_cap:
+        if not ok and (s2 - start) <= drift_cap:
             iou2 = doctor.iou(ink2)
             iou_cur = doctor.iou(st["ink"])
-            if iou2 >= iou_cur - 0.005 and s2 <= st["cur"] + max(tol, 0.08 * st["cur"]):
+            eff_check_tol = max(tol if tol is not None else 18.0, 0.02 * st["cur"])
+            if iou2 >= iou_cur - 0.005 and s2 <= st["cur"] + eff_check_tol:
                 ok = True
         t2 = _topo(cand) if ok else st["topo"]  # topology is the slow check: only for candidates that already pass on match
         ok = ok and t2 <= st["topo"]
@@ -2065,7 +2178,8 @@ def finish(model: Model, D, doctor, ink_of, cur, w, time_ok=lambda: True, max_ho
                 cand = st["model"].copy()
                 cand.paths[i] = q_cand
                 xy = p.A[len(p.A) // 2].copy()
-                if attempt(cand, "density", xy):
+                tol_dense = max(18.0, 0.015 * st["cur"])
+                if attempt(cand, "density", xy, tol=tol_dense):
                     break
                 sites.pop()
         if time_ok():
@@ -2119,6 +2233,26 @@ def finish(model: Model, D, doctor, ink_of, cur, w, time_ok=lambda: True, max_ho
                         sites.append(dict(kind="pole_convergence", x=0.0, y=0.0, fixed=True))
         except Exception:
             pass
+    # Final straight collapse & junction dent bridging (post-refinement)
+    for i in range(len(st["model"].paths)):
+        if i >= len(st["model"].paths):
+            break
+        p = st["model"].paths[i]
+        if p.closed and len(p.segs()) <= 4:
+            continue
+        if p.closed and len(p.segs()) == 8:
+            continue
+        q2, q1 = collapse_straight_runs(p)
+        for q_cand in (q2, q1):
+            if len(q_cand.A) < len(st["model"].paths[i].A):
+                cand = st["model"].copy()
+                cand.paths[i] = q_cand
+                xy = p.A[len(p.A) // 2].copy()
+                tol_dense = max(18.0, 0.015 * st["cur"])
+                if attempt(cand, "density", xy, tol=tol_dense):
+                    break
+                sites.pop()
+
     # Final axis / straight-stroke alignment pass to lock orthogonal segments after regional refinement
     groups = align_groups(st["model"])
     if groups:

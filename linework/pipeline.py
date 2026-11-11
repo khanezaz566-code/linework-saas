@@ -506,7 +506,7 @@ def _process_icon(gray, opts: Options = None, emit=_noop, name="icon", set_w=Non
         if fin["fixed"]:
             iou_pre_fin = doctor.iou(state["ink"])
             iou_post_fin = doctor.iou(ink3)
-            if cur3 <= state["cur"] + max(2.0, 0.001 * state["cur"]) and iou_post_fin >= iou_pre_fin - 0.001:
+            if (cur3 <= state["cur"] + max(60.0, 0.06 * state["cur"])) and (iou_post_fin >= iou_pre_fin - 0.015 or iou_post_fin >= 0.98):
                 state.update(model=m3, ink=ink3, cur=cur3)
         ev("doctor", f"Finisher: {fin['found']} site(s) inspected, {fin['fixed']} fixed", iou=doctor.iou(state["ink"]))
     # Join engine: every joint is checked on its own; failing joints are repaired with the pen / line / arc / shape tools and re-checked
@@ -518,7 +518,7 @@ def _process_icon(gray, opts: Options = None, emit=_noop, name="icon", set_w=Non
         # Quality Guard: only accept join modifications if it does not degrade the icon match!
         iou_pre_join = doctor.iou(state["ink"])
         iou_post_join = doctor.iou(ink5)
-        if cur5 <= state["cur"] + max(2.0, 0.001 * state["cur"]) and iou_post_join >= iou_pre_join - 0.001:
+        if (cur5 <= state["cur"] + max(25.0, 0.02 * state["cur"])) and (iou_post_join >= iou_pre_join - 0.010 or iou_post_join >= 0.98):
             state.update(model=m5, ink=ink5, cur=cur5)
         nf = sum(jn["fixed"].values())
         ev("doctor", f"Join check: {jn['total']} joint(s), {jn['clean_first']} clean at first look, {jn['built']} built, {nf} repaired, {len(jn['unresolved'])} left for review", iou=doctor.iou(state["ink"]))

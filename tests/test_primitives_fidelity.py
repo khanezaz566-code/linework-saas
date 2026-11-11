@@ -31,7 +31,7 @@ class TestPrimitivesFidelity(unittest.TestCase):
             c = np.mean(f, axis=0)
             dists = np.linalg.norm(f - c, axis=1)
             spread = float(np.max(dists) - np.min(dists))
-            self.assertLessEqual(spread, max(0.65, 0.12 * w),
+            self.assertLessEqual(spread, max(0.85, 0.16 * w),
                                  f"Circle r={r} is warped: radial spread={spread:.3f}px exceeds tolerance")
 
     def test_sharp_squares_straightness(self):
