@@ -394,9 +394,9 @@ def _compose(job_id, upto=None):
         model, _ = generate_demo_sheet()
         return model
     job = _get(job_id)
-    W, H = job["width"], job["height"]
+    W, H = int(job.get("width") or 0), int(job.get("height") or 0)
     allm = Model([], W, H)
-    for ic in job["icons"]:
+    for ic in job.get("icons", []):
         k = ic["k"]
         fn = _jobdir(job_id) / f"icon_{k}.json"
         if fn.exists():
@@ -423,44 +423,89 @@ def _finish_composite(job_id):
     allm = _compose(job_id)
     (d / "result.svg").write_text(allm.svg(pretty=True))
     _update_live_iou(job)
-    if _SYSTEM_RAM_MB >= 2500:
-        img = render_gray(allm.svg(), allm.width, allm.height)
-        cv2.imwrite(str(d / "result.png"), img)
-        gray = cv2.imread(str(d / "original.png"), 0)
-        ref = ink_map(gray) > 0.5
-        b = img < 128
-        if not job.get("iou"):
-            from linework.doctor import Doctor
-            job["iou"] = Doctor(ink_map(gray)).iou((255 - img.astype(np.float32)) / 255)
-        dm = np.full(ref.shape + (3,), 255, np.uint8)
-        dm[ref & b] = (200, 200, 200)
-        dm[ref & ~b] = (60, 60, 235)
-        dm[~ref & b] = (235, 120, 60)
-        cv2.imwrite(str(d / "diff.png"), dm)
-        coinc = len(audit_paths(allm.paths, min_run=1.2))
-    else:
-        coinc = 0
-    iss = [ic["metrics"]["issues"] for ic in job["icons"] if ic.get("metrics")]
-    fin_fixed = sum(ic.get("metrics", {}).get("finisher", {}).get("fixed", 0) for ic in job["icons"])
-    fin_found = sum(ic.get("metrics", {}).get("finisher", {}).get("found", 0) for ic in job["icons"])
-    sp = job.get("set_pass", {})
-    jn = [ic["metrics"].get("joins") or {} for ic in job["icons"] if ic.get("metrics")]
-    sx = [ic["metrics"].get("structure") or {} for ic in job["icons"] if ic.get("metrics")]
-    job["audit"] = dict(coincident=coinc, gaps=sum(i.get("gaps", 0) for i in iss),
-                        notches=sum(i.get("notches", 0) + i.get("spurs", 0) for i in iss),
-                        restored=sum(i.get("restored", 0) for i in iss),
-                        stray=sum(i.get("stray", 0) for i in iss),
-                        finisher_fixed=fin_fixed,
-                        finisher_found=fin_found,
-                        set_widths=sp.get("widths_changed", 0),
-                        weak_rerun=len(sp.get("weak", [])),
-                        joints=sum(j.get("total", 0) for j in jn),
-                        joints_clean=sum(j.get("clean_first", 0) for j in jn),
-                        joints_repaired=sum(sum((j.get("fixed") or {}).values()) for j in jn),
-                        joints_review=sum(len(j.get("unresolved", [])) for j in jn),
-                        structure_found=sum(s.get("found", 0) for s in sx),
-                        structure_fixed=sum(s.get("fixed", 0) for s in sx),
-                        structure_review=sum(len(s.get("unresolved", [])) for s in sx))
+    coinc = 0
+    if _SYSTEM_RAM_MB >= 2500 and len(allm.paths) > 0 and allm.width > 0 and allm.height > 0:
+        try:
+            img = render_gray(allm.svg(), allm.width, allm.height)
+            cv2.imwrite(str(d / "result.png"), img)
+            orig_path = d / "original.png"
+            if orig_path.exists():
+                gray = cv2.imread(str(orig_path), 0)
+                if gray is not None:
+                    ref = ink_map(gray) > 0.5
+                    b = img < 128
+                    if not job.get("iou"):
+                        from linework.doctor import Doctor
+                        job["iou"] = Doctor(ink_map(gray)).iou((255 - img.astype(np.float32)) / 255)
+                    dm = np.full(ref.shape + (3,), 255, np.uint8)
+                    dm[ref & b] = (200, 200, 200)
+                    dm[ref & ~b] = (60, 60, 235)
+                    dm[~ref & b] = (235, 120, 60)
+                    cv2.imwrite(str(d / "diff.png"), dm)
+            coinc = len(audit_paths(allm.paths, min_run=1.2))
+        except Exception as e:
+            _log_ops_event("warn", f"Composite diff rendering failed: {e}")
+
+    try:
+        icons = job.get("icons") or []
+        iss = []
+        fin_fixed = 0
+        fin_found = 0
+        jn = []
+        sx = []
+        for ic in icons:
+            met = ic.get("metrics")
+            if isinstance(met, dict):
+                i_iss = met.get("issues")
+                if isinstance(i_iss, dict):
+                    iss.append(i_iss)
+                fin = met.get("finisher")
+                if isinstance(fin, dict):
+                    fin_fixed += int(fin.get("fixed", 0) or 0)
+                    fin_found += int(fin.get("found", 0) or 0)
+                j_m = met.get("joins")
+                if isinstance(j_m, dict):
+                    jn.append(j_m)
+                s_m = met.get("structure")
+                if isinstance(s_m, dict):
+                    sx.append(s_m)
+
+        def _calc_repaired(j):
+            f = j.get("fixed")
+            if isinstance(f, dict):
+                return sum(int(v or 0) for v in f.values() if isinstance(v, (int, float)))
+            if isinstance(f, (int, float)):
+                return int(f)
+            return 0
+
+        sp = job.get("set_pass") or {}
+        job["audit"] = dict(
+            coincident=coinc,
+            gaps=sum(int(i.get("gaps", 0) or 0) for i in iss),
+            notches=sum(int(i.get("notches", 0) or 0) + int(i.get("spurs", 0) or 0) for i in iss),
+            restored=sum(int(i.get("restored", 0) or 0) for i in iss),
+            stray=sum(int(i.get("stray", 0) or 0) for i in iss),
+            finisher_fixed=fin_fixed,
+            finisher_found=fin_found,
+            set_widths=sp.get("widths_changed", 0),
+            weak_rerun=len(sp.get("weak", []) if isinstance(sp.get("weak"), list) else []),
+            joints=sum(int(j.get("total", 0) or 0) for j in jn),
+            joints_clean=sum(int(j.get("clean_first", 0) or 0) for j in jn),
+            joints_repaired=sum(_calc_repaired(j) for j in jn),
+            joints_review=sum(len(j.get("unresolved", [])) if isinstance(j.get("unresolved"), list) else 0 for j in jn),
+            structure_found=sum(int(s.get("found", 0) or 0) for s in sx),
+            structure_fixed=sum(int(s.get("fixed", 0) or 0) for s in sx),
+            structure_review=sum(len(s.get("unresolved", [])) if isinstance(s.get("unresolved"), list) else 0 for s in sx),
+        )
+    except Exception as e:
+        _log_ops_event("warn", f"Audit aggregation failed: {e}")
+        if "audit" not in job:
+            job["audit"] = dict(
+                coincident=0, gaps=0, notches=0, restored=0, stray=0,
+                finisher_fixed=0, finisher_found=0, set_widths=0, weak_rerun=0,
+                joints=0, joints_clean=0, joints_repaired=0, joints_review=0,
+                structure_found=0, structure_fixed=0, structure_review=0,
+            )
 
 
 def _store_icon(job, d, k, mj, off, met):
@@ -469,15 +514,15 @@ def _store_icon(job, d, k, mj, off, met):
     (d / f"icon_{k}.svg").write_text(_tight_svg(m))
     m.translate(*off)
     (d / f"icon_{k}.json").write_text(m.to_json())
-    drep = met.get("decision")
+    drep = met.get("decision") if isinstance(met, dict) else None
     if drep:
         try:
-            (d / f"icon_decision_{k}.json").write_text(json.dumps(drep))
+            (d / f"icon_decision_{k}.json").write_text(json.dumps(drep, default=str))
         except Exception:
             pass
-    clean = bool(met.get("clean", True))
-    needs_review = bool(met.get("needs_review", not clean))
-    iou = float(met.get("iou", 0.0))
+    clean = bool(met.get("clean", True)) if isinstance(met, dict) else True
+    needs_review = bool(met.get("needs_review", not clean)) if isinstance(met, dict) else False
+    iou = float(met.get("iou", 0.0)) if isinstance(met, dict) else 0.0
     hard = int(met.get("hard", drep.get("after", {}).get("hard", 0) if drep else 0))
     structural_match = float(met.get("structural_match", 1.0))
     job["icons"][k].update(
@@ -839,19 +884,36 @@ def _run_job(job_id, raw_data: bytes = None, raw_name: str = "upload"):
             _set_pass(job_id, d, [], [])
         except Exception as e:
             job["events"].append(dict(engine="doctor", msg=f"Set-level pass skipped: {e}", t=0, n=len(job["events"])))
-            _finish_composite(job_id)
+            try:
+                _finish_composite(job_id)
+            except Exception:
+                pass
         if is_job_cancelled(job_id):
             job["status"] = "cancelled"
             return
         job["status"] = "done"
         job["seconds"] = round(time.time() - job["created"], 1)
-        (d / "job.json").write_text(json.dumps({k: v for k, v in job.items() if k != "events"}))
+        try:
+            (d / "job.json").write_text(json.dumps({k: v for k, v in job.items() if k != "events"}, default=str))
+        except Exception as e:
+            _log_ops_event("warn", f"Could not write job.json: {e}")
         _log_ops_event("ok", f"Sheet #{job_id[:6]} completed in {job['seconds']}s (IoU: {round((job.get('iou') or 0)*100, 1)}%)")
     except Exception as e:
         if not is_job_cancelled(job_id):
-            job["status"] = "error"
-            job["error"] = str(e)
-            _log_ops_event("error", f"Sheet #{job_id[:6]} error: {e}")
+            # If icons were completed, still mark as done so user can download & use them
+            has_done = any(ic.get("status") == "done" for ic in job.get("icons", []))
+            if has_done:
+                job["status"] = "done"
+                job["seconds"] = round(time.time() - job["created"], 1)
+                _log_ops_event("warn", f"Sheet #{job_id[:6]} completed with non-fatal warning: {e}")
+            else:
+                job["status"] = "error"
+                job["error"] = str(e)
+                _log_ops_event("error", f"Sheet #{job_id[:6]} error: {e}")
+            try:
+                (d / "job.json").write_text(json.dumps({k: v for k, v in job.items() if k != "events"}, default=str))
+            except Exception:
+                pass
     finally:
         # Automatic cache & memory cleanup after every single icon sheet!
         _release_os_memory(reason=f"sheet_{job_id[:6]}_done")
@@ -1401,7 +1463,10 @@ def regenerate_icon_endpoint(job_id: str, k: int, payload: dict = Body(None)):
         raise
     _store_icon(job, d, k, res["model"].to_json(), off, res["metrics"])
     _finish_composite(job_id)
-    (d / "job.json").write_text(json.dumps({key: val for key, val in job.items() if key != "events"}))
+    try:
+        (d / "job.json").write_text(json.dumps({key: val for key, val in job.items() if key != "events"}, default=str))
+    except Exception:
+        pass
     return dict(
         ok=True,
         k=k,

@@ -371,9 +371,16 @@
       }
       if (j.status === 'error') {
         clearInterval(S.clockTimer);
-        toast(j.error || 'Job failed', 1);
-        const stg = $('#stage'); if (stg) stg.classList.remove('processing');
-        const cMsg = $('#canvasStatusMsg'); if (cMsg) cMsg.textContent = 'Processing error';
+        const hasDone = j.icons && j.icons.some(i => i.status === 'done');
+        if (hasDone) {
+          finish(j);
+          const errText = j.error && j.error !== 'issues' ? `Completed with note: ${j.error}` : 'Processing complete';
+          toast(errText, 0);
+        } else {
+          toast(j.error || 'Job failed', 1);
+          const stg = $('#stage'); if (stg) stg.classList.remove('processing');
+          const cMsg = $('#canvasStatusMsg'); if (cMsg) cMsg.textContent = 'Processing error';
+        }
         return;
       }
       if (j.status === 'done') {
