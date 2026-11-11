@@ -32,7 +32,7 @@ CUSTOM_TEMPLATES_DIR.mkdir(parents=True, exist_ok=True)
 MAX_BYTES = 15 * 1024 * 1024
 is_cloud = bool(os.environ.get("RENDER") or os.environ.get("PORT"))
 MAX_SIDE = 2000 if is_cloud else 5000
-MAX_ICONS = 96
+MAX_ICONS = 160
 KEEP_SECONDS = 24 * 3600
 
 app = FastAPI(title="Linework", version="0.1.0")

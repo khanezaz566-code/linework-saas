@@ -2119,6 +2119,13 @@ def finish(model: Model, D, doctor, ink_of, cur, w, time_ok=lambda: True, max_ho
                         sites.append(dict(kind="pole_convergence", x=0.0, y=0.0, fixed=True))
         except Exception:
             pass
+    # Final axis / straight-stroke alignment pass to lock orthogonal segments after regional refinement
+    groups = align_groups(st["model"])
+    if groups:
+        cand_al = apply_align(st["model"], groups)
+        ink_al = ink_of(cand_al)
+        if doctor.soft(ink_al) <= st["cur"] + 1.0:
+            st.update(model=cand_al, ink=ink_al, cur=doctor.soft(ink_al))
     found = len(sites)
     fixed = sum(s["fixed"] for s in sites)
     return st["model"], st["ink"], st["cur"], dict(sites=sites, found=found, fixed=fixed, drift=float(st["cur"] - start))

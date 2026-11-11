@@ -71,6 +71,47 @@ def find_icons(D, merge=1.15, min_area_w2=6.0):
         else:
             keep.append(ic)
     icons = keep
+    # Companion merging: merge disconnected pieces belonging to the same icon (e.g. pause bars ||,
+    # colon :, equals sign =, exclamation/question mark dots, detached user head/body)
+    if len(icons) > 1:
+        sizes = [max(ic["box"][2] - ic["box"][0], ic["box"][3] - ic["box"][1]) for ic in icons]
+        med_size = float(np.median(sizes))
+        max_dim = max(med_size * 1.55, 60.0)
+        max_gap = max(4.0 * w, 28.0)
+        merged = True
+        while merged:
+            merged = False
+            n_ic = len(icons)
+            for i in range(n_ic):
+                if merged:
+                    break
+                b1 = icons[i]["box"]
+                for j in range(i + 1, n_ic):
+                    b2 = icons[j]["box"]
+                    x_ov = min(b1[2], b2[2]) - max(b1[0], b2[0])
+                    y_ov = min(b1[3], b2[3]) - max(b1[1], b2[1])
+                    dx = max(0, max(b1[0] - b2[2], b2[0] - b1[2]))
+                    dy = max(0, max(b1[1] - b2[3], b2[1] - b1[3]))
+
+                    should_merge = False
+                    if x_ov > 0 and dy <= max_gap:
+                        should_merge = True
+                    elif y_ov > 0 and dx <= max_gap:
+                        should_merge = True
+                    elif dx <= w * 1.5 and dy <= w * 1.5:
+                        should_merge = True
+
+                    if should_merge:
+                        nb = [min(b1[0], b2[0]), min(b1[1], b2[1]), max(b1[2], b2[2]), max(b1[3], b2[3])]
+                        if (nb[2] - nb[0]) <= max_dim and (nb[3] - nb[1]) <= max_dim:
+                            id1, id2 = icons[i]["id"], icons[j]["id"]
+                            sub_l = lab[nb[1]:nb[3], nb[0]:nb[2]]
+                            sub_l[sub_l == id2] = id1
+                            icons[i]["box"] = nb
+                            icons[i]["ink"] += icons[j]["ink"]
+                            icons.pop(j)
+                            merged = True
+                            break
     # reading order: cluster rows by vertical centre
     if icons:
         hs = np.median([ic["box"][3] - ic["box"][1] for ic in icons])

@@ -285,14 +285,22 @@ def build_chains(branches, snap_width=True):
         d1, d2 = info[a]["d"], info[b]["d"]
         cr1 = d1[0] * u_spur[1] - d1[1] * u_spur[0]
         cr2 = d2[0] * u_spur[1] - d2[1] * u_spur[0]
-        if d1 @ d2 < -0.65 and L_spur_pts <= 2.2 * W0:
+        if d1 @ d2 < -0.65:
             used_j.add(j0)
-            skip_bridges.add(spur[0])
             A1, A2 = info[a]["A"], info[b]["A"]
             n_pts = max(2, int(np.linalg.norm(A2 - A1)) + 1)
             pts = np.linspace(A1, A2, n_pts)
             link[a] = (b, pts)
             link[b] = (a, pts[::-1])
+            if L_spur_pts <= 0.75 * W0:
+                skip_bridges.add(spur[0])
+            else:
+                thr = np.vstack([info[a]["kept"], pts, info[b]["kept"][::-1]])
+                Ao, do = info[spur]["A"], info[spur]["d"]
+                ts = np.arange(0, 4 * W0, 0.5)
+                ray = Ao[None] + do[None] * ts[:, None]
+                dist = np.array([np.min(np.linalg.norm(thr - r, axis=1)) for r in ray])
+                ext[spur] = Ao + do * ts[int(np.argmin(dist))]
             continue
         if (
             d1 @ u_spur > np.cos(np.radians(58))

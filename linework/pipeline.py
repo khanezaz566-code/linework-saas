@@ -285,6 +285,16 @@ def _process_icon(gray, opts: Options = None, emit=_noop, name="icon", set_w=Non
         if best[0] >= opts.trace_ok:
             break
     if best is None:
+        # Check if the icon is composed of compact dots or solid circular disks
+        empty_m = Model([], W, H)
+        nd = add_dots(empty_m, D)
+        if nd and empty_m.paths:
+            ink_dots = ink_of(empty_m)
+            iou_dots = doctor.iou(ink_dots)
+            if iou_dots >= 0.70:
+                w_dots = float(np.median([p.w for p in empty_m.paths]))
+                best = (iou_dots, 1, 1.0, (empty_m, w_dots, nd, nd))
+    if best is None:
         return dict(model=Model([], W, H), svg=Model([], W, H).svg(), metrics=dict(iou=0, error="no ink"))
     _, s, sf, (model, W0, nbr, nch) = best
     if opts.memory and not opts.superres:
