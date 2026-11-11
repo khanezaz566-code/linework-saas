@@ -1143,17 +1143,20 @@ def craft_model(model: Model, D: np.ndarray, doctor: Doctor, W0: float = 10.0) -
                     ch_out = cp.A[kn] - C
                     cp.Hin[k_start] = C - ch_in / 3.0
                     cp.Hout[k_start] = C + ch_out / 3.0
-                elif not p_p.closed and len(facet_indices) == 2:
+                elif len(facet_indices) == 2:
                     cp.A[k_start] = C.copy()
+                    if p_p.closed and k_start == 0:
+                        cp.A[-1] = C.copy()
                     cp.A = np.delete(cp.A, k_end, axis=0)
                     cp.Hin = np.delete(cp.Hin, k_end, axis=0)
                     cp.Hout = np.delete(cp.Hout, k_end, axis=0)
                     ch_in = C - cp.A[kp]
-                    ch_out = cp.A[k_start + 1] - C
+                    next_idx_new = (k_start + 1) % len(cp.A) if p_p.closed else k_start + 1
+                    ch_out = cp.A[next_idx_new] - C
                     cp.Hout[kp] = cp.A[kp] + ch_in / 3.0
                     cp.Hin[k_start] = C - ch_in / 3.0
                     cp.Hout[k_start] = C + ch_out / 3.0
-                    cp.Hin[k_start + 1] = C + 2.0 * ch_out / 3.0
+                    cp.Hin[next_idx_new] = C + 2.0 * ch_out / 3.0
                 else:
                     for idx_f in facet_indices:
                         cp.A[idx_f] = C.copy()
@@ -1308,9 +1311,9 @@ def craft_model(model: Model, D: np.ndarray, doctor: Doctor, W0: float = 10.0) -
 
     for i in range(len(cur_m.paths)):
         p = cur_m.paths[i]
-        if p.closed and len(p.A) > 5:
+        if p.closed and len(p.A) >= 5:
             f = p.flat(0.5)
-            if len(f) >= 12:
+            if len(f) >= 8:
                 # Guard: never convert an axis-aligned square/rectangle into a circle
                 rx0, rx1 = np.percentile(f[:, 0], [3, 97])
                 ry0, ry1 = np.percentile(f[:, 1], [3, 97])
@@ -1329,7 +1332,7 @@ def craft_model(model: Model, D: np.ndarray, doctor: Doctor, W0: float = 10.0) -
                     oe_arr = np.array(other_ends)
                     d_oe = np.min(np.linalg.norm(f[:, None, :] - oe_arr[None, :, :], axis=2), axis=1)
                     inliers = f[d_oe > 1.05 * p.w]
-                    if len(inliers) >= max(10, int(0.55 * len(f))):
+                    if len(inliers) >= max(8, int(0.50 * len(f))):
                         f_fit = inliers
                 cx, cy, r = _kasa(f_fit)
                 rad_err = np.abs(np.hypot(f_fit[:, 0] - cx, f_fit[:, 1] - cy) - r)
@@ -1338,9 +1341,9 @@ def craft_model(model: Model, D: np.ndarray, doctor: Doctor, W0: float = 10.0) -
                     continue
                 if float(np.percentile(d_rect, 85)) <= max(1.25, 0.13 * p.w) and max(rx1 - rx0, ry1 - ry0) <= 3.6 * p.w:
                     continue
-                if r >= 0.50 * p.w:
-                    tol_rad = 0.22 * p.w if r >= 1.2 * p.w else 0.18 * p.w
-                    if float(np.percentile(rad_err, 90)) <= tol_rad and float(np.percentile(rad_err_all, 90)) <= 0.34 * p.w:
+                if r >= 0.45 * p.w:
+                    tol_rad = max(0.85, 0.22 * p.w if r >= 1.2 * p.w else 0.18 * p.w)
+                    if float(np.percentile(rad_err, 90)) <= tol_rad and float(np.percentile(rad_err_all, 90)) <= max(1.20, 0.34 * p.w):
                         center = np.array([cx, cy])
                         A_c, Hi_c, Ho_c = E.ellipse_beziers(center, r, r, 0.0)
                         cand = cur_m.copy()
@@ -1431,13 +1434,13 @@ def craft_model(model: Model, D: np.ndarray, doctor: Doctor, W0: float = 10.0) -
                     if float(np.min(np.linalg.norm(f_old_sr - pt_e, axis=1))) <= 0.55 * p_new.w:
                         k_near = int(np.argmin(np.linalg.norm(f_new_sr - pt_e, axis=1)))
                         T._move_end(q_o, e_idx, f_new_sr[k_near])
-            if try_accept(cand, step_soft_tol=32.0, step_iou_drop=0.0025, structural=True):
+            if try_accept(cand, step_soft_tol=32.0, step_iou_drop=0.0035, structural=True):
                 p_c = cur_m.paths[i]
                 bw_c = float(p_c.A[:, 0].max() - p_c.A[:, 0].min())
                 bh_c = float(p_c.A[:, 1].max() - p_c.A[:, 1].min())
                 cx_c = float(p_c.A[:, 0].mean())
                 cy_c = float(p_c.A[:, 1].mean())
-                rect_infos.append([i, cx_c, cy_c, bw_c, bh_c, p_c.w])
+                rect_infos.append([i, cx_c, cy_c, bw_c, bh_c, p_c.w, r_info])
                 continue
 
         p = cur_m.paths[i]
@@ -1480,7 +1483,7 @@ def craft_model(model: Model, D: np.ndarray, doctor: Doctor, W0: float = 10.0) -
         cand = cur_m.copy()
         cand.paths[i] = _make_rect_path(cx_r - 0.5 * bw, cy_r - 0.5 * bh, cx_r + 0.5 * bw, cy_r + 0.5 * bh, p.w, p.join, p.ml)
         if try_accept(cand, step_soft_tol=18.0, step_iou_drop=0.0006, structural=True):
-            rect_infos.append([i, cx_r, cy_r, bw, bh, p.w])
+            rect_infos.append([i, cx_r, cy_r, bw, bh, p.w, (0.0, 0.0, 0.0, 0.0, p.join)])
 
     # Equalize repeating squares/rectangles (e.g. 3x3 keypad grids, paired plug slots)
     if len(rect_infos) >= 2:
@@ -1490,11 +1493,11 @@ def craft_model(model: Model, D: np.ndarray, doctor: Doctor, W0: float = 10.0) -
                 continue
             grp = [a_idx]
             used_g.add(a_idx)
-            _, _, _, bw_a, bh_a, _ = rect_infos[a_idx]
+            _, _, _, bw_a, bh_a, _ = rect_infos[a_idx][:6]
             for b_idx in range(a_idx + 1, len(rect_infos)):
                 if b_idx in used_g:
                     continue
-                _, _, _, bw_b, bh_b, _ = rect_infos[b_idx]
+                _, _, _, bw_b, bh_b, _ = rect_infos[b_idx][:6]
                 if abs(bw_a - bw_b) <= 0.22 * max(bw_a, bw_b) and abs(bh_a - bh_b) <= 0.22 * max(bh_a, bh_b):
                     grp.append(b_idx)
                     used_g.add(b_idx)
@@ -1502,13 +1505,19 @@ def craft_model(model: Model, D: np.ndarray, doctor: Doctor, W0: float = 10.0) -
                 med_bw = float(np.median([rect_infos[g][3] for g in grp]))
                 med_bh = float(np.median([rect_infos[g][4] for g in grp]))
                 med_w = float(np.median([rect_infos[g][5] for g in grp]))
+                med_rtl = float(np.median([rect_infos[g][6][0] for g in grp]))
+                med_rtr = float(np.median([rect_infos[g][6][1] for g in grp]))
+                med_rbr = float(np.median([rect_infos[g][6][2] for g in grp]))
+                med_rbl = float(np.median([rect_infos[g][6][3] for g in grp]))
                 if abs(med_bw - med_bh) <= 0.10 * max(med_bw, med_bh):
                     med_bw = med_bh = 0.5 * (med_bw + med_bh)
                 cxs = [rect_infos[g][1] for g in grp]
                 cys = [rect_infos[g][2] for g in grp]
+                tol_align_x = min(0.18 * med_bw, 2.5)
+                tol_align_y = min(0.18 * med_bh, 2.5)
                 for g in grp:
-                    near_x = [x_v for x_v in cxs if abs(x_v - rect_infos[g][1]) <= 0.30 * W0]
-                    near_y = [y_v for y_v in cys if abs(y_v - rect_infos[g][2]) <= 0.30 * W0]
+                    near_x = [x_v for x_v in cxs if abs(x_v - rect_infos[g][1]) <= tol_align_x]
+                    near_y = [y_v for y_v in cys if abs(y_v - rect_infos[g][2]) <= tol_align_y]
                     rect_infos[g][1] = float(np.median(near_x))
                     rect_infos[g][2] = float(np.median(near_y))
                 best_grp_paths = None
@@ -1517,13 +1526,21 @@ def craft_model(model: Model, D: np.ndarray, doctor: Doctor, W0: float = 10.0) -
                     cand_g = cur_m.copy()
                     bw_t, bh_t, w_t = med_bw * s_sc, med_bh * s_sc, med_w * w_sc
                     for g in grp:
-                        pi_g, cx_g, cy_g, _, _, _ = rect_infos[g]
+                        pi_g, cx_g, cy_g, _, _, _ = rect_infos[g][:6]
                         p_old = cand_g.paths[pi_g]
-                        cand_g.paths[pi_g] = _make_rect_path(
-                            cx_g - 0.5 * bw_t, cy_g - 0.5 * bh_t,
-                            cx_g + 0.5 * bw_t, cy_g + 0.5 * bh_t,
-                            w_t, p_old.join, p_old.ml,
-                        )
+                        if max(med_rtl, med_rtr, med_rbr, med_rbl) > 0.25:
+                            cand_g.paths[pi_g] = make_smart_rect(
+                                cx_g - 0.5 * bw_t, cy_g - 0.5 * bh_t,
+                                cx_g + 0.5 * bw_t, cy_g + 0.5 * bh_t,
+                                med_rtl * s_sc, med_rtr * s_sc, med_rbr * s_sc, med_rbl * s_sc,
+                                w_t, p_old.join, p_old.ml,
+                            )
+                        else:
+                            cand_g.paths[pi_g] = _make_rect_path(
+                                cx_g - 0.5 * bw_t, cy_g - 0.5 * bh_t,
+                                cx_g + 0.5 * bw_t, cy_g + 0.5 * bh_t,
+                                w_t, p_old.join, p_old.ml,
+                            )
                     s_g = doctor.soft(ink_of(cand_g))
                     if best_grp_soft is None or s_g < best_grp_soft:
                         best_grp_soft = s_g
@@ -2012,6 +2029,20 @@ def craft_model(model: Model, D: np.ndarray, doctor: Doctor, W0: float = 10.0) -
             if len(segs) <= min_segs:
                 continue
 
+            # Canonical primitive protection: never pairwise-merge 4-anchor circles/rectangles or 8-anchor squircles
+            if p.closed and len(segs) in (4, 8):
+                if len(segs) == 4:
+                    continue
+                # For 8-segment paths: check if segments have roughly alternating straight lines and arcs
+                is_canonical_8 = True
+                for s_chk in segs:
+                    v_chk = s_chk[3] - s_chk[0]
+                    if float(np.linalg.norm(v_chk)) < 0.5:
+                        is_canonical_8 = False
+                        break
+                if is_canonical_8:
+                    continue
+
             if p.closed and len(segs) > 4:
                 N = len(segs)
                 turns = []
@@ -2045,7 +2076,8 @@ def craft_model(model: Model, D: np.ndarray, doctor: Doctor, W0: float = 10.0) -
                     if L1 < 1.0 or L2 < 1.0:
                         continue
                     u1, u2 = v1 / L1, v2 / L2
-                    if float(u1 @ u2) < np.cos(np.radians(52.0)):
+                    turn_deg = float(np.degrees(np.arccos(np.clip(u1 @ u2, -1.0, 1.0))))
+                    if turn_deg > 24.0:
                         continue
 
                     # Rounded-rectangle & straight-to-arc guard: never merge a straight side with a curved corner arc
@@ -2053,13 +2085,13 @@ def craft_model(model: Model, D: np.ndarray, doctor: Doctor, W0: float = 10.0) -
                     perp2 = np.array([-u2[1], u2[0]])
                     dev1 = max(abs(float((s1[1] - s1[0]) @ perp1)), abs(float((s1[2] - s1[0]) @ perp1)))
                     dev2 = max(abs(float((s2[1] - s2[0]) @ perp2)), abs(float((s2[2] - s2[0]) @ perp2)))
-                    str1 = (dev1 <= max(0.75, 0.09 * p.w) and L1 >= 2.15 * p.w)
-                    str2 = (dev2 <= max(0.75, 0.09 * p.w) and L2 >= 2.15 * p.w)
-                    curv1 = (dev1 > max(1.05, 0.13 * p.w))
-                    curv2 = (dev2 > max(1.05, 0.13 * p.w))
+                    str1 = (dev1 <= max(0.65, 0.08 * p.w))
+                    str2 = (dev2 <= max(0.65, 0.08 * p.w))
+                    curv1 = (dev1 > max(0.85, 0.10 * p.w))
+                    curv2 = (dev2 > max(0.85, 0.10 * p.w))
                     if (str1 and curv2) or (str2 and curv1):
                         continue
-                    if (str1 or str2) and float(u1 @ u2) < np.cos(np.radians(16.0)):
+                    if (str1 or str2) and turn_deg > 14.0:
                         continue
 
                     t_in = unit(s1[3] - s1[2]) if np.linalg.norm(s1[3] - s1[2]) > 1e-4 else u1

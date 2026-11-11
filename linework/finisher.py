@@ -1347,8 +1347,16 @@ def simplify_path_segments(st, pi: int, doctor, ink_of, start_s: float, drift_ca
         p = m.paths[pi]
         segs = p.segs()
         n = len(segs)
-        if n < 2:
+        if n < 2 or (p.closed and n <= 4):
             break
+        if p.closed and n == 8:
+            is_rr_8 = True
+            for s_chk in segs:
+                if float(np.linalg.norm(s_chk[3] - s_chk[0])) < 0.5:
+                    is_rr_8 = False
+                    break
+            if is_rr_8:
+                break
         max_dev_str = max(0.65, 0.12 * p.w)
         cos_lim = np.cos(np.radians(14.0))
         cos_short = np.cos(np.radians(22.0))
@@ -2047,7 +2055,9 @@ def finish(model: Model, D, doctor, ink_of, cur, w, time_ok=lambda: True, max_ho
         if i >= len(st["model"].paths):
             break
         p = st["model"].paths[i]
-        if p.closed and len(p.segs()) == 4 and E.fit_ellipse(p.flat()) is not None:
+        if p.closed and len(p.segs()) <= 4:
+            continue
+        if p.closed and len(p.segs()) == 8:
             continue
         q2, q1 = collapse_straight_runs(p)
         for q_cand in (q2, q1):
