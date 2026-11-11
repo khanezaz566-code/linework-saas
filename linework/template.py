@@ -747,9 +747,46 @@ def _render_adaptive_sheet_icons(
     off_y = sheet_y + inner_pad_y + (avail_h - target_h) / 2 - min_y * scale
     uniform_sheet_sw = max(3.2, med_w * scale * stroke_scale)
 
-    return (outer_frame_svg + "\n    " if outer_frame_svg else "") + _render_paths_svg(
-        model.paths, stroke_color, stroke_scale, scale, off_x, off_y, target_screen_sw=uniform_sheet_sw
+    rendered_cells = []
+    if decor != "none" and avail_icons:
+        boxes = [ic["box"] for ic in avail_icons if "box" in ic and len(ic["box"]) == 4]
+        if boxes:
+            box_ws = [max(10.0, (b[2] - b[0]) * scale) for b in boxes]
+            box_hs = [max(10.0, (b[3] - b[1]) * scale) for b in boxes]
+            med_bw = float(np.median(box_ws))
+            med_bh = float(np.median(box_hs))
+
+            cxs = [((b[0] + b[2]) / 2.0) * scale + off_x for b in boxes]
+            cys = [((b[1] + b[3]) / 2.0) * scale + off_y for b in boxes]
+            dxs = [abs(cxs[a] - cxs[b]) for a in range(len(cxs)) for b in range(a + 1, len(cxs)) if abs(cxs[a] - cxs[b]) > 25]
+            dys = [abs(cys[a] - cys[b]) for a in range(len(cys)) for b in range(a + 1, len(cys)) if abs(cys[a] - cys[b]) > 25]
+            min_gap_x = min(dxs) if dxs else 999.0
+            min_gap_y = min(dys) if dys else 999.0
+            max_allowed = min(min_gap_x, min_gap_y) * 0.92 if min(min_gap_x, min_gap_y) < 900.0 else max(med_bw, med_bh) * 1.5
+            ideal_dim = min(max_allowed, max(med_bw, med_bh) * 1.45)
+
+            for i, ic in enumerate(avail_icons):
+                bx1, by1, bx2, by2 = ic.get("box", [0, 0, 100, 100])
+                ic_cx = ((bx1 + bx2) / 2.0) * scale + off_x
+                ic_cy = ((by1 + by2) / 2.0) * scale + off_y
+                ic_w = max(10.0, (bx2 - bx1) * scale)
+                ic_h = max(10.0, (by2 - by1) * scale)
+                c_dim = min(max_allowed, max(ideal_dim, max(ic_w, ic_h) * 1.25))
+                rendered_cells.append(
+                    _render_cell_box_svg(decor, ic_cx, ic_cy, c_dim, c_dim, banner_bg, stroke_color, accent, i)
+                )
+
+    res_parts = []
+    if outer_frame_svg:
+        res_parts.append(outer_frame_svg)
+    if rendered_cells:
+        res_parts.extend(rendered_cells)
+    res_parts.append(
+        _render_paths_svg(
+            model.paths, stroke_color, stroke_scale, scale, off_x, off_y, target_screen_sw=uniform_sheet_sw
+        )
     )
+    return "\n    ".join(res_parts)
 
 
 def _get_font_css(font_family: str = "bebas") -> tuple[str, str, str, str]:

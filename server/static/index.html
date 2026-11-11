@@ -1599,13 +1599,13 @@
                     <span class="cat-count">25</span>
                   </button>
                   <button type="button" class="maker-cat-btn" data-cat="showcase_shape">
-                    <span class="cat-icon">🔲</span>
-                    <span class="cat-label">Icon Box</span>
+                    <span class="cat-icon">⭐</span>
+                    <span class="cat-label">Hero Shape</span>
                     <span class="cat-count">25</span>
                   </button>
                   <button type="button" class="maker-cat-btn" data-cat="decor_element">
                     <span class="cat-icon">▦</span>
-                    <span class="cat-label">Square Grid</span>
+                    <span class="cat-label">Grid Cards</span>
                     <span class="cat-count">25</span>
                   </button>
                 </div>
@@ -1620,48 +1620,45 @@
               </div>
             </div>
 
-            <!-- 2. Featured Showcase Icon Selector -->
+            <!-- 2. Featured Showcase Icon & Shape Selector -->
             <div class="card panel tpl-panel" id="featuredIconPanel">
               <div class="panel-header">
-                <h3><span class="component-step-badge">2</span> Select Icon From Sheet</h3>
+                <h3><span class="component-step-badge">2</span> ⭐ Hero Showcase Shape &amp; Icon (হিরো ফ্রেম ও শেপ)</h3>
                 <span class="badge-live" id="featuredIconBadge">#1 Selected</span>
               </div>
               <div class="panel-body">
                 <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:8px;">
                   <label class="check-row" style="margin:0;">
                     <input type="checkbox" id="tplShowHighlight" checked style="accent-color:var(--accent);">
-                    <span style="font-size:12px; font-weight:600;">Show Icon Showcase Box</span>
+                    <span style="font-size:12px; font-weight:600;">Show Hero Showcase Box</span>
                   </label>
                 </div>
-                <div class="param-row" style="margin-bottom:8px; flex-direction:column; gap:5px; align-items:flex-start;">
-                  <span style="font-size:11px; color:var(--text-muted); font-weight:600;">Showcase Display Mode:</span>
-                  <div class="seg tpl-hl-mode-seg" id="tplHighlightModeSeg" style="width:100%; display:grid; grid-template-columns: repeat(3, 1fr); gap:4px;">
-                    <button type="button" data-v="hero_1" class="on" style="font-size:11px; padding:5px 2px;">⭐ 1 Hero Icon</button>
-                    <button type="button" data-v="mini_4" style="font-size:11px; padding:5px 2px;">⊞ 4 Icons</button>
-                    <button type="button" data-v="mini_6" style="font-size:11px; padding:5px 2px;">▦ 6 Icons</button>
-                  </div>
-                </div>
 
-                <!-- Showcase Box Shape & Style Selector -->
-                <div class="param-row" style="margin-bottom:10px; flex-direction:column; gap:6px; align-items:flex-start;">
+                <!-- Showcase Box Shape & Style Selector (PROMINENT AT TOP) -->
+                <div class="param-row" style="margin-bottom:12px; padding:10px 12px; background:rgba(0,245,160,0.04); border:1px solid rgba(0,245,160,0.22); border-radius:8px; flex-direction:column; gap:8px; align-items:flex-start;">
                   <div style="display:flex; justify-content:space-between; width:100%; align-items:center;">
-                    <span style="font-size:11px; color:var(--text-muted); font-weight:600;">Showcase Frame Shape (হিরো ফ্রেম শেপ):</span>
-                    <span class="val-pill" id="tplShowcaseShapeBadge" style="font-size:10px;">Square Box</span>
+                    <span style="font-size:11.5px; font-weight:800; color:var(--accent); text-transform:uppercase; letter-spacing:0.5px;">⭐ Hero Frame Shape (হিরো বক্স শেপ):</span>
+                    <span class="val-pill" id="tplShowcaseShapeBadge" style="font-size:10px; font-weight:700;">Square Box</span>
                   </div>
-                  <!-- Quick Visual Shape Buttons -->
+                  <!-- Quick Visual Shape Buttons (12 Top Styles) -->
                   <div class="seg tpl-sc-shape-seg" id="tplShowcaseShapeQuickSeg" style="width:100%; display:grid; grid-template-columns: repeat(4, 1fr); gap:4px;">
                     <button type="button" data-v="square_box" class="on" title="Classic Tech Square Box">⬛ Square</button>
                     <button type="button" data-v="squircle_super" title="Modern Smooth Squircle">🔲 Squircle</button>
                     <button type="button" data-v="orbital_rings" title="Spotlight Circle with Rings">⭕ Circle</button>
+                    <button type="button" data-v="hexagon_pod" title="Geometric Hexagon Pod">⬡ Hexagon</button>
                     <button type="button" data-v="glass_card" title="Frosted Glass Aesthetic">💎 Glass</button>
                     <button type="button" data-v="floating_card" title="Elevated Floating Shadow Card">🪄 Floating</button>
                     <button type="button" data-v="arch_window" title="Architectural Arch Dome">🏛️ Arch</button>
+                    <button type="button" data-v="shield_crest" title="Security Shield Crest">🛡️ Shield</button>
                     <button type="button" data-v="hud_tech_box" title="Modern CAD / Blueprint HUD">📐 CAD HUD</button>
+                    <button type="button" data-v="ticket_box" title="Ticket Notch Box">🎟️ Ticket</button>
+                    <button type="button" data-v="stamp_perforated" title="Perforated Stamp Edge">🏷️ Stamp</button>
                     <button type="button" data-v="clean_glow" title="Minimal Borderless Glow">✨ Clean Glow</button>
                   </div>
                   <!-- Dropdown with all shapes -->
                   <div style="display:flex; width:100%; gap:6px; align-items:center; margin-top:2px;">
-                    <select id="tplShowcaseShapeSelect" style="flex:1; font-size:11px; padding:5px 8px; background:var(--bg-card); border:1px solid rgba(255,255,255,0.14); border-radius:6px; color:var(--text);">
+                    <span style="font-size:10.5px; color:var(--text-muted); white-space:nowrap;">All 27 Shapes:</span>
+                    <select id="tplShowcaseShapeSelect" style="flex:1; font-size:11px; padding:5px 8px; background:var(--bg-card); border:1px solid rgba(255,255,255,0.18); border-radius:6px; color:var(--text);">
                       <option value="square_box">1. Classic Square Box</option>
                       <option value="squircle_super">2. Modern Soft Squircle</option>
                       <option value="orbital_rings">3. Spotlight Orbital Rings</option>

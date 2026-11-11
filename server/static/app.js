@@ -1417,11 +1417,11 @@
       prop: 'title_highlight'
     },
     showcase_shape: {
-      title: '3. Featured Icon Showcase Boxes (25 Styles) — Default is Square Box:',
+      title: '3. ⭐ Hero Showcase Frame Shapes (25 Styles) — Click any shape to change the hero box:',
       prop: 'showcase_shape'
     },
     decor_element: {
-      title: '4. Square Icon Grid, Cell Boxes & Borders (25 Styles) — Default is Square Artboard Box:',
+      title: '4. ▦ Icon Grid Cards & Cell Background Designs (25 Styles) — Works in Auto & Original Sheet Fit:',
       prop: 'decor_element'
     }
   };
@@ -2364,6 +2364,19 @@
         const container = $('#templateSvgContainer');
         if (container) {
           container.innerHTML = svgContent;
+          const scBox = container.querySelector('#showcaseBoxComponent');
+          if (scBox) {
+            scBox.style.cursor = 'pointer';
+            scBox.setAttribute('title', 'Click to change Hero Showcase Frame Shape');
+            scBox.onclick = (e) => {
+              e.stopPropagation();
+              const heroTab = $(`#makerCatTabs .maker-cat-btn[data-cat="showcase_shape"]`);
+              if (heroTab) heroTab.click();
+              const p2 = $('#featuredIconPanel');
+              if (p2) p2.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+              toast('⭐ Hero Showcase Shape: Pick any of the 25 shapes below!');
+            };
+          }
         }
       }
     } catch (e) {
