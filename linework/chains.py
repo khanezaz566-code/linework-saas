@@ -314,6 +314,11 @@ def build_chains(branches, snap_width=True):
                 V = T_tip.copy()
             ext[a] = V
             ext[b] = V
+            n1 = max(2, int(np.linalg.norm(V - A1)) + 1)
+            n2 = max(2, int(np.linalg.norm(A2 - V)) + 1)
+            corner_pts = np.vstack([np.linspace(A1, V, n1), np.linspace(V, A2, n2)[1:]])
+            link[a] = (b, corner_pts)
+            link[b] = (a, corner_pts[::-1])
 
     for j, l in ends.items():
         if j in used_j and j not in stair_junc:
@@ -499,9 +504,12 @@ def build_chains(branches, snap_width=True):
             key = (cur, te)
             if key in link:
                 (j, e2), bp = link[key]
-                parts.append(bp[1:-1] if len(bp) > 2 else bp[:0])
                 if j in seen:
+                    p0 = parts[0][0]
+                    n_close = max(2, int(np.linalg.norm(p0 - parts[-1][-1])) + 1)
+                    parts.append(np.linspace(parts[-1][-1], p0, n_close)[1:])
                     break
+                parts.append(bp[1:-1] if len(bp) > 2 else bp[:0])
                 cur, e = j, e2
                 continue
             if key in info and key in ext:

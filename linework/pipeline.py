@@ -101,7 +101,7 @@ def process_icon(gray, opts: Options = None, emit=_noop, name="icon"):
         met = dict(prev["metrics"], from_memory=True)
         return dict(model=m, svg=m.svg(), metrics=met, decision=met.get("decision"), clean=met.get("clean", True), model_pre_decision=m.copy())
     t_icon_start = time.time()
-    t_icon_deadline = t_icon_start + (14.0 if opts.quality != "precise" else 24.0)
+    t_icon_deadline = t_icon_start + max(35.0, 3.0 * float(opts.time_budget or (14.0 if opts.quality != "precise" else 24.0)))
     time_icon_ok = lambda: time.time() < t_icon_deadline
     r = _process_icon_scaled(gray, opts, emit, name)
     from . import decision as DC
@@ -230,7 +230,7 @@ def _process_icon(gray, opts: Options = None, emit=_noop, name="icon", set_w=Non
     opts = opts or Options()
     cfg = opts.resolved()
     t0 = time.time()
-    t_deadline = t0 + (10.0 if opts.quality != "precise" else 18.0)
+    t_deadline = t0 + max(28.0, 2.5 * float(cfg.get("time_budget", 12.0)))
     time_ok = lambda: time.time() < t_deadline
     D = ink_map(gray)
     H, W = D.shape
