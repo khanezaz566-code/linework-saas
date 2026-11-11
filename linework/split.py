@@ -42,7 +42,12 @@ def find_icons(D, merge=1.15, min_area_w2=6.0):
         n_raw, lab_raw, st_raw, _ = cv2.connectedComponentsWithStats(mask)
         for i_r in range(1, n_raw):
             x_r, y_r, bw_r, bh_r, _ = st_raw[i_r]
-            if bw_r >= 0.85 * W_m and bh_r >= 0.85 * H_m:
+            is_outer_frame = (bw_r >= 0.85 * W_m and bh_r >= 0.85 * H_m)
+            is_letterbox_bar = (
+                (bw_r >= 0.70 * W_m and (y_r <= 4 or y_r + bh_r >= H_m - 4) and bw_r >= 5 * bh_r) or
+                (bh_r >= 0.70 * H_m and (x_r <= 4 or x_r + bw_r >= W_m - 4) and bh_r >= 5 * bw_r)
+            )
+            if is_outer_frame or is_letterbox_bar:
                 mask = mask.copy()
                 mask[lab_raw == i_r] = 0
     w = estimate_width(D)

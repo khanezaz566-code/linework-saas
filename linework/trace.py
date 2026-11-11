@@ -28,7 +28,12 @@ def ink_map(gray: np.ndarray) -> np.ndarray:
                 bg_val = int(np.median(inset))
                 for i_c in range(1, n_comp):
                     x_c, y_c, bw_c, bh_c, _ = st_comp[i_c]
-                    if bw_c >= 0.85 * W_c and bh_c >= 0.85 * H_c:
+                    is_outer_frame = (bw_c >= 0.85 * W_c and bh_c >= 0.85 * H_c)
+                    is_letterbox_bar = (
+                        (bw_c >= 0.70 * W_c and (y_c <= 4 or y_c + bh_c >= H_c - 4) and bw_c >= 5 * bh_c) or
+                        (bh_c >= 0.70 * H_c and (x_c <= 4 or x_c + bw_c >= W_c - 4) and bh_c >= 5 * bw_c)
+                    )
+                    if is_outer_frame or is_letterbox_bar:
                         g_u8 = g_u8.copy()
                         g_u8[lab_comp == i_c] = bg_val
     if is_dark_bg:
