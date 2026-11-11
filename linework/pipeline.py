@@ -101,7 +101,7 @@ def process_icon(gray, opts: Options = None, emit=_noop, name="icon"):
         met = dict(prev["metrics"], from_memory=True)
         return dict(model=m, svg=m.svg(), metrics=met, decision=met.get("decision"), clean=met.get("clean", True), model_pre_decision=m.copy())
     t_icon_start = time.time()
-    t_icon_deadline = t_icon_start + max(35.0, 3.0 * float(opts.time_budget or (14.0 if opts.quality != "precise" else 24.0)))
+    t_icon_deadline = t_icon_start + max(60.0, 5.0 * float(opts.time_budget or (14.0 if opts.quality != "precise" else 24.0)))
     time_icon_ok = lambda: time.time() < t_icon_deadline
     r = _process_icon_scaled(gray, opts, emit, name)
     from . import decision as DC
@@ -230,16 +230,16 @@ def _process_icon(gray, opts: Options = None, emit=_noop, name="icon", set_w=Non
     opts = opts or Options()
     cfg = opts.resolved()
     t0 = time.time()
-    t_deadline = t0 + max(28.0, 2.5 * float(cfg.get("time_budget", 12.0)))
-    time_ok = lambda: time.time() < t_deadline
+    t_deadline = t0 + max(60.0, 5.0 * float(cfg.get("time_budget", 12.0)))
+    c0 = time.process_time()
+    bud = [float(cfg["time_budget"])]
+    time_ok = lambda: (time.process_time() - c0 < bud[0] * 1.5) and (time.time() < t_deadline)
     D = ink_map(gray)
     H, W = D.shape
     ev = lambda engine, msg, **kw: emit(engine=engine, msg=msg, icon=name, t=round(time.time() - t0, 2), **kw)
     # Budget = CPU time actually spent on this icon (not wall-clock), so quality does not depend on how busy the machine is,
     # how many icons run in parallel, or where in the queue this icon sits.  Complex icons get a larger budget (set below).
-    c0 = time.time()
-    bud = [float(cfg["time_budget"])]
-    left = lambda: min(bud[0] - (time.time() - t0), t_deadline - time.time())
+    left = lambda: bud[0] - (time.process_time() - c0)
 
     ev("trace", "Tracing skeleton and centring strokes on their edges")
     w_est = estimate_width(D)
@@ -548,8 +548,6 @@ def _process_icon(gray, opts: Options = None, emit=_noop, name="icon", set_w=Non
                 n += do_weld()[0]
             elif cmd["path"] < len(state["model"].paths):
                 n += run(cmd)
-        for cmd in pending(Doctor.region_commands(rep, 4)):
-            n += run(cmd)
         if not n:
             break
     model, ink = state["model"], state["ink"]

@@ -227,8 +227,8 @@ def refine_region(m: Model, D, box, margin=12, **kw):
                 free.append(i)
     if not free:
         return m
-    kw.setdefault("taus", (0.6, 0.38, 0.3))
-    kw.setdefault("iters", 40)
+    kw.setdefault("taus", (0.6, 0.38))
+    kw.setdefault("iters", 18)
     return opt.refine(m, D, free=free, window=(x0, y0, x1, y1), **kw)
 
 

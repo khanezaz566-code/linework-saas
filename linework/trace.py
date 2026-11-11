@@ -86,7 +86,7 @@ def skeleton_branches(D: np.ndarray, S: int = 2, prune: int | None = None):
     dt = ndi.distance_transform_edt(mask)
     v = dt[sk]
     w_up = float(2 * np.median(v)) if v.size else (10.0 * S)
-    prune_eff = prune if prune is not None else max(7 * S, int(round(1.2 * w_up)))
+    prune_eff = prune if prune is not None else max(2 * S + 1, int(round(0.42 * w_up)))
     sk = _prune(sk, prune_eff, H, W)
     nb = ndi.convolve(sk.astype(int), _K, mode="constant") * sk
     junc = (nb >= 3) & sk
@@ -398,7 +398,7 @@ def refined_branches(D, S=2, prune=None):
     out = []
     for idx_b, b in enumerate(br_raw):
         P = resample(b["pts"], 1.0)
-        if len(P) < 4:
+        if len(P) < 3:
             continue
         P2, W = refine_branch(D, P, w_icon=w_icon)
         w = float(np.nanmedian(W)) if np.isfinite(W).any() else (w_icon or 0.0)
