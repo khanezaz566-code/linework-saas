@@ -4,9 +4,9 @@ import os, time, json
 from dataclasses import dataclass, asdict, field
 import numpy as np, cv2
 
-from .trace import ink_map, refined_branches
+from .trace import ink_map, refined_branches, find_fused_discs, erase_discs
 from .chains import build_chains
-from .fitting import initial_model, add_dots
+from .fitting import initial_model, add_dots, add_fused_discs
 from .doctor import Doctor, ink_of
 from .model import Model
 from . import edit as E
@@ -19,6 +19,8 @@ from . import structure as ST
 from . import joints as JN
 from . import lessons as LS
 from .split import find_icons, crop_icon, estimate_width
+
+_CAP_MULT = float(os.environ.get("LINEWORK_CAP_MULT", "1"))
 
 PRESETS = {
     "fast": dict(max_rounds=0, time_budget=7, region_edits=0, iters=14, taus=(1.0, 0.45)),
@@ -245,9 +247,13 @@ def _process_icon(gray, opts: Options = None, emit=_noop, name="icon", set_w=Non
     w_est = estimate_width(D)
     doctor = Doctor(D, sens=opts.sens)
 
+    fused = find_fused_discs(D, w_est) if os.environ.get("DISABLE_FUSED_DISCS") is None else []
+
     def trace_with(s, sf):
         """Skeleton -> chains -> fitted curves at s-times resolution, scaled back to source pixels."""
         Du = ink_map(cv2.resize(gray, (W * s, H * s), interpolation=cv2.INTER_CUBIC)) if s > 1 else D
+        if fused:  # fat round discs fused to strokes are traced separately, so they cannot bend the strokes around them
+            Du = erase_discs(Du, fused, s)
         br = refined_branches(Du)
         if not br:
             return None
@@ -256,6 +262,8 @@ def _process_icon(gray, opts: Options = None, emit=_noop, name="icon", set_w=Non
         if s > 1:
             m = m.scaled(1.0 / s, W, H)
             W0 = W0 / s
+        if fused:
+            add_fused_discs(m, fused)
         return m, W0, len(br), len(chains)
 
     # No single trace setting suits every icon (e.g. 3x resolution rescues fine gear teeth but can break a spring), so try a few
@@ -475,6 +483,12 @@ def _process_icon(gray, opts: Options = None, emit=_noop, name="icon", set_w=Non
             break
 
     model, ink = state["model"], state["ink"]
+    # Reserved budget for the topology / join stages. The fitting rounds above are allowed to use up the shared Edit budget on
+    # big or complex icons; without a reserve the Structure, Finisher, Join engine and Join policy were silently skipped
+    # (the Join check never ran at all) and the corners / T-junctions of exactly those icons were left unrepaired.
+    # Each stage keeps its own CPU cap, so the reserve is a hard upper bound: sum of the caps (~9.4 s) rounded up.
+    topo_reserve = 10.0 * max(1.0, _CAP_MULT)
+    time_ok_topo = lambda: (time.process_time() - c0 < bud[0] * 1.5 + topo_reserve) and (time.time() < t_deadline + 30.0)
     # final guard: never ship a duplicate centerline
     for cmd in pending(Doctor.commands(doctor.diagnose(model, ink))):
         if cmd["path"] < len(state["model"].paths):
@@ -488,20 +502,20 @@ def _process_icon(gray, opts: Options = None, emit=_noop, name="icon", set_w=Non
             ev("doctor", f"Safety net: {nm} missing piece(s) restored, {nr} stray piece(s) removed", iou=doctor.iou(ink2))
     # Structure engine: skeleton of the render vs skeleton of the source; lumps, wobble, fused or displaced strokes are snapped / smoothed / re-traced
     sx = dict(before=0.0, after=0.0, found=0, fixed=0, sites=[], unresolved=[])
-    if opts.structure and time_ok():
+    if opts.structure and time_ok_topo():
         sc0 = time.process_time()
-        scap = min(2.4, max(1.4, 0.14 * bud[0]))
-        m6, ink6, cur6, sx = SF.run_structure_engine(state["model"], D, doctor, ink_of, state["cur"], W0, time_ok=lambda: time.process_time() - sc0 < scap and time_ok(),
+        scap = _CAP_MULT * min(2.4, max(1.4, 0.14 * bud[0]))
+        m6, ink6, cur6, sx = SF.run_structure_engine(state["model"], D, doctor, ink_of, state["cur"], W0, time_ok=lambda: time.process_time() - sc0 < scap and time_ok_topo(),
                                                     memory_skip=(LS.skip_kinds() if opts.memory else ()))
         if sx["fixed"]:
             state.update(model=m6, ink=ink6, cur=cur6)
         ev("doctor", f"Structure check: score {sx['before']:.2f} -> {sx['after']:.2f}, {sx['fixed']}/{sx['found']} site(s) repaired, {len(sx['unresolved'])} left for review", iou=doctor.iou(state["ink"]))
     # Finisher: inspect this icon on its own and fix the few places that still look machine-made (each fix verified)
     fin = dict(found=0, fixed=0, sites=[])
-    if opts.finish and time_ok():
+    if opts.finish and time_ok_topo():
         fc0 = time.process_time()
-        fcap = min(2.6, max(1.5, 0.15 * bud[0]))
-        m3, ink3, cur3, fin = FN.finish(state["model"], D, doctor, ink_of, state["cur"], W0, time_ok=lambda: time.process_time() - fc0 < fcap and time_ok(),
+        fcap = _CAP_MULT * min(2.6, max(1.5, 0.15 * bud[0]))
+        m3, ink3, cur3, fin = FN.finish(state["model"], D, doctor, ink_of, state["cur"], W0, time_ok=lambda: time.process_time() - fc0 < fcap and time_ok_topo(),
                                        set_w=set_w, skip=(LS.skip_kinds() if opts.memory else ()))
         if fin["fixed"]:
             iou_pre_fin = doctor.iou(state["ink"])
@@ -511,10 +525,10 @@ def _process_icon(gray, opts: Options = None, emit=_noop, name="icon", set_w=Non
         ev("doctor", f"Finisher: {fin['found']} site(s) inspected, {fin['fixed']} fixed", iou=doctor.iou(state["ink"]))
     # Join engine: every joint is checked on its own; failing joints are repaired with the pen / line / arc / shape tools and re-checked
     jn = dict(total=0, clean_first=0, fixed=dict(unite=0, pen=0, line=0, arc=0, shape=0), unresolved=[], built=0)
-    if opts.joins and time_ok():
+    if opts.joins and time_ok_topo():
         jc0 = time.process_time()
-        jcap = min(2.4, max(1.4, 0.14 * bud[0]))
-        m5, ink5, cur5, jn = JN.run_join_engine(state["model"], D, doctor, ink_of, state["cur"], W0, time_ok=lambda: time.process_time() - jc0 < jcap and time_ok())
+        jcap = _CAP_MULT * min(2.4, max(1.4, 0.14 * bud[0]))
+        m5, ink5, cur5, jn = JN.run_join_engine(state["model"], D, doctor, ink_of, state["cur"], W0, time_ok=lambda: time.process_time() - jc0 < jcap and time_ok_topo())
         # Quality Guard: only accept join modifications if it does not degrade the icon match!
         iou_pre_join = doctor.iou(state["ink"])
         iou_post_join = doctor.iou(ink5)
@@ -524,13 +538,13 @@ def _process_icon(gray, opts: Options = None, emit=_noop, name="icon", set_w=Non
         ev("doctor", f"Join check: {jn['total']} joint(s), {jn['clean_first']} clean at first look, {jn['built']} built, {nf} repaired, {len(jn['unresolved'])} left for review", iou=doctor.iou(state["ink"]))
     # Join policy guard: re-judge round / bevel / miter (+ miter limit) of every path with a corner on the real render; spikes are punished
     nsp = 0
-    if opts.joins and not os.environ.get("DISABLE_SPIKE_GUARD") and time_ok():
+    if opts.joins and not os.environ.get("DISABLE_SPIKE_GUARD") and time_ok_topo():
         pc0 = time.process_time()
-        m8, ink8, cur8, nsp = JP.spike_guard(state["model"], D, doctor, ink_of, state["cur"], time_ok=lambda: time.process_time() - pc0 < min(2.0, max(1.2, 0.12 * bud[0])) and time_ok())
+        m8, ink8, cur8, nsp = JP.spike_guard(state["model"], D, doctor, ink_of, state["cur"], time_ok=lambda: time.process_time() - pc0 < min(2.0, max(1.2, 0.12 * bud[0])) and time_ok_topo())
         if nsp:
             state.update(model=m8, ink=ink8, cur=cur8)
         ev("doctor", f"Join policy: {nsp} path(s) got a better join type / miter limit", iou=doctor.iou(state["ink"]))
-    if opts.joins and time_ok():
+    if opts.joins and time_ok_topo():
         m_lock = JN.lock_joints(state["model"])
         ink_lock = ink_of(m_lock)
         s_lock = doctor.soft(ink_lock)

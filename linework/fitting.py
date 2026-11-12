@@ -176,6 +176,38 @@ def initial_model(chains, D, sigma=2.0, err=0.3, dw=0.1) -> Model:
     return Model(paths, W, H)
 
 
+def add_fused_discs(model: Model, discs) -> int:
+    """Put back, as clean solid discs, the discs that trace.find_fused_discs cut out before skeletonisation.
+
+    The strokes that ran into a disc were cut at its rim, so their ends are re-attached to the disc: an end that heads towards
+    the disc centre is extended onto the disc's own centerline (radius R/2), which makes a proper T-junction instead of an
+    open gap that the Doctor would count and the user would see.
+    """
+    from . import edit as _E
+    from . import topology as _T
+    from .geom import unit as _unit
+    n0 = len(model.paths)
+    for cx, cy, R in discs:
+        c = np.array([cx + 0.5, cy + 0.5])
+        for p in model.paths[:n0]:
+            if p.closed or len(p.A) < 2:
+                continue
+            for e in (0, 1):
+                pt, tan = _T._end(p, e)
+                v = c - pt
+                d = float(np.linalg.norm(v))
+                if d < 1e-6 or d > 1.35 * R + 0.9 * p.w:
+                    continue
+                if float(_unit(v) @ tan) < 0.55:  # the stroke must point at the disc
+                    continue
+                target = c - _unit(c - pt) * (0.5 * R)
+                _T._move_end(p, e, target)
+        diam = float(2.0 * R)
+        A_c, Hi_c, Ho_c = _E.ellipse_beziers(c, diam / 4.0, diam / 4.0, 0.0)
+        model.paths.append(Path(A_c, Hi_c, Ho_c, max(diam / 2.0, 2.0), closed=True))
+    return len(discs)
+
+
 def add_dots(model: Model, D, min_frac=0.25):
     """Compact ink blobs left uncovered by the traced strokes (dots, i-dots, solid circular disks) become clean dots or solid circles."""
     import cv2 as _cv2
