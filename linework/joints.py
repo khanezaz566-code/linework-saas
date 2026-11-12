@@ -707,7 +707,7 @@ def corner_continuation_pairs(m: Model, J: Joint, D):
             cP, tP = (gP[0], gP[1]) if gP is not None else (P.A[0 if ei == 0 else -1], _local_end_dir(P, ei))
             cQ, tQ = (gQ[0], gQ[1]) if gQ is not None else (Q.A[0 if ek == 0 else -1], _local_end_dir(Q, ek))
             cr = float(tP[0] * tQ[1] - tP[1] * tQ[0])
-            if abs(cr) < 0.40:
+            if abs(cr) < 0.25:
                 continue
             sP = float((cQ - cP)[0] * tQ[1] - (cQ - cP)[1] * tQ[0]) / cr
             sQ = float((cQ - cP)[0] * tP[1] - (cQ - cP)[1] * tP[0]) / cr
@@ -718,7 +718,7 @@ def corner_continuation_pairs(m: Model, J: Joint, D):
             if dist_j > 1.35 * w:
                 continue
             dot = float(tP @ tQ)
-            if abs(dot) < 0.65:
+            if abs(dot) < 0.85:
                 score = abs(dot) + 0.5 * (dist_j / w)
                 if score < best_score:
                     best_score = score

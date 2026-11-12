@@ -141,6 +141,11 @@ def build_chains(branches, snap_width=True):
                                 col_pairs += 1
         return col_pairs >= 1
 
+    def has_parallel_stems(j0, j1, skip_ib=-1):
+        all0 = [(i, e) for (i, e) in raw_ends.get(j0, []) if i != skip_ib and (i, e) in raw_info]
+        all1 = [(i, e) for (i, e) in raw_ends.get(j1, []) if i != skip_ib and (i, e) in raw_info]
+        return any(float(raw_info[r0]["d"] @ raw_info[r1]["d"]) > 0.45 for r0 in all0 for r1 in all1)
+
     skip_bridges = set()
     cross_j = set()
     j_keys = sorted(raw_ends.keys())
@@ -153,13 +158,47 @@ def build_chains(branches, snap_width=True):
                 cross_j.add(j0)
                 cross_j.add(j1)
 
+    # 1. Contract micro-triangles (cycles of 3 junctions connected by short branches <= 1.65 * W0)
+    adj_j = {}
+    for ib, b in enumerate(br):
+        sj, ej = b["sj"], b["ej"]
+        if sj > 0 and ej > 0 and sj != ej:
+            adj_j.setdefault(sj, {})[ej] = (ib, len(b["pts"]))
+            adj_j.setdefault(ej, {})[sj] = (ib, len(b["pts"]))
+    for n1 in list(adj_j.keys()):
+        for n2 in list(adj_j.get(n1, {}).keys()):
+            if n2 <= n1:
+                continue
+            for n3 in list(adj_j.get(n2, {}).keys()):
+                if n3 <= n2:
+                    continue
+                if n3 in adj_j.get(n1, {}):
+                    l12 = adj_j[n1][n2][1]
+                    l23 = adj_j[n2][n3][1]
+                    l31 = adj_j[n3][n1][1]
+                    w_tri = max(W0, float(np.mean([br[i]["w"] for i in (adj_j[n1][n2][0], adj_j[n2][n3][0], adj_j[n3][n1][0])])))
+                    if max(l12, l23, l31) <= 1.65 * w_tri:
+                        par_j[find_j(n1)] = find_j(n2)
+                        par_j[find_j(n2)] = find_j(n3)
+                        skip_bridges.add(adj_j[n1][n2][0])
+                        skip_bridges.add(adj_j[n2][n3][0])
+                        skip_bridges.add(adj_j[n3][n1][0])
+
     for ib, b in enumerate(br):
         j0, j1 = b["sj"], b["ej"]
-        if j0 <= 0 or j1 <= 0 or j0 == j1:
+        if j0 <= 0 or j1 <= 0 or j0 == j1 or ib in skip_bridges:
             continue
         L_b = len(b["pts"])
         w_b = float(np.mean([br[i]["w"] for i, _ in raw_ends.get(j0, []) + raw_ends.get(j1, [])])) if (j0 in raw_ends and j1 in raw_ends) else W0
-        if L_b <= 1.25 * max(W0, w_b) and (has_collinear_cross(j0, j1, ib) or find_j(j0) == find_j(j1) or (L_b <= 0.85 * max(W0, w_b) and (j0 in cross_j or j1 in cross_j))):
+        w_eff = max(W0, w_b)
+        should_merge = False
+        if L_b <= 1.25 * w_eff and (has_collinear_cross(j0, j1, ib) or find_j(j0) == find_j(j1) or (L_b <= 0.85 * w_eff and (j0 in cross_j or j1 in cross_j))):
+            should_merge = True
+        elif L_b <= 0.35 * w_eff:
+            should_merge = True
+        elif L_b <= 0.88 * w_eff and not has_parallel_stems(j0, j1, ib):
+            should_merge = True
+        if should_merge:
             par_j[find_j(j0)] = find_j(j1)
             skip_bridges.add(ib)
     for ib, b in enumerate(br):

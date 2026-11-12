@@ -1177,17 +1177,32 @@ def _rotate_closed_to_turn(p: Path) -> Path:
         return p
     segs = p.segs()
     n = len(segs)
-    best_k, best_turn = 0, -1.0
+    best_k, best_score = 0, -1.0
     for k in range(n):
         s_prev = segs[(k - 1) % n]
         s_curr = segs[k]
+        L_prev = float(np.linalg.norm(s_prev[3] - s_prev[0]))
+        L_curr = float(np.linalg.norm(s_curr[3] - s_curr[0]))
+        if min(L_prev, L_curr) < 0.65 * p.w:
+            continue
         d_in = unit(s_prev[3] - s_prev[0])
         d_out = unit(s_curr[3] - s_curr[0])
         turn = 1.0 - float(d_in @ d_out)
-        if turn > best_turn:
-            best_turn = turn
+        score = turn * min(L_prev, L_curr, 2.0 * p.w)
+        if score > best_score:
+            best_score = score
             best_k = k
-    if best_k == 0 or best_turn < 0.005:
+    if best_k == 0 or best_score < 0.05:
+        for k in range(n):
+            s_prev = segs[(k - 1) % n]
+            s_curr = segs[k]
+            d_in = unit(s_prev[3] - s_prev[0])
+            d_out = unit(s_curr[3] - s_curr[0])
+            turn = 1.0 - float(d_in @ d_out)
+            if turn > best_score:
+                best_score = turn
+                best_k = k
+    if best_k == 0:
         return p
     new_segs = segs[best_k:] + segs[:best_k]
     return _from_segs_exact(new_segs, p.w, closed=True, join=p.join, ml=p.ml)
@@ -1298,91 +1313,104 @@ def bridge_junction_dents(p: Path) -> Path:
     """Detect collinear straight runs on a path separated by a small junction dent/blob pull,
     and collapse them into a single continuous straight segment.
     """
-    segs = p.segs()
-    n = len(segs)
-    if n < 3:
-        return p
+    def _pass(path):
+        segs = path.segs()
+        n = len(segs)
+        if n < 3:
+            return path
 
-    is_straight = []
-    seg_u = []
-    seg_L = []
-    for s in segs:
-        v = s[3] - s[0]
-        L = float(np.linalg.norm(v))
-        if L > 1e-3:
-            u = v / L
-            n_vec = np.array([-u[1], u[0]])
-            pts = bez(s, np.linspace(0, 1, 9))
-            dev = np.abs((pts - s[0]) @ n_vec).max()
-            straight = (dev <= max(0.4, 0.08 * p.w)) and (L >= 0.8 * p.w)
-        else:
-            u = np.zeros(2)
-            straight = False
-        is_straight.append(straight)
-        seg_u.append(u)
-        seg_L.append(L)
+        is_straight = []
+        seg_u = []
+        seg_L = []
+        for s in segs:
+            v = s[3] - s[0]
+            L = float(np.linalg.norm(v))
+            if L > 1e-3:
+                u = v / L
+                n_vec = np.array([-u[1], u[0]])
+                pts = bez(s, np.linspace(0, 1, 9))
+                dev = np.abs((pts - s[0]) @ n_vec).max()
+                straight = (dev <= max(0.4, 0.08 * path.w)) and (L >= 0.8 * path.w)
+            else:
+                u = np.zeros(2)
+                straight = False
+            is_straight.append(straight)
+            seg_u.append(u)
+            seg_L.append(L)
 
-    skip_to = -1
-    new_segs = []
-    i = 0
-    changed = False
+        skip_to = -1
+        new_segs = []
+        i = 0
+        changed = False
 
-    while i < n:
-        if i <= skip_to:
-            i += 1
-            continue
-
-        if not is_straight[i]:
-            new_segs.append(segs[i].copy())
-            i += 1
-            continue
-
-        u_a = seg_u[i]
-        n_a = np.array([-u_a[1], u_a[0]])
-        found_b = -1
-
-        max_look = min(n, i + 5)
-        for j in range(i + 2, max_look):
-            if not is_straight[j]:
-                continue
-            u_b = seg_u[j]
-            if u_a @ u_b < 0.985:
-                continue
-            offset_start = abs(float((segs[j][0] - segs[i][0]) @ n_a))
-            offset_end = abs(float((segs[j][3] - segs[i][0]) @ n_a))
-            if offset_start > 0.18 * p.w or offset_end > 0.18 * p.w:
+        while i < n:
+            if i <= skip_to:
+                i += 1
                 continue
 
-            gap_dist = float(np.linalg.norm(segs[j][0] - segs[i][3]))
-            if gap_dist > 3.8 * p.w:
+            if not is_straight[i]:
+                new_segs.append(segs[i].copy())
+                i += 1
                 continue
 
-            inter_ok = True
-            for k in range(i + 1, j):
-                pts_k = bez(segs[k], np.linspace(0, 1, 9))
-                dev_k = np.abs((pts_k - segs[i][0]) @ n_a).max()
-                if dev_k > 0.65 * p.w:
-                    inter_ok = False
+            u_a = seg_u[i]
+            n_a = np.array([-u_a[1], u_a[0]])
+            found_b = -1
+
+            max_look = min(n, i + 8)
+            for j in range(i + 2, max_look):
+                if not is_straight[j]:
+                    continue
+                u_b = seg_u[j]
+                if u_a @ u_b < 0.985:
+                    continue
+                offset_start = abs(float((segs[j][0] - segs[i][0]) @ n_a))
+                offset_end = abs(float((segs[j][3] - segs[i][0]) @ n_a))
+                if offset_start > 0.22 * path.w or offset_end > 0.22 * path.w:
+                    continue
+
+                gap_dist = float(np.linalg.norm(segs[j][0] - segs[i][3]))
+                if gap_dist > 4.5 * path.w:
+                    continue
+
+                inter_ok = True
+                for k in range(i + 1, j):
+                    pts_k = bez(segs[k], np.linspace(0, 1, 9))
+                    dev_k = np.abs((pts_k - segs[i][0]) @ n_a).max()
+                    if dev_k > 0.80 * path.w:
+                        inter_ok = False
+                        break
+                if inter_ok:
+                    found_b = j
                     break
-            if inter_ok:
-                found_b = j
 
-        if found_b != -1:
-            P0 = segs[i][0].copy()
-            P1 = segs[found_b][3].copy()
-            P_chord = P1 - P0
-            new_seg = np.array([P0, P0 + P_chord / 3.0, P0 + 2.0 * P_chord / 3.0, P1])
-            new_segs.append(new_seg)
-            skip_to = found_b
-            i = found_b + 1
-            changed = True
-        else:
-            new_segs.append(segs[i].copy())
-            i += 1
+            if found_b != -1:
+                P0 = segs[i][0].copy()
+                P1 = segs[found_b][3].copy()
+                P_chord = P1 - P0
+                new_seg = np.array([P0, P0 + P_chord / 3.0, P0 + 2.0 * P_chord / 3.0, P1])
+                new_segs.append(new_seg)
+                skip_to = found_b
+                i = found_b + 1
+                changed = True
+            else:
+                new_segs.append(segs[i].copy())
+                i += 1
 
-    if not changed:
-        return p
-    return _from_segs_exact(new_segs, p.w, closed=p.closed, join=p.join, ml=p.ml)
+        if not changed:
+            return path
+        return _from_segs_exact(new_segs, path.w, closed=path.closed, join=path.join, ml=path.ml)
+
+    res = _pass(p)
+    if res.closed and len(res.A) >= 6:
+        r_segs = res.segs()
+        rn = len(r_segs)
+        shift = rn // 2
+        r_rot = _from_segs_exact(r_segs[shift:] + r_segs[:shift], res.w, closed=True, join=res.join, ml=res.ml)
+        r_bridged = _pass(r_rot)
+        if len(r_bridged.A) < len(res.A):
+            res = r_bridged
+    return res
 
 
 def collapse_straight_runs(p: Path):
