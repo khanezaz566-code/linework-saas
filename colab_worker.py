@@ -64,6 +64,7 @@ WORKER_SPECS = {
     "cpus": os.cpu_count() or 4,
     "capacity": MAX_WORKERS,
     "mode": "pull",
+    "engine_version": "2026.11.12.v2",
 }
 
 

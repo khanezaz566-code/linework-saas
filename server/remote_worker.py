@@ -15,6 +15,7 @@ from pathlib import Path
 
 WORKER_SECRET = os.environ.get("LINEWORK_WORKER_SECRET", "linework_super_secret_2026")
 NODE_TTL_SECONDS = 55  # Fast 55-second heartbeat window so rotated/closed nodes are pruned quickly
+CURRENT_ENGINE_VERSION = "2026.11.12.v2"
 
 ROOT = Path(__file__).resolve().parent.parent
 DATA_DIR = ROOT / "data"
@@ -74,6 +75,12 @@ def register_worker_node(url: str, secret: str, specs: dict = None) -> bool:
         return False
     url = url.strip().rstrip("/")
     specs = specs or {}
+    # Reject workers running outdated in-memory engine code so tasks are not computed with old algorithms
+    if specs.get("engine_version") != CURRENT_ENGINE_VERSION:
+        with _CV:
+            ACTIVE_NODES.pop(url, None)
+            _save_persisted_nodes_locked()
+        return False
     capacity = int(specs.get("capacity", specs.get("cpus", 4)) or 4)
     capacity = max(1, min(capacity, 8))
     mode = "pull" if url.startswith("pull://") or specs.get("mode") == "pull" else "push"
@@ -299,6 +306,13 @@ def try_pop_pending_task(worker_id: str, secret: str, specs: dict = None, regist
     if secret != WORKER_SECRET:
         return {"ok": False, "error": "unauthorized"}
 
+    specs = specs or {}
+    if specs.get("engine_version") != CURRENT_ENGINE_VERSION:
+        with _CV:
+            ACTIVE_NODES.pop(worker_id.strip().rstrip("/"), None)
+            _save_persisted_nodes_locked()
+        return {"ok": False, "error": "version_outdated", "current_version": CURRENT_ENGINE_VERSION}
+
     if register or worker_id not in ACTIVE_NODES:
         register_worker_node(worker_id, secret, specs)
 
@@ -323,6 +337,13 @@ def pull_pending_task(worker_id: str, secret: str, specs: dict = None, wait_time
     """
     if secret != WORKER_SECRET:
         return {"ok": False, "error": "unauthorized"}
+
+    specs = specs or {}
+    if specs.get("engine_version") != CURRENT_ENGINE_VERSION:
+        with _CV:
+            ACTIVE_NODES.pop(worker_id.strip().rstrip("/"), None)
+            _save_persisted_nodes_locked()
+        return {"ok": False, "error": "version_outdated", "current_version": CURRENT_ENGINE_VERSION}
 
     register_worker_node(worker_id, secret, specs)
     deadline = time.time() + wait_timeout
