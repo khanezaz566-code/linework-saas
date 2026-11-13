@@ -150,6 +150,27 @@ def process_icon(gray, opts: Options = None, emit=_noop, name="icon"):
                     drep["open_findings"] = []
             except Exception:
                 pass
+        # Smartness Engine final recovery on decision residual
+        if (drep["after"]["hard"] > 0 or drep.get("open", 0) > 0 or not clean) and time.time() < t_icon_deadline - 1.0:
+            try:
+                from . import smart_heal as SH
+                w0_tmp = float(r["metrics"].get("stroke_width") or estimate_width(D) or 6.0)
+                doc_tmp = Doctor(D)
+                cur_tmp = doc_tmp.soft(ink_of(model))
+                m_sh, ink_sh, cur_sh, sh_rep = SH.run_smart_heal(model, D, w0_tmp, doc_tmp, ink_of, cur_tmp, time_ok=time_icon_ok)
+                if sh_rep["healed_paths"] or sh_rep["snapped_joints"] or sh_rep["recovered_features"]:
+                    m_cand, drep_cand = DC.decide_best(
+                        m_sh, D,
+                        time_budget=max(1.0, 0.4 * opts.decision_budget),
+                        emit=emit,
+                        name=name,
+                        tip_patches=opts.tip_patches
+                    )
+                    if drep_cand["after"]["hard"] <= drep["after"]["hard"] and drep_cand["after"]["iou"] >= drep["after"]["iou"] - 0.0005:
+                        model, drep = m_cand, drep_cand
+                        clean = DC.icon_ok(drep, ink_area, iou_floor=0.940)
+            except Exception:
+                pass
         # Re-verify any remaining unresolved structure / join items after final decision & auto-repair pass
         try:
             st_met = r["metrics"].get("structure")
@@ -617,6 +638,20 @@ def _process_icon(gray, opts: Options = None, emit=_noop, name="icon", set_w=Non
                 state.update(model=model, ink=ink, cur=s_lock_final)
         except Exception:
             pass
+    # Smartness Engine: Post-98% self-healing, broken path recovery, missed joint snapping & straightness polish
+    smart_rep = dict(healed_paths=0, snapped_joints=0, recovered_features=0, straightened_segments=0, seconds=0.0)
+    if not getattr(opts, "no_smart_heal", False) and time_ok_topo():
+        try:
+            from . import smart_heal as SH
+            cur_soft = doctor.soft(ink)
+            m_smart, ink_smart, cur_smart, smart_rep = SH.run_smart_heal(model, D, W0, doctor, ink_of, cur_soft, time_ok=time_ok_topo)
+            if doctor.iou(ink_smart) >= doctor.iou(ink) - 0.0005:
+                model, ink = m_smart, ink_smart
+                state.update(model=model, ink=ink, cur=cur_smart)
+                if smart_rep["healed_paths"] or smart_rep["snapped_joints"] or smart_rep["recovered_features"]:
+                    ev("doctor", f"Smartness Engine: {smart_rep['healed_paths']} broken path(s) healed, {smart_rep['snapped_joints']} joint(s) snapped, {smart_rep['recovered_features']} feature(s) recovered", iou=doctor.iou(ink))
+        except Exception:
+            pass
     # Post-craft / post-lock verification of structure and join unresolved items
     try:
         from . import decision as DC
@@ -661,6 +696,7 @@ def _process_icon(gray, opts: Options = None, emit=_noop, name="icon", set_w=Non
         finisher=dict(found=fin['found'], fixed=fin['fixed'], sites=fin['sites']),
         structure=dict(before=sx['before'], after=sx['after'], found=sx['found'], fixed=sx['fixed'], unresolved=sx['unresolved']),
         joins=dict(policy_changed=nsp, total=jn['total'], clean_first=jn['clean_first'], built=jn['built'], fixed=jn['fixed'], unresolved=jn['unresolved']),
+        smart_heal=smart_rep,
     )
     return dict(model=model, svg=model.svg(), metrics=metrics)
 
@@ -779,6 +815,15 @@ def regenerate_icon_deep(crop: np.ndarray, old_model: Model | None = None, opts:
             pass
         try:
             m_rep = craft_model(m_rep, D, doctor, W0)
+        except Exception:
+            pass
+        try:
+            from . import smart_heal as SH
+            ink_cur = ink_of(m_rep)
+            s_cur = doctor.soft(ink_cur)
+            m_sh, _, s_sh, _ = SH.run_smart_heal(m_rep, D, W0, doctor, ink_of, s_cur)
+            if s_sh <= s_cur + max(15.0, 0.005 * s_cur):
+                m_rep = m_sh
         except Exception:
             pass
         candidates.append(("repaired", m_rep))

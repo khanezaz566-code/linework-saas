@@ -804,7 +804,8 @@ def decide(model: Model, D, max_rounds=6, time_budget=None, emit=lambda **k: Non
 
     final = audit(cur, D, ink, tip_patches=tip_patches)
     ink_area = max(int((D > 0.5).sum()), 1)
-    minor_blob_lim = max(28, int(0.0045 * ink_area))
+    w_est = max(1.5, float(np.sqrt(ink_area / max(1, len(cur.paths) * 20.0)))) if cur.paths else 3.0
+    minor_blob_lim = max(8, int(min(28, 1.2 * w_est * w_est)))
     open_f, waived = [], []
     for f in final:
         r = refused.get((f.kind, f.path, round(f.xy[0] / 4), round(f.xy[1] / 4)))
