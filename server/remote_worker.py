@@ -248,9 +248,9 @@ def dispatch_via_pull_queue(payload: dict, timeout: float = None) -> dict:
                 popped_at = entry.get("popped_at")
                 if popped_at is not None:
                     elapsed_pop = now_chk - popped_at
-                    # Fast tail straggler hedging: allow tail icons up to 8.0s before racing duplicate across cluster
+                    # Fast tail straggler hedging: allow tail icons up to 24.0s before racing duplicate across cluster
                     is_tail_straggler = (len(_PULL_QUEUE) == 0 and len(_INFLIGHT_TASKS) <= 4)
-                    hedge_threshold = 8.0 if is_tail_straggler else 14.0
+                    hedge_threshold = 24.0 if is_tail_straggler else 32.0
                     if elapsed_pop >= hedge_threshold and entry.get("requeued", 0) < 3:
                         entry["requeued"] = entry.get("requeued", 0) + 1
                         entry["popped_at"] = now_chk

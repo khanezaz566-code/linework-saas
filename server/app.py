@@ -1157,7 +1157,7 @@ def _start_async_raw(raw_data: bytes, name: str, quality: str, clean: float, tar
         max_rounds=p_cfg["max_rounds"],
         time_budget=p_cfg["time_budget"],
         region_edits=p_cfg["region_edits"],
-        decision_budget=3.5,
+        decision_budget=2.0,
     )
     job = dict(
         id=job_id, user_id=user_id, name=name, status="splitting", options=opts, created=time.time(), icons=[],
@@ -1189,7 +1189,7 @@ def _start(gray, name, quality, clean, target, fresh: bool = True, user_id: int 
         max_rounds=p_cfg["max_rounds"],
         time_budget=p_cfg["time_budget"],
         region_edits=p_cfg["region_edits"],
-        decision_budget=3.5,
+        decision_budget=2.0,
     )
     job = dict(
         id=job_id, user_id=user_id, name=name, status="queued", options=opts, created=time.time(), icons=[], events=[],

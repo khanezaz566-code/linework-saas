@@ -86,8 +86,8 @@ def _solve_icon_in_subprocess(crop_bytes: bytes, opts_dict: dict, k: int):
     nparr = np.frombuffer(crop_bytes, np.uint8)
     crop = cv2.imdecode(nparr, cv2.IMREAD_GRAYSCALE)
     opts = Options(**opts_dict)
-    if hasattr(opts, "decision_budget") and (opts.decision_budget is None or opts.decision_budget > 4.0):
-        opts.decision_budget = 4.0
+    if hasattr(opts, "decision_budget") and (opts.decision_budget is None or opts.decision_budget > 2.0):
+        opts.decision_budget = 2.0
     r = process_icon(crop, opts, name=f"icon{k + 1}")
     return {
         "model_json": r["model"].to_json(),

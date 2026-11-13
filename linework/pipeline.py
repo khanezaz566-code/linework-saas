@@ -21,9 +21,9 @@ from . import lessons as LS
 from .split import find_icons, crop_icon, estimate_width
 
 PRESETS = {
-    "fast": dict(max_rounds=1, time_budget=15, region_edits=2, iters=18, taus=(1.0, 0.45)),
-    "standard": dict(max_rounds=3, time_budget=30, region_edits=6, iters=24, taus=(1.0, 0.5, 0.35)),
-    "precise": dict(max_rounds=5, time_budget=55, region_edits=10, iters=30, taus=(1.2, 0.8, 0.5, 0.34)),
+    "fast": dict(max_rounds=1, time_budget=10, region_edits=1, iters=14, taus=(1.0, 0.45)),
+    "standard": dict(max_rounds=1, time_budget=14, region_edits=2, iters=16, taus=(1.0, 0.45)),
+    "precise": dict(max_rounds=3, time_budget=35, region_edits=6, iters=24, taus=(1.2, 0.8, 0.5, 0.34)),
 }
 
 
@@ -101,7 +101,7 @@ def process_icon(gray, opts: Options = None, emit=_noop, name="icon"):
         met = dict(prev["metrics"], from_memory=True)
         return dict(model=m, svg=m.svg(), metrics=met, decision=met.get("decision"), clean=met.get("clean", True), model_pre_decision=m.copy())
     t_icon_start = time.time()
-    t_icon_deadline = t_icon_start + (25.0 if opts.quality != "precise" else 50.0)
+    t_icon_deadline = t_icon_start + (18.0 if opts.quality != "precise" else 40.0)
     time_icon_ok = lambda: time.time() < t_icon_deadline
     r = _process_icon_scaled(gray, opts, emit, name)
     from . import decision as DC
@@ -111,7 +111,7 @@ def process_icon(gray, opts: Options = None, emit=_noop, name="icon"):
         D = ink_map(gray)
         model, drep = DC.decide_best(
             r["model"], D,
-            time_budget=min(opts.decision_budget, max(0.5, t_icon_deadline - time.time())),
+            time_budget=min(opts.decision_budget, min(2.0, max(0.5, t_icon_deadline - time.time()))),
             emit=emit,
             name=name,
             tip_patches=opts.tip_patches
@@ -188,7 +188,7 @@ def _process_icon(gray, opts: Options = None, emit=_noop, name="icon", set_w=Non
     opts = opts or Options()
     cfg = opts.resolved()
     t0 = time.time()
-    t_deadline = t0 + (22.0 if opts.quality != "precise" else 42.0)
+    t_deadline = t0 + (15.0 if opts.quality != "precise" else 35.0)
     time_ok = lambda: time.time() < t_deadline
     D = ink_map(gray)
     H, W = D.shape
@@ -475,63 +475,63 @@ def _process_icon(gray, opts: Options = None, emit=_noop, name="icon", set_w=Non
             state.update(model=m_lock, ink=ink_lock, cur=s_lock)
     # final topology guard: refits above can reopen junctions, so weld/merge/trim once more
     waived.clear()
-    for _ in range(2):
-        rep = doctor.diagnose(state["model"], state["ink"])
-        open_all(rep)
-        cmds = [c for c in Doctor.cosmetic_commands(rep) if c["op"] in ("trim_tail", "merge_nodes", "weld", "smooth_anchor")]
-        n = 0
-        for cmd in pending(cmds):
-            if cmd["op"] == "weld":
-                n += do_weld()[0]
-            elif cmd["path"] < len(state["model"].paths):
-                n += run(cmd)
-        for cmd in pending(Doctor.region_commands(rep, 4)):
-            n += run(cmd)
-        if not n:
-            break
+    rep = doctor.diagnose(state["model"], state["ink"])
+    open_all(rep)
+    cmds = [c for c in Doctor.cosmetic_commands(rep) if c["op"] in ("trim_tail", "merge_nodes", "weld", "smooth_anchor")]
+    for cmd in pending(cmds):
+        if cmd["op"] == "weld":
+            do_weld()
+        elif cmd["path"] < len(state["model"].paths):
+            run(cmd)
+    if time_ok():
+        for cmd in pending(Doctor.region_commands(rep, 1)):
+            run(cmd)
     model, ink = state["model"], state["ink"]
-    try:
-        from .craft import craft_model
-        iou_pre_craft = doctor.iou(ink)
-        soft_pre_craft = doctor.soft(ink)
-        m_craft = craft_model(model, D, doctor, W0)
-        ink_c = ink_of(m_craft)
-        iou_post_craft = doctor.iou(ink_c)
-        soft_post_craft = doctor.soft(ink_c)
-        # Quality Non-Regression Guard (craft_model enforces strict per-step try_accept internally)
-        if iou_post_craft >= iou_pre_craft - 0.0350 and soft_post_craft <= soft_pre_craft + max(180.0, 0.030 * doctor.area):
-            model, ink = m_craft, ink_c
-            state.update(model=model, ink=ink, cur=soft_post_craft)
-        else:
-            ev("doctor", f"Craft Guard: preserved clean vector ({iou_pre_craft*100:.2f}% vs degraded {iou_post_craft*100:.2f}%)")
-    except Exception as e:
-        import traceback
-        traceback.print_exc()
-    try:
-        from .finisher import repair_acute_apexes
-        cur_soft = doctor.soft(ink)
-        m_apex, n_apex = repair_acute_apexes(model, W0, doctor, ink_of, cur_soft)
-        if n_apex > 0:
-            ink_a = ink_of(m_apex)
-            model, ink = m_apex, ink_a
-            state.update(model=model, ink=ink, cur=doctor.soft(ink_a))
-    except Exception as e:
-        import traceback
-        traceback.print_exc()
-    try:
-        from . import opt
-        cur_soft = doctor.soft(ink)
-        cur_iou = doctor.iou(ink)
-        m_ref = opt.refine(model, D, taus=(0.6, 0.35), iters=18, lam_pos=0.05, lam_w=0.02, fit_width=True)
-        ink_ref = ink_of(m_ref)
-        s_ref = doctor.soft(ink_ref)
-        iou_ref = doctor.iou(ink_ref)
-        if s_ref <= cur_soft + 1.0 and iou_ref >= cur_iou - 0.0002:
-            model, ink = m_ref, ink_ref
-            state.update(model=model, ink=ink, cur=s_ref)
-            ev("edit", f"Subpixel Alignment: refined stroke width & coordinates to {iou_ref*100:.2f}% match", iou=iou_ref)
-    except Exception:
-        pass
+    if time_ok():
+        try:
+            from .craft import craft_model
+            iou_pre_craft = doctor.iou(ink)
+            soft_pre_craft = doctor.soft(ink)
+            m_craft = craft_model(model, D, doctor, W0)
+            ink_c = ink_of(m_craft)
+            iou_post_craft = doctor.iou(ink_c)
+            soft_post_craft = doctor.soft(ink_c)
+            # Quality Non-Regression Guard (craft_model enforces strict per-step try_accept internally)
+            if iou_post_craft >= iou_pre_craft - 0.0350 and soft_post_craft <= soft_pre_craft + max(180.0, 0.030 * doctor.area):
+                model, ink = m_craft, ink_c
+                state.update(model=model, ink=ink, cur=soft_post_craft)
+            else:
+                ev("doctor", f"Craft Guard: preserved clean vector ({iou_pre_craft*100:.2f}% vs degraded {iou_post_craft*100:.2f}%)")
+        except Exception as e:
+            import traceback
+            traceback.print_exc()
+    if time_ok():
+        try:
+            from .finisher import repair_acute_apexes
+            cur_soft = doctor.soft(ink)
+            m_apex, n_apex = repair_acute_apexes(model, W0, doctor, ink_of, cur_soft)
+            if n_apex > 0:
+                ink_a = ink_of(m_apex)
+                model, ink = m_apex, ink_a
+                state.update(model=model, ink=ink, cur=doctor.soft(ink_a))
+        except Exception as e:
+            import traceback
+            traceback.print_exc()
+    if time_ok():
+        try:
+            from . import opt
+            cur_soft = doctor.soft(ink)
+            cur_iou = doctor.iou(ink)
+            m_ref = opt.refine(model, D, taus=(0.6, 0.35), iters=8, lam_pos=0.05, lam_w=0.02, fit_width=True)
+            ink_ref = ink_of(m_ref)
+            s_ref = doctor.soft(ink_ref)
+            iou_ref = doctor.iou(ink_ref)
+            if s_ref <= cur_soft + 1.0 and iou_ref >= cur_iou - 0.0002:
+                model, ink = m_ref, ink_ref
+                state.update(model=model, ink=ink, cur=s_ref)
+                ev("edit", f"Subpixel Alignment: refined stroke width & coordinates to {iou_ref*100:.2f}% match", iou=iou_ref)
+        except Exception:
+            pass
     rep = doctor.diagnose(model, ink)
     open_all(rep)
     iou = doctor.iou(ink)
