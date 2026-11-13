@@ -325,14 +325,7 @@ def refine(model: Model, D: np.ndarray, free=None, window=None, taus=(1.0, 0.6, 
             return loss, g
 
         nctrl = len(th0) - nw
-        ctrl_bnds = []
-        for k, i in enumerate(free):
-            md = max(1.8, 0.20 * w0[i])
-            c_vals = C0[i].ravel()
-            for v in c_vals:
-                ctrl_bnds.append((float(v - md), float(v + md)))
-        w_bnds = [(max(1.0, 0.88 * w0[i]), 1.12 * w0[i]) for i in free] if fit_width else []
-        bnds = ctrl_bnds + w_bnds
+        bnds = [(None, None)] * nctrl + [(max(1.0, 0.5 * w0[i]), 2.0 * w0[i]) for i in free] if fit_width else None
         res = minimize(f, th0, jac=True, method="L-BFGS-B", bounds=bnds, options=dict(maxiter=iters, maxcor=12, ftol=2e-6, gtol=1e-6))
         Cs, ws = unpack(res.x)
         for k, i in enumerate(free):

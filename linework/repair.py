@@ -36,15 +36,15 @@ def trace_missing(D, comp, w):
     """Trace only the source ink inside (a dilated copy of) one missing blob; returns new Paths (source pixel coords)."""
     reg = cv2.dilate(comp.astype(np.uint8), cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (int(1.6 * w) | 1, int(1.6 * w) | 1))) > 0
     Dc = np.where(reg, D, 0).astype(np.float32)
-    br = refined_branches(Dc, prune=max(3, int(round(0.35 * w))))
+    br = refined_branches(Dc)
     if not br:
         return []
     chains, _ = build_chains(br)
-    m = initial_model(chains, Dc, sigma=1.5)
+    m = initial_model(chains, Dc, sigma=2.0)
     return m.paths
 
 
-def repair(model: Model, D, ink_of, soft, state_cur, w, max_items=12):
+def repair(model: Model, D, ink_of, soft, state_cur, w, max_items=8):
     """Returns (model, ink, soft, n_added, n_removed). `ink_of(model)` renders; `soft(ink)` is the Doctor's mismatch."""
     cur = state_cur
     ink = ink_of(model)
@@ -53,21 +53,12 @@ def repair(model: Model, D, ink_of, soft, state_cur, w, max_items=12):
         new_paths = trace_missing(D, comp, w)
         if not new_paths:
             continue
-        valid_paths = []
-        for np_p in new_paths:
-            f = resample(np_p.flat(), 1.0)
-            xs = np.clip(np.round(f[:, 0] - 0.5).astype(int), 0, D.shape[1] - 1)
-            ys = np.clip(np.round(f[:, 1] - 0.5).astype(int), 0, D.shape[0] - 1)
-            if float((D[ys, xs] > 0.35).mean()) >= 0.60:
-                valid_paths.append(np_p)
-        if not valid_paths:
-            continue
-        cand = Model(model.paths + valid_paths, model.width, model.height)
+        cand = Model(model.paths + new_paths, model.width, model.height)
         ink2 = ink_of(cand)
         s2 = soft(ink2)
         if s2 < cur - 0.5:
             model, ink, cur = cand, ink2, s2
-            added += len(valid_paths)
+            added += 1
     for comp in extra_chunks(D, ink, w)[:max_items]:
         dil = cv2.dilate(comp.astype(np.uint8), np.ones((3, 3), np.uint8)) > 0
         hits = []
@@ -76,9 +67,7 @@ def repair(model: Model, D, ink_of, soft, state_cur, w, max_items=12):
             xs = np.clip(np.round(f[:, 0] - 0.5).astype(int), 0, dil.shape[1] - 1)
             ys = np.clip(np.round(f[:, 1] - 0.5).astype(int), 0, dil.shape[0] - 1)
             share = float(dil[ys, xs].mean())
-            # NEVER delete a stroke if its centerline sits on actual source ink!
-            src_ink_share = float((D[ys, xs] > 0.35).mean())
-            if share > 0.65 and src_ink_share < 0.20:
+            if share > 0.5:
                 hits.append(i)
         for i in sorted(hits, reverse=True):
             cand = Model([p for j, p in enumerate(model.paths) if j != i], model.width, model.height)

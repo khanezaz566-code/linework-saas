@@ -12,161 +12,17 @@ _K[1, 1] = 0
 
 def ink_map(gray: np.ndarray) -> np.ndarray:
     """Normalised ink coverage in [0,1] (1 = ink). Handles dark-on-light and light-on-dark."""
-    g_u8 = gray if gray.dtype == np.uint8 else np.clip(gray, 0, 255).astype(np.uint8)
-    border = np.r_[g_u8[0], g_u8[-1], g_u8[:, 0], g_u8[:, -1]]
-    is_dark_bg = np.median(border) < 128
-    if is_dark_bg and min(g_u8.shape) >= 20:
-        pad = min(8, min(g_u8.shape) // 10)
-        if pad > 0:
-            inset = np.r_[g_u8[pad], g_u8[-pad - 1], g_u8[:, pad], g_u8[:, -pad - 1]]
-            # If inset margin is bright or image has predominantly light pixels, border is an outer frame/matte
-            if np.median(inset) > 160 or (g_u8 > 160).sum() > 0.45 * g_u8.size:
-                is_dark_bg = False
-                dark_mask = (g_u8 < 128).astype(np.uint8)
-                n_comp, lab_comp, st_comp, _ = cv2.connectedComponentsWithStats(dark_mask)
-                H_c, W_c = g_u8.shape
-                bg_val = int(np.median(inset))
-                for i_c in range(1, n_comp):
-                    x_c, y_c, bw_c, bh_c, _ = st_comp[i_c]
-                    is_outer_frame = (bw_c >= 0.85 * W_c and bh_c >= 0.85 * H_c)
-                    is_letterbox_bar = (
-                        (bw_c >= 0.70 * W_c and (y_c <= 4 or y_c + bh_c >= H_c - 4) and bw_c >= 5 * bh_c) or
-                        (bh_c >= 0.70 * H_c and (x_c <= 4 or x_c + bw_c >= W_c - 4) and bh_c >= 5 * bw_c)
-                    )
-                    if is_outer_frame or is_letterbox_bar:
-                        g_u8 = g_u8.copy()
-                        g_u8[lab_comp == i_c] = bg_val
-    if is_dark_bg:
-        g_u8 = 255 - g_u8
-    t, _ = cv2.threshold(g_u8, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
-    dark, light = g_u8[g_u8 <= t], g_u8[g_u8 > t]
+    g = gray.astype(np.float32)
+    border = np.r_[g[0], g[-1], g[:, 0], g[:, -1]]
+    if np.median(border) < 128:
+        g = 255 - g
+    t, _ = cv2.threshold(g.astype(np.uint8), 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+    dark, light = g[g <= t], g[g > t]
     lo = float(np.median(dark)) if dark.size else 0.0
     hi = float(np.median(light)) if light.size else 255.0
-    del dark, light
     if hi - lo < 30:
         lo, hi = 0.0, 255.0
-    out = g_u8.astype(np.float32)
-    np.subtract(hi, out, out=out)
-    out *= (1.0 / (hi - lo))
-    np.clip(out, 0.0, 1.0, out=out)
-    return out
-
-
-def _fit_circle(pts: np.ndarray):
-    """Algebraic (Kasa) least-squares circle through pts -> (cx, cy, R)."""
-    A = np.c_[2.0 * pts[:, 0], 2.0 * pts[:, 1], np.ones(len(pts))]
-    b = (pts ** 2).sum(1)
-    sol, *_ = np.linalg.lstsq(A, b, rcond=None)
-    cx, cy = float(sol[0]), float(sol[1])
-    return cx, cy, float(np.sqrt(max(sol[2] + cx * cx + cy * cy, 0.0)))
-
-
-def find_fused_discs(D: np.ndarray, w: float):
-    """Solid round discs (pin-1 markers, graph nodes, lollipop heads) that are fused to strokes.
-
-    A skeleton of disc+stroke makes a spur to the disc centre and drags the neighbouring corner / line off its true path
-    (the rounded corner of a chip body touched by its pin-1 dot became a diagonal).  A morphological opening only *locates*
-    places where something clearly fatter than the stroke fits; the disc itself is then fitted to the free boundary arcs of
-    that place (RANSAC circle fit on the contour), so a disc that overlaps the strokes is still measured exactly.  A circle is
-    accepted only if it is (nearly) solid ink inside and its boundary is supported over >= 160 degrees, which rejects the
-    outer arc of a rounded corner (hollow inside), filled square blocks and plain junctions.
-    Returns [(cx, cy, R)] in pixel-index coordinates.  Isolated discs (the whole component is the disc) are left to
-    fitting.add_dots.
-    """
-    mask = (D > 0.5).astype(np.uint8)
-    if mask.size == 0 or min(mask.shape) < 16 or not mask.any():
-        return []
-    r_s = max(1.5, float(w) / 2.0)
-    rho = int(round(1.4 * r_s))
-    if rho < 3:
-        return []
-    op = cv2.morphologyEx(mask, cv2.MORPH_OPEN, cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (2 * rho + 1, 2 * rho + 1)))
-    if not op.any():
-        return []
-    n_o, lab_o, st_o, _ = cv2.connectedComponentsWithStats(op)
-    n_m, lab_m, st_m, _ = cv2.connectedComponentsWithStats(mask)
-    cnts, _h = cv2.findContours(mask, cv2.RETR_LIST, cv2.CHAIN_APPROX_NONE)
-    allpts = np.vstack([c.reshape(-1, 2) for c in cnts]).astype(float) if cnts else np.zeros((0, 2))
-    if len(allpts) < 20:
-        return []
-    r_lo, r_hi = 1.95 * r_s, 3.6 * r_s  # junction hubs and round caps of crossing strokes reach ~1.85 r_s; real discs are fatter
-    radii = np.arange(r_lo, r_hi + 0.01, 0.5)
-    blur = cv2.GaussianBlur(mask.astype(np.float32), (0, 0), 1.0)
-    gx_full = cv2.Sobel(blur, cv2.CV_32F, 1, 0, ksize=3)
-    gy_full = cv2.Sobel(blur, cv2.CV_32F, 0, 1, ksize=3)
-    out = []
-    H_m, W_m = mask.shape
-    for i in range(1, n_o):
-        x, y, bw, bh, a = [int(v) for v in st_o[i]]
-        if max(bw, bh) > 2 * r_hi + 2 * rho:  # a long fat bar / big filled shape, not a node
-            continue
-        m = int(np.ceil(r_hi)) + 2
-        X0, X1, Y0, Y1 = max(0, x - m), min(W_m, x + bw + m), max(0, y - m), min(H_m, y + bh + m)
-        sel = allpts[(allpts[:, 0] >= X0) & (allpts[:, 0] < X1) & (allpts[:, 1] >= Y0) & (allpts[:, 1] < Y1)]
-        if len(sel) < 12:
-            continue
-        ix_, iy_ = sel[:, 0].astype(int), sel[:, 1].astype(int)
-        gx, gy = gx_full[iy_, ix_], gy_full[iy_, ix_]
-        gn = np.hypot(gx, gy)
-        ok = gn > 1e-3
-        sel, gx, gy, gn = sel[ok], gx[ok], gy[ok], gn[ok]
-        nx, ny = gx / gn, gy / gn  # inward normals (the ink map increases into the ink)
-        hh, ww = Y1 - Y0, X1 - X0
-        acc = np.zeros((len(radii), hh, ww), np.float32)
-        for k, R in enumerate(radii):
-            cxs = np.rint(sel[:, 0] + nx * R).astype(int) - X0
-            cys = np.rint(sel[:, 1] + ny * R).astype(int) - Y0
-            v = (cxs >= 0) & (cxs < ww) & (cys >= 0) & (cys < hh)
-            np.add.at(acc[k], (cys[v], cxs[v]), 1.0)
-            acc[k] = cv2.boxFilter(acc[k], -1, (3, 3), normalize=False)
-        accepted = None
-        for _try in range(6):
-            kk, cy_l, cx_l = np.unravel_index(int(np.argmax(acc)), acc.shape)
-            if acc[kk, cy_l, cx_l] < 8.0:  # votes in a 3x3 cell: at least ~8 boundary points agree on this centre
-                break
-            cx, cy, R = float(cx_l + X0), float(cy_l + Y0), float(radii[kk])
-            acc[:, max(0, cy_l - int(R / 2)):cy_l + int(R / 2) + 1, max(0, cx_l - int(R / 2)):cx_l + int(R / 2) + 1] = 0  # next candidate
-            for _ in range(3):  # least-squares refinement on the boundary points that lie on the circle
-                dist = np.hypot(sel[:, 0] - cx, sel[:, 1] - cy)
-                inl = np.abs(dist - (R - 0.5)) <= 1.2
-                if inl.sum() < 10:
-                    break
-                cx, cy, Rf = _fit_circle(sel[inl])
-                R = Rf + 0.5  # contour pixels sit half a pixel inside the true edge
-            if not (r_lo <= R <= r_hi):
-                continue
-            dist = np.hypot(sel[:, 0] - cx, sel[:, 1] - cy)
-            inl = np.abs(dist - (R - 0.5)) <= 1.2
-            ang = np.arctan2(sel[inl, 1] - cy, sel[inl, 0] - cx)
-            bins = np.unique(((ang + np.pi) / (2 * np.pi) * 36).astype(int) % 36)
-            if len(bins) < 16:  # < 160 degrees of the circle is a free boundary: merged arcs / fat bars, not a disc
-                continue
-            yy, xx = np.mgrid[int(max(0, cy - R)):int(min(H_m, cy + R + 1)), int(max(0, cx - R)):int(min(W_m, cx + R + 1))]
-            inside = np.hypot(xx - cx, yy - cy) <= max(R - 1.5, 1.0)
-            if inside.sum() < 8 or float(mask[yy, xx][inside].mean()) < 0.95:
-                continue  # hollow: the outer arc of a rounded corner / ring
-            ml = int(lab_m[int(round(min(max(cy, 0), H_m - 1))), int(round(min(max(cx, 0), W_m - 1)))])
-            if ml == 0 or float(st_m[ml, cv2.CC_STAT_AREA]) < 1.3 * np.pi * R * R:
-                continue  # standalone disc
-            if any(np.hypot(cx - ox, cy - oy) < 0.6 * max(R, oR) for ox, oy, oR in out):
-                continue  # the same disc seen from a neighbouring opening component
-            accepted = (float(cx), float(cy), float(R))
-            find_fused_discs.debug.append(dict(cx=float(cx), cy=float(cy), R=float(R), arc_bins=int(len(bins)), r_ratio=float(R / r_s), votes=float(acc[kk, cy_l, cx_l])))
-            break
-        if accepted is not None:
-            out.append(accepted)
-    return out
-
-
-find_fused_discs.debug = []  # diagnostics of the last calls (arc support, radius ratio); only read by tests
-
-
-def erase_discs(Du: np.ndarray, discs, s: float = 1.0) -> np.ndarray:
-    """Copy of the ink map with the fused discs removed (discs given at source scale, Du is at s-times resolution)."""
-    out = Du.copy()
-    for cx, cy, R in discs:
-        cv2.circle(out, (int(round(cx * s)), int(round(cy * s))), int(round(R * s)) + 1, 0.0, -1)
-    return out
+    return np.clip((hi - g) / (hi - lo), 0, 1).astype(np.float32)
 
 
 # ---------------------------------------------------------------- skeleton
@@ -225,7 +81,7 @@ def skeleton_branches(D: np.ndarray, S: int = 2, prune: int | None = None):
     dt = ndi.distance_transform_edt(mask)
     v = dt[sk]
     w_up = float(2 * np.median(v)) if v.size else (10.0 * S)
-    prune_eff = prune if prune is not None else max(2 * S + 1, int(round(0.42 * w_up)))
+    prune_eff = prune if prune is not None else max(7 * S, int(round(1.2 * w_up)))
     sk = _prune(sk, prune_eff, H, W)
     nb = ndi.convolve(sk.astype(int), _K, mode="constant") * sk
     junc = (nb >= 3) & sk
@@ -488,13 +344,13 @@ def de_flare_branch(P0, P2, L, Rr, N, rw):
     return P_out
 
 
-def refined_branches(D, S=2, prune=None):
+def refined_branches(D, S=2):
     """Full tracing stage -> list of dict(pts, w, sj, ej), coords in source pixel-index space."""
     mask = D > 0.5
     if not mask.any():
         return []
     dt = ndi.distance_transform_edt(mask)
-    br_raw = skeleton_branches(D, S, prune=prune)
+    br_raw = skeleton_branches(D, S)
     d_vals = []
     H, W_im = D.shape
     for b in br_raw:
@@ -537,7 +393,7 @@ def refined_branches(D, S=2, prune=None):
     out = []
     for idx_b, b in enumerate(br_raw):
         P = resample(b["pts"], 1.0)
-        if len(P) < 3:
+        if len(P) < 4:
             continue
         P2, W = refine_branch(D, P, w_icon=w_icon)
         w = float(np.nanmedian(W)) if np.isfinite(W).any() else (w_icon or 0.0)

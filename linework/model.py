@@ -40,14 +40,10 @@ class Path:
             n = max(6, int(L / step / 1.4))
             q = bez(c, np.linspace(0, 1, n))
             pts.append(q if not pts else q[1:])
-        if not pts:
-            return self.A.copy() if len(self.A) else np.empty((0, 2), dtype=np.float64)
         return np.vstack(pts)
 
     def d(self):
         s = self.segs()
-        if not s:
-            return ("M%.2f,%.2f" % tuple(self.A[0])) if len(self.A) else ""
         d = "M%.2f,%.2f" % tuple(s[0][0])
         for c in s:
             d += "C%.2f,%.2f %.2f,%.2f %.2f,%.2f" % (*c[1], *c[2], *c[3])
@@ -55,8 +51,6 @@ class Path:
 
     def length(self):
         f = self.flat()
-        if len(f) < 2:
-            return 0.0
         return float(np.linalg.norm(np.diff(f, axis=0), axis=1).sum())
 
     def copy(self):

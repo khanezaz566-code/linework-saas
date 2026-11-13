@@ -182,8 +182,8 @@ def circle(m: Model, i, max_dev=0.9, robust=False):
     else:
         bw_r, bh_r = 0.0, 0.0
     r = fit_ellipse(p.flat())
-    # Only allow robust_ellipse fallback on rings (>= 2.4 * w), never on small buttons/squares
-    if robust and max(bw_r, bh_r) >= 2.4 * p.w and (r is None or r[1] > max_dev):
+    # Only allow robust_ellipse fallback on larger rings (>= 3.2 * w), never on small buttons/squares
+    if robust and max(bw_r, bh_r) >= 3.2 * p.w and (r is None or r[1] > max_dev):
         rr = robust_ellipse(p.flat(), p.w)
         r = (rr[0], rr[2]) if rr else None
         lim = max(max_dev, 1.5, 0.25 * p.w)
@@ -227,8 +227,8 @@ def refine_region(m: Model, D, box, margin=12, **kw):
                 free.append(i)
     if not free:
         return m
-    kw.setdefault("taus", (0.6, 0.38))
-    kw.setdefault("iters", 18)
+    kw.setdefault("taus", (0.6, 0.38, 0.3))
+    kw.setdefault("iters", 40)
     return opt.refine(m, D, free=free, window=(x0, y0, x1, y1), **kw)
 
 

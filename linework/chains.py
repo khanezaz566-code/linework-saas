@@ -37,15 +37,10 @@ def build_chains(branches, snap_width=True):
         v_ch = q[-1] - q[0]
         lv_ch = float(np.linalg.norm(v_ch))
         arch_dev = float(np.max(np.abs((q - q[0]) @ (np.array([-v_ch[1], v_ch[0]]) / lv_ch)))) if lv_ch > 1e-3 else 0.0
-        if n < 4:
-            d = unit(q[-1] - q[0]) if lv_ch > 1e-6 else np.array([1.0, 0.0])
-            return dict(A=q[-1].copy(), d=d, kept=q, full=q, arch_dev=arch_dev)
         if b["sj"] not in (0, -1) and b["ej"] not in (0, -1) and L[-1] < 4.2 * T and arch_dev >= 0.18 * T and n >= 5:
-            t_cut = min(0.65 * T, 0.30 * L[-1])
-            k = min(max(n - 1 - int(np.searchsorted(L, t_cut)), 2), n - 1)
-            step_a = max(3, int(round(0.55 * T)))
-            d = unit(q[k] - q[max(k - step_a, 0)])
-            return dict(A=q[k].copy(), d=d, kept=q[: k + 1], full=q, is_arch=True, arch_dev=arch_dev)
+            k = max(n - 3, 2)
+            d = unit(q[k] - q[max(k - 5, 0)])
+            return dict(A=q[k].copy(), d=d, kept=q[: k + 1], full=q, is_arch=True)
         if has_free_tip and L[-1] > 1.8 * T and n >= 12:
             k_near = n - 1 - int(np.searchsorted(L, 0.25 * T))
             k_mid  = n - 1 - int(np.searchsorted(L, 0.65 * T))
@@ -58,11 +53,11 @@ def build_chains(branches, snap_width=True):
                 k_vfar = n - 1 - int(np.searchsorted(L, min(2.8 * T, 0.95 * L[-1])))
                 straight_before = (k_far > k_vfar + 1) and (d_far @ unit(q[k_far] - q[k_vfar]) > np.cos(np.radians(8)))
                 if not straight_before and (d_near @ d_far < np.cos(np.radians(32)) and d_tip @ d_near >= np.cos(np.radians(22))):
-                    k = min(max(n - 1 - int(np.searchsorted(L, 0.35 * T)), 2), n - 1)
-                    return dict(A=q[k].copy(), d=d_near, kept=q[: k + 1], full=q, arch_dev=arch_dev)
-        T_eff = min(T, 0.45 * L[-1]) if L[-1] < 2.2 * T else (0.72 * T if arch_dev >= 0.22 * T else T)
+                    k = max(n - 1 - int(np.searchsorted(L, 0.35 * T)), 2)
+                    return dict(A=q[k].copy(), d=d_near, kept=q[: k + 1], full=q)
+        T_eff = min(T, 0.45 * L[-1]) if L[-1] < 2.2 * T else T
         k = n - 1 - int(np.searchsorted(L, T_eff))
-        k = min(max(k, 2), n - 1)
+        k = max(k, 2)
         step = max(8, int(round(1.35 * T)))
         lo = max(k - step, 0)
         d = unit(q[k] - q[lo]) if k > lo else unit(q[-1] - q[0])
@@ -73,15 +68,8 @@ def build_chains(branches, snap_width=True):
             cr_prev = d_prev[0] * d[1] - d_prev[1] * d[0]
             cr_neck = d[0] * d_neck[1] - d[1] * d_neck[0]
             if d_prev @ d < np.cos(np.radians(14)) and d_neck @ d < np.cos(np.radians(14)) and cr_prev * cr_neck > 0:
-                return dict(A=q[k_neck].copy(), d=d_neck, kept=q[: k_neck + 1], full=q, is_curve=True, arch_dev=arch_dev)
-        if arch_dev >= 0.20 * T and k >= 5:
-            step_loc = max(4, int(round(0.60 * T_eff)))
-            d_loc = unit(q[k] - q[max(k - step_loc, 0)])
-            d_prev2 = unit(q[max(k - step_loc, 0)] - q[max(k - 2 * step_loc, 0)])
-            cr1 = d_prev2[0] * d_loc[1] - d_prev2[1] * d_loc[0]
-            if d_prev2 @ d_loc >= np.cos(np.radians(35)) and abs(cr1) > 0.04:
-                return dict(A=q[k].copy(), d=d_loc, kept=q[: k + 1], full=q, is_curve=True, arch_dev=arch_dev)
-        return dict(A=q[k].copy(), d=d, kept=q[: k + 1], full=q, arch_dev=arch_dev)
+                return dict(A=q[k_neck].copy(), d=d_neck, kept=q[: k_neck + 1], full=q, is_curve=True)
+        return dict(A=q[k].copy(), d=d, kept=q[: k + 1], full=q)
 
     def is_free_tip(idx):
         b = br[idx]
@@ -116,10 +104,6 @@ def build_chains(branches, snap_width=True):
     def has_collinear_cross(j0, j1, skip_ib=-1):
         out0 = [(i, e) for (i, e) in raw_ends.get(j0, []) if i != skip_ib and len(br[i]["pts"]) > 1.5 * W0]
         out1 = [(i, e) for (i, e) in raw_ends.get(j1, []) if i != skip_ib and len(br[i]["pts"]) > 1.5 * W0]
-        # Never merge two adjacent T-junctions whose side-stems are parallel strokes on the same side
-        all0 = [(i, e) for (i, e) in raw_ends.get(j0, []) if i != skip_ib and br[i]["sj"] != br[i]["ej"]]
-        all1 = [(i, e) for (i, e) in raw_ends.get(j1, []) if i != skip_ib and br[i]["sj"] != br[i]["ej"]]
-        col_pairs = 0
         for a in out0:
             for c in out1:
                 if a[0] != c[0]:
@@ -132,19 +116,8 @@ def build_chains(branches, snap_width=True):
                             u = v / nv
                             ang_c = max(np.degrees(np.arccos(np.clip(ta @ u, -1, 1))), np.degrees(np.arccos(np.clip((-tc) @ u, -1, 1))))
                             if ang_c < 22.0:
-                                rem0 = [o for o in all0 if o != a and o[0] != c[0]]
-                                rem1 = [o for o in all1 if o != c and o[0] != a[0]]
-                                if rem0 and rem1 and any(float(raw_info[r0]["d"] @ raw_info[r1]["d"]) > 0.25 for r0 in rem0 for r1 in rem1):
-                                    continue
-                                if rem0 and rem1 and not any(float(raw_info[r0]["d"] @ raw_info[r1]["d"]) < -0.65 for r0 in rem0 for r1 in rem1):
-                                    continue
-                                col_pairs += 1
-        return col_pairs >= 1
-
-    def has_parallel_stems(j0, j1, skip_ib=-1):
-        all0 = [(i, e) for (i, e) in raw_ends.get(j0, []) if i != skip_ib and (i, e) in raw_info]
-        all1 = [(i, e) for (i, e) in raw_ends.get(j1, []) if i != skip_ib and (i, e) in raw_info]
-        return any(float(raw_info[r0]["d"] @ raw_info[r1]["d"]) > 0.45 for r0 in all0 for r1 in all1)
+                                return True
+        return False
 
     skip_bridges = set()
     cross_j = set()
@@ -158,47 +131,13 @@ def build_chains(branches, snap_width=True):
                 cross_j.add(j0)
                 cross_j.add(j1)
 
-    # 1. Contract micro-triangles (cycles of 3 junctions connected by short branches <= 1.65 * W0)
-    adj_j = {}
-    for ib, b in enumerate(br):
-        sj, ej = b["sj"], b["ej"]
-        if sj > 0 and ej > 0 and sj != ej:
-            adj_j.setdefault(sj, {})[ej] = (ib, len(b["pts"]))
-            adj_j.setdefault(ej, {})[sj] = (ib, len(b["pts"]))
-    for n1 in list(adj_j.keys()):
-        for n2 in list(adj_j.get(n1, {}).keys()):
-            if n2 <= n1:
-                continue
-            for n3 in list(adj_j.get(n2, {}).keys()):
-                if n3 <= n2:
-                    continue
-                if n3 in adj_j.get(n1, {}):
-                    l12 = adj_j[n1][n2][1]
-                    l23 = adj_j[n2][n3][1]
-                    l31 = adj_j[n3][n1][1]
-                    w_tri = max(W0, float(np.mean([br[i]["w"] for i in (adj_j[n1][n2][0], adj_j[n2][n3][0], adj_j[n3][n1][0])])))
-                    if max(l12, l23, l31) <= 1.65 * w_tri:
-                        par_j[find_j(n1)] = find_j(n2)
-                        par_j[find_j(n2)] = find_j(n3)
-                        skip_bridges.add(adj_j[n1][n2][0])
-                        skip_bridges.add(adj_j[n2][n3][0])
-                        skip_bridges.add(adj_j[n3][n1][0])
-
     for ib, b in enumerate(br):
         j0, j1 = b["sj"], b["ej"]
-        if j0 <= 0 or j1 <= 0 or j0 == j1 or ib in skip_bridges:
+        if j0 <= 0 or j1 <= 0 or j0 == j1:
             continue
         L_b = len(b["pts"])
         w_b = float(np.mean([br[i]["w"] for i, _ in raw_ends.get(j0, []) + raw_ends.get(j1, [])])) if (j0 in raw_ends and j1 in raw_ends) else W0
-        w_eff = max(W0, w_b)
-        should_merge = False
-        if L_b <= 1.25 * w_eff and (has_collinear_cross(j0, j1, ib) or find_j(j0) == find_j(j1) or (L_b <= 0.85 * w_eff and (j0 in cross_j or j1 in cross_j))):
-            should_merge = True
-        elif L_b <= 0.35 * w_eff:
-            should_merge = True
-        elif L_b <= 0.88 * w_eff and not has_parallel_stems(j0, j1, ib):
-            should_merge = True
-        if should_merge:
+        if L_b <= 1.25 * max(W0, w_b) and (has_collinear_cross(j0, j1, ib) or find_j(j0) == find_j(j1) or (L_b <= 0.85 * max(W0, w_b) and (j0 in cross_j or j1 in cross_j))):
             par_j[find_j(j0)] = find_j(j1)
             skip_bridges.add(ib)
     for ib, b in enumerate(br):
@@ -327,22 +266,14 @@ def build_chains(branches, snap_width=True):
         d1, d2 = info[a]["d"], info[b]["d"]
         cr1 = d1[0] * u_spur[1] - d1[1] * u_spur[0]
         cr2 = d2[0] * u_spur[1] - d2[1] * u_spur[0]
-        if d1 @ d2 < -0.65:
+        if d1 @ d2 < -0.65 and L_spur_pts <= 2.2 * W0:
             used_j.add(j0)
+            skip_bridges.add(spur[0])
             A1, A2 = info[a]["A"], info[b]["A"]
             n_pts = max(2, int(np.linalg.norm(A2 - A1)) + 1)
             pts = np.linspace(A1, A2, n_pts)
             link[a] = (b, pts)
             link[b] = (a, pts[::-1])
-            if L_spur_pts <= 0.75 * W0:
-                skip_bridges.add(spur[0])
-            else:
-                thr = np.vstack([info[a]["kept"], pts, info[b]["kept"][::-1]])
-                Ao, do = info[spur]["A"], info[spur]["d"]
-                ts = np.arange(0, 4 * W0, 0.5)
-                ray = Ao[None] + do[None] * ts[:, None]
-                dist = np.array([np.min(np.linalg.norm(thr - r, axis=1)) for r in ray])
-                ext[spur] = Ao + do * ts[int(np.argmin(dist))]
             continue
         if (
             d1 @ u_spur > np.cos(np.radians(58))
@@ -364,11 +295,6 @@ def build_chains(branches, snap_width=True):
                 V = T_tip.copy()
             ext[a] = V
             ext[b] = V
-            n1 = max(2, int(np.linalg.norm(V - A1)) + 1)
-            n2 = max(2, int(np.linalg.norm(A2 - V)) + 1)
-            corner_pts = np.vstack([np.linspace(A1, V, n1), np.linspace(V, A2, n2)[1:]])
-            link[a] = (b, corner_pts)
-            link[b] = (a, corner_pts[::-1])
 
     for j, l in ends.items():
         if j in used_j and j not in stair_junc:
@@ -379,13 +305,13 @@ def build_chains(branches, snap_width=True):
             pair_cands = [(0.0, a, b)]
             allow_staircase = True
         else:
-            from .rings import _kasa
             pair_cands = []
-            circle_bridges = {}
             for x in range(len(l)):
                 for y in range(x + 1, len(l)):
                     a, b = l[x], l[y]
                     if a[0] == b[0]:
+                        continue
+                    if len(l) >= 3 and info[a].get("is_arch") and info[b].get("is_arch"):
                         continue
                     ta, tb = info[a]["d"], info[b]["d"]
                     ang = np.degrees(np.arccos(np.clip(-ta @ tb, -1, 1)))
@@ -401,49 +327,13 @@ def build_chains(branches, snap_width=True):
                         eff_ang = max(ang, 0.85 * ang_c)
                     else:
                         eff_ang = ang
-
-                    # Check if branches (a, b) lie on a common circular ring / smooth curve across the junction
-                    on_common_circle = False
-                    qa_k = info[a]["kept"][-min(len(info[a]["kept"]), int(4.5 * w)):]
-                    qb_k = info[b]["kept"][-min(len(info[b]["kept"]), int(4.5 * w)):][::-1]
-                    if len(qa_k) >= 4 and len(qb_k) >= 4 and (len(qa_k) + len(qb_k)) >= 10:
-                        f_ab = np.vstack([qa_k, qb_k])
-                        cx_c, cy_c, r_c = _kasa(f_ab)
-                        if 1.2 * w <= r_c <= 45.0 * w:
-                            rad_err = np.abs(np.hypot(f_ab[:, 0] - cx_c, f_ab[:, 1] - cy_c) - r_c)
-                            if float(np.percentile(rad_err, 90)) <= max(0.85, 0.18 * w) and float(rad_err.max()) <= max(1.35, 0.28 * w):
-                                angs_ab = np.unwrap(np.arctan2(f_ab[:, 1] - cy_c, f_ab[:, 0] - cx_c))
-                                d_angs = np.diff(angs_ab)
-                                span_ab = float(angs_ab[-1] - angs_ab[0])
-                                if abs(span_ab) >= 0.35 and (np.sign(d_angs) == np.sign(span_ab)).mean() >= 0.90:
-                                    on_common_circle = True
-                                    th1 = float(np.arctan2(info[a]["A"][1] - cy_c, info[a]["A"][0] - cx_c))
-                                    th2 = float(np.arctan2(info[b]["A"][1] - cy_c, info[b]["A"][0] - cx_c))
-                                    dth = (th2 - th1 + np.pi) % (2 * np.pi) - np.pi
-                                    if abs(dth) <= 1.35:
-                                        r1 = float(np.hypot(info[a]["A"][0] - cx_c, info[a]["A"][1] - cy_c))
-                                        r2 = float(np.hypot(info[b]["A"][0] - cx_c, info[b]["A"][1] - cy_c))
-                                        n_arc = max(3, int(abs(dth) * r_c) + 1)
-                                        s_arc = np.linspace(0.0, 1.0, n_arc)
-                                        ths = th1 + s_arc * dth
-                                        rs = r1 * (1.0 - s_arc) + r2 * s_arc
-                                        arc_pts = np.c_[cx_c + rs * np.cos(ths), cy_c + rs * np.sin(ths)]
-                                        arc_pts[0] = info[a]["A"].copy()
-                                        arc_pts[-1] = info[b]["A"].copy()
-                                        circle_bridges[(a, b)] = arc_pts
-                                        eff_ang = min(eff_ang, 10.0 + 12.0 * float(np.percentile(rad_err, 90)) / max(0.18 * w, 0.5))
-
-                    if len(l) >= 3 and info[a].get("is_arch") and info[b].get("is_arch") and not on_common_circle and eff_ang > 45.0:
-                        continue
                     pair_cands.append((eff_ang, a, b))
             pair_cands.sort(key=lambda t: t[0])
             allow_staircase = False
         if len(l) == 2 and pair_cands:
             ang, a, b = pair_cands[0]
             A1, d1, A2, d2 = info[a]["A"], info[a]["d"], info[b]["A"], info[b]["d"]
-            if (a, b) in circle_bridges:
-                pts = circle_bridges[(a, b)]
-            elif ang < 28:
+            if ang < 28:
                 pts = hermite(A1, d1, A2, d2)
             else:
                 C = line_inter(A1, d1, A2, d2) if abs(d1[0] * d2[1] - d1[1] * d2[0]) > 1e-3 else None
@@ -472,9 +362,7 @@ def build_chains(branches, snap_width=True):
             thr_list = []
             for eff_ang, a, b in linked_pairs:
                 A1, d1, A2, d2 = info[a]["A"], info[a]["d"], info[b]["A"], info[b]["d"]
-                if (a, b) in circle_bridges:
-                    pts = circle_bridges[(a, b)]
-                elif len(linked_pairs) >= 2 and eff_ang < 15.0:
+                if len(linked_pairs) >= 2 and eff_ang < 15.0:
                     n_pts = max(2, int(np.linalg.norm(A2 - A1)) + 1)
                     pts = np.linspace(A1, A2, n_pts)
                 else:
@@ -487,17 +375,10 @@ def build_chains(branches, snap_width=True):
                 if o in used:
                     continue
                 A, d = info[o]["A"], info[o]["d"]
-                ts = np.arange(0, 4 * w, 0.25)
+                ts = np.arange(0, 4 * w, 0.5)
                 ray = A[None] + d[None] * ts[:, None]
-                d_mat = np.linalg.norm(thr[None, :, :] - ray[:, None, :], axis=2)
-                best_r = int(np.argmin(np.min(d_mat, axis=1)))
-                best_t = int(np.argmin(d_mat[best_r]))
-                if float(d_mat[best_r, best_t]) <= 0.45 * w:
-                    ext[o] = thr[best_t].copy()
-                else:
-                    q_tip = info[o]["full"][-1]
-                    idx_near = int(np.argmin(np.linalg.norm(thr - q_tip, axis=1)))
-                    ext[o] = thr[idx_near].copy()
+                dist = np.array([np.min(np.linalg.norm(thr - r, axis=1)) for r in ray])
+                ext[o] = A + d * ts[int(np.argmin(dist))]
         else:
             cen = np.mean([info[o]["full"][-1] for o in l], axis=0)
             if any(info[o].get("is_arch") or info[o].get("is_curve") for o in l):
@@ -554,12 +435,9 @@ def build_chains(branches, snap_width=True):
             key = (cur, te)
             if key in link:
                 (j, e2), bp = link[key]
-                if j in seen:
-                    p0 = parts[0][0]
-                    n_close = max(2, int(np.linalg.norm(p0 - parts[-1][-1])) + 1)
-                    parts.append(np.linspace(parts[-1][-1], p0, n_close)[1:])
-                    break
                 parts.append(bp[1:-1] if len(bp) > 2 else bp[:0])
+                if j in seen:
+                    break
                 cur, e = j, e2
                 continue
             if key in info and key in ext:

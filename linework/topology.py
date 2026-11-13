@@ -27,29 +27,16 @@ def _end(p: Path, e):
 def _move_end(p: Path, e, target):
     target = np.asarray(target, float)
     if e == 0:
-        p_old = p.A[0].copy()
-        d = target - p_old
         p_other = p.A[1]
-        chord_old = p_other - p_old
+        chord_old = p_other - p.A[0]
         L_old = float(np.linalg.norm(chord_old))
         was_straight = True
         if L_old > 1e-4:
             u = chord_old / L_old
             perp = np.array([-u[1], u[0]])
-            dev0 = float((p.Hout[0] - p_old) @ perp)
-            dev1 = float((p.Hin[1] - p_old) @ perp)
-            tol_str = max(0.32, 0.04 * p.w)
-            if abs(dev0) > tol_str or abs(dev1) > tol_str:
+            if abs(float((p.Hout[0] - p.A[0]) @ perp)) > 0.35 or abs(float((p.Hin[1] - p.A[0]) @ perp)) > 0.35:
                 was_straight = False
-            elif len(p.A) >= 3 and L_old < 2.2 * p.w:
-                v_next = p.A[2] - p.A[1]
-                L_next = float(np.linalg.norm(v_next))
-                if L_next > 1e-4:
-                    u_next = v_next / L_next
-                    perp_n = np.array([-u_next[1], u_next[0]])
-                    if max(abs(float((p.Hout[1] - p.A[1]) @ perp_n)), abs(float((p.Hin[2] - p.A[1]) @ perp_n))) > tol_str:
-                        was_straight = False
-        p.A[0] = target.copy()
+        p.A[0] = target
         if was_straight:
             chord = p_other - target
             p.Hin[0] = target.copy()
@@ -58,32 +45,20 @@ def _move_end(p: Path, e, target):
             if len(p.A) == 2:
                 p.Hout[1] = p_other.copy()
         else:
+            d = target - p.A[0]
             p.Hout[0] = p.Hout[0] + d
-            p.Hin[0] = target.copy()
+            p.Hin[0] = p.Hin[0] + d
     else:
-        p_old = p.A[-1].copy()
-        d = target - p_old
         p_other = p.A[-2]
-        chord_old = p_old - p_other
+        chord_old = p.A[-1] - p_other
         L_old = float(np.linalg.norm(chord_old))
         was_straight = True
         if L_old > 1e-4:
             u = chord_old / L_old
             perp = np.array([-u[1], u[0]])
-            dev0 = float((p.Hout[-2] - p_other) @ perp)
-            dev1 = float((p.Hin[-1] - p_other) @ perp)
-            tol_str = max(0.32, 0.04 * p.w)
-            if abs(dev0) > tol_str or abs(dev1) > tol_str:
+            if abs(float((p.Hout[-2] - p_other) @ perp)) > 0.35 or abs(float((p.Hin[-1] - p_other) @ perp)) > 0.35:
                 was_straight = False
-            elif len(p.A) >= 3 and L_old < 2.2 * p.w:
-                v_prev = p.A[-2] - p.A[-3]
-                L_prev = float(np.linalg.norm(v_prev))
-                if L_prev > 1e-4:
-                    u_prev = v_prev / L_prev
-                    perp_p = np.array([-u_prev[1], u_prev[0]])
-                    if max(abs(float((p.Hout[-3] - p.A[-3]) @ perp_p)), abs(float((p.Hin[-2] - p.A[-3]) @ perp_p))) > tol_str:
-                        was_straight = False
-        p.A[-1] = target.copy()
+        p.A[-1] = target
         if was_straight:
             chord = target - p_other
             p.Hout[-2] = p_other + chord / 3.0
@@ -92,8 +67,9 @@ def _move_end(p: Path, e, target):
             if len(p.A) == 2:
                 p.Hin[0] = p_other.copy()
         else:
+            d = target - p.A[-1]
             p.Hin[-1] = p.Hin[-1] + d
-            p.Hout[-1] = target.copy()
+            p.Hout[-1] = p.Hout[-1] + d
 
 
 def _ends(m: Model):
@@ -145,42 +121,19 @@ def _plan(m: Model, r_end=1.0, r_t=0.7, min_gap=0.35):
         if gap > min_gap:
             acts.append(("corner", i, e, j, f, target, gap))
         used.update((a, b))
-    # T-junctions: free ends that stop short of (or inside) another stroke along their outward trajectory
+    # T-junctions: free ends that stop short of (or inside) another stroke
     for a, (i, e, p1, t1) in enumerate(ends):
         if a in used:
             continue
         w = m.paths[i].w
         best = None
-        perp_t1 = np.array([-t1[1], t1[0]])
         for j, f in enumerate(polys):
-            if j == i or len(f) < 2:
+            if j == i:
                 continue
             dd = np.linalg.norm(f - p1, axis=1)
             k = int(dd.argmin())
-            d_min = float(dd[k])
-            if d_min > r_t * w:
-                continue
-            target_pt = f[k]
-            # Prefer forward ray intersection along t1 when available
-            vecs = f - p1
-            s_ray = vecs @ t1
-            p_ray = np.abs(vecs @ perp_t1)
-            m_ray = (s_ray >= -0.15 * w) & (s_ray <= r_t * w) & (p_ray <= 0.38 * w)
-            if m_ray.any():
-                idx_r = int(np.where(m_ray)[0][np.argmin(p_ray[m_ray] + 0.25 * np.abs(s_ray[m_ray]))])
-                target_pt = f[idx_r]
-                k = idx_r
-                d_min = float(np.linalg.norm(target_pt - p1))
-            elif d_min > 0.22 * w:
-                # Never yank a free spiral or curve end sideways onto an adjacent parallel stroke
-                u_step = (target_pt - p1) / max(d_min, 1e-6)
-                if float(u_step @ t1) < np.cos(np.radians(42.0)):
-                    continue
-            tau_j = unit(f[min(k + 1, len(f) - 1)] - f[max(k - 1, 0)])
-            if d_min > 0.18 * w and abs(float(t1 @ tau_j)) > np.cos(np.radians(18.0)):
-                continue
-            if best is None or d_min < best[0]:
-                best = (d_min, j, target_pt)
+            if dd[k] <= r_t * w and (best is None or dd[k] < best[0]):
+                best = (float(dd[k]), j, f[k])
         if best and best[0] > min_gap:
             acts.append(("tee", i, e, best[1], None, best[2], best[0]))
     return acts
