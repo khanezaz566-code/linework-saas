@@ -122,7 +122,7 @@ def _chord_dev(c):
 
 def _seg_is_line(c):
     L, dev = _chord_dev(c)
-    return L >= 4 and dev <= max(0.35, min(STRAIGHT_PX, 0.006 * L))
+    return L >= 6 and dev <= max(0.08, min(0.20, 0.001 * L))
 
 
 def _seg_exact(c):
@@ -692,17 +692,19 @@ HARD_SLACK = {"ring": 8, "arc": 8, "straight": 2, "axis": 2, "gap": 1, "tip": 2,
 
 
 def _accept(kind, old: Score, new: Score, first: Score | None = None):
-    """Intent fixes are judged on STRUCTURE (hard residual must not grow beyond a tiny slack) and on a bounded fidelity loss,
-    not on the soft pixel sum: a 0.3 px straightening legitimately moves the soft sum by tens of px of edge fuzz."""
+    """Intent fixes are judged on STRUCTURE and STRICT NON-REGRESSION:
+    A fix must never degrade IoU, never increase hard residual, and never distort smooth curves."""
     if kind in ("miss", "extra"):
-        return new.hard < old.hard and new.soft <= old.soft + max(40.0, 0.03 * old.soft) and (first is None or new.iou >= first.iou - IOU_TOTAL)
-    if new.hard > old.hard + HARD_SLACK.get(kind, 2):
+        return new.hard < old.hard and new.soft <= old.soft + max(20.0, 0.015 * old.soft) and (first is None or new.iou >= first.iou - 0.0005)
+    if new.hard > old.hard:
         return False
-    if first is not None and new.hard > first.hard + 4:     # slack must not accumulate over many small decisions
+    if first is not None and new.hard > first.hard:
         return False
-    if new.iou < old.iou - IOU_STEP_KIND.get(kind, IOU_STEP):
+    if new.iou < old.iou - 0.0001:
         return False
-    if first is not None and new.iou < first.iou - IOU_TOTAL:
+    if first is not None and new.iou < first.iou - 0.0002:
+        return False
+    if new.soft > old.soft + 0.5:
         return False
     if kind == "tip":
         return new.hard < old.hard
