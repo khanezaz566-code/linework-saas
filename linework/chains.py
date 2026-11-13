@@ -364,8 +364,15 @@ def build_chains(branches, snap_width=True):
             thr_list = []
             for eff_ang, a, b in linked_pairs:
                 A1, d1, A2, d2 = info[a]["A"], info[a]["d"], info[b]["A"], info[b]["d"]
-                if eff_ang < 15.0:
-                    n_pts = max(2, int(np.linalg.norm(A2 - A1)) + 1)
+                v_c = A2 - A1
+                nv_c = float(np.linalg.norm(v_c))
+                u_c = v_c / nv_c if nv_c > 1e-3 else d1
+                chord_dev = max(
+                    np.degrees(np.arccos(np.clip(d1 @ u_c, -1.0, 1.0))),
+                    np.degrees(np.arccos(np.clip((-d2) @ u_c, -1.0, 1.0)))
+                )
+                if eff_ang < 15.0 and chord_dev < 4.0:
+                    n_pts = max(2, int(nv_c) + 1)
                     pts = np.linspace(A1, A2, n_pts)
                 else:
                     pts = hermite(A1, d1, A2, d2)
@@ -379,11 +386,12 @@ def build_chains(branches, snap_width=True):
                 d1, d2 = info[o1]["d"], info[o2]["d"]
                 A1, A2 = info[o1]["A"], info[o2]["A"]
                 det = d1[0] * d2[1] - d1[1] * d2[0]
-                if abs(det) > 1e-3 and d1 @ d2 > 0.15:
+                dot = float(d1 @ d2)
+                if abs(det) > 0.20 and 0.30 < dot < 0.85:
                     V = line_inter(A1, d1, A2, d2)
-                    if V is not None and (V - A1) @ d1 > -0.5 * w and (V - A2) @ d2 > -0.5 * w:
+                    if V is not None and (V - A1) @ d1 > 0.2 * w and (V - A2) @ d2 > 0.2 * w:
                         dist_thr = float(np.min(np.linalg.norm(thr - V, axis=1)))
-                        if dist_thr <= 1.4 * w:
+                        if dist_thr <= 1.8 * w:
                             n1 = max(2, int(np.linalg.norm(V - A1)) + 1)
                             n2 = max(2, int(np.linalg.norm(A2 - V)) + 1)
                             pts_apex = np.vstack([np.linspace(A1, V, n1), np.linspace(V, A2, n2)[1:]])
