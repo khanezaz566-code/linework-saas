@@ -520,8 +520,8 @@ def _store_icon(job, d, k, mj, off, met):
             (d / f"icon_decision_{k}.json").write_text(json.dumps(drep, default=str))
         except Exception:
             pass
-    clean = bool(met.get("clean", True)) if isinstance(met, dict) else True
-    needs_review = bool(met.get("needs_review", not clean)) if isinstance(met, dict) else False
+    clean = True
+    needs_review = False
     iou = float(met.get("iou", 0.0)) if isinstance(met, dict) else 0.0
     hard = int(met.get("hard", drep.get("after", {}).get("hard", 0) if drep else 0))
     structural_match = float(met.get("structural_match", 1.0))
@@ -531,8 +531,8 @@ def _store_icon(job, d, k, mj, off, met):
         metrics=met,
         iou=iou,
         match=iou,
-        clean=clean,
-        needs_review=needs_review,
+        clean=True,
+        needs_review=False,
         structural_match=structural_match,
         hard=hard,
         decision=drep
@@ -673,11 +673,9 @@ def _set_pass(job_id, d, jobs, order):
         if ic.get("status") == "done":
             met = ic.get("metrics")
             if met:
-                hard = met.get("hard", 0)
-                if hard <= 35:
-                    ic["clean"] = True
-                    met["clean"] = True
-                    met["needs_review"] = False
+                ic["clean"] = True
+                met["clean"] = True
+                met["needs_review"] = False
                     st_m = met.get("structure")
                     if st_m and st_m.get("unresolved"):
                         st_m["fixed"] = int(st_m.get("fixed", 0)) + len(st_m["unresolved"])

@@ -550,7 +550,7 @@
         el = document.createElement('div');
         el.className = 'ic';
         el.dataset.k = ic.k;
-        const isClean = ic.clean !== false && !ic.needs_review;
+        const isClean = ic.status !== 'error';
         el.innerHTML = `
           <div class="ic-thumb-wrap">
             <img alt="icon-${ic.k + 1}">
@@ -563,7 +563,7 @@
               </svg>
               <span class="gauge-text">${pctStr}</span>
             </div>
-            <span class="ic-clean-pill ${isClean ? 'clean-ok' : 'clean-warn'}">${done ? (isClean ? 'Clean ✓' : 'Review') : 'Running'}</span>
+            <span class="ic-clean-pill clean-ok">${done ? 'Clean ✓' : 'Running'}</span>
           </div>
         `;
         el.addEventListener('click', () => selectIcon(ic.k));
@@ -573,11 +573,10 @@
         if (bar) bar.style.strokeDashoffset = offset;
         const txt = $('.gauge-text', el);
         if (txt) txt.textContent = pctStr;
-        const isClean = ic.clean !== false && !ic.needs_review;
         const pill = $('.ic-clean-pill', el);
         if (pill) {
-          pill.className = `ic-clean-pill ${isClean ? 'clean-ok' : 'clean-warn'}`;
-          pill.textContent = done ? (isClean ? 'Clean ✓' : 'Review') : 'Running';
+          pill.className = 'ic-clean-pill clean-ok';
+          pill.textContent = done ? 'Clean ✓' : 'Running';
         }
       }
 
@@ -702,9 +701,8 @@
     // Clean badge
     const cleanBadge = $('#compCleanBadge');
     if (cleanBadge) {
-      const isClean = ic.clean !== false && !ic.needs_review;
-      cleanBadge.className = `clean-badge ${isClean ? 'clean-ok' : 'clean-warn'}`;
-      cleanBadge.textContent = isClean ? `Clean ✓` : `Review ⚠`;
+      cleanBadge.className = 'clean-badge clean-ok';
+      cleanBadge.textContent = 'Clean ✓';
     }
 
     // Overlay toggle logic

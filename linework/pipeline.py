@@ -21,9 +21,9 @@ from . import lessons as LS
 from .split import find_icons, crop_icon, estimate_width
 
 PRESETS = {
-    "fast": dict(max_rounds=1, time_budget=10, region_edits=1, iters=14, taus=(1.0, 0.45)),
-    "standard": dict(max_rounds=1, time_budget=14, region_edits=2, iters=16, taus=(1.0, 0.45)),
-    "precise": dict(max_rounds=3, time_budget=35, region_edits=6, iters=24, taus=(1.2, 0.8, 0.5, 0.34)),
+    "fast": dict(max_rounds=0, time_budget=25, region_edits=0, iters=18, taus=(1.0, 0.45)),
+    "standard": dict(max_rounds=4, time_budget=120, region_edits=8, iters=28, taus=(1.0, 0.5, 0.35)),
+    "precise": dict(max_rounds=6, time_budget=300, region_edits=12, iters=36, taus=(1.2, 0.8, 0.5, 0.34)),
 }
 
 
@@ -52,8 +52,8 @@ class Options:
     superres: int | None = None  # trace at k-times resolution (auto: thin strokes get 2-3x)
     dedupe_tol: float = 0.0025  # fraction of ink area we will sacrifice to remove a duplicate centerline
     decision: bool = True  # Decision engine: per-icon decision + verification of the last few percent
-    decision_budget: float = 8.0
-    tip_patches: bool = False  # Tip patches: allow sharp corner apex stubs
+    decision_budget: float = 40.0
+    tip_patches: bool = True  # Tip patches: allow sharp corner apex stubs
 
     def resolved(self):
         p = dict(PRESETS.get(self.quality, PRESETS["standard"]))
@@ -100,18 +100,15 @@ def process_icon(gray, opts: Options = None, emit=_noop, name="icon"):
         emit(engine="doctor", msg="Re-used the stored result for this icon (same version)", icon=name, iou=prev["metrics"].get("iou"), final=True)
         met = dict(prev["metrics"], from_memory=True)
         return dict(model=m, svg=m.svg(), metrics=met, decision=met.get("decision"), clean=met.get("clean", True), model_pre_decision=m.copy())
-    t_icon_start = time.time()
-    t_icon_deadline = t_icon_start + (18.0 if opts.quality != "precise" else 40.0)
-    time_icon_ok = lambda: time.time() < t_icon_deadline
     r = _process_icon_scaled(gray, opts, emit, name)
     from . import decision as DC
     r["model_pre_decision"] = r["model"].copy()
-    if opts.decision and time_icon_ok():
+    if opts.decision:
         emit(engine="decision", msg="Decision engine: measuring residual", icon=name)
         D = ink_map(gray)
         model, drep = DC.decide_best(
             r["model"], D,
-            time_budget=min(opts.decision_budget, min(2.0, max(0.5, t_icon_deadline - time.time()))),
+            time_budget=opts.decision_budget,
             emit=emit,
             name=name,
             tip_patches=opts.tip_patches
@@ -188,13 +185,14 @@ def _process_icon(gray, opts: Options = None, emit=_noop, name="icon", set_w=Non
     opts = opts or Options()
     cfg = opts.resolved()
     t0 = time.time()
-    t_deadline = t0 + (15.0 if opts.quality != "precise" else 35.0)
-    time_ok = lambda: time.time() < t_deadline
     D = ink_map(gray)
     H, W = D.shape
     ev = lambda engine, msg, **kw: emit(engine=engine, msg=msg, icon=name, t=round(time.time() - t0, 2), **kw)
+    # Budget = CPU time actually spent on this icon (not wall-clock), so quality does not depend on how busy the machine is,
+    # how many icons run in parallel, or where in the queue this icon sits.  Complex icons get a larger budget (set below).
+    c0 = time.process_time()
     bud = [float(cfg["time_budget"])]
-    left = lambda: min(bud[0] - (time.time() - t0), t_deadline - time.time())
+    left = lambda: min(bud[0] - (time.process_time() - c0), 10.0 * bud[0] - (time.time() - t0))  # 2nd term: hang guard only
 
     ev("trace", "Tracing skeleton and centring strokes on their edges")
     w_est = estimate_width(D)
@@ -249,7 +247,8 @@ def _process_icon(gray, opts: Options = None, emit=_noop, name="icon", set_w=Non
     nd = add_dots(model, D)
     if nd:
         ev("trace", f"{nd} dot(s) detected and added as round-capped points")
-    bud[0] = float(cfg["time_budget"]) * float(np.clip(sum(q.length() for q in model.paths) / 2500.0, 1.0, 1.25))
+    c0 = time.process_time()  # the Edit budget starts after tracing
+    bud[0] = float(cfg["time_budget"]) * float(np.clip(sum(q.length() for q in model.paths) / 2500.0, 1.0, 3.0))
     ink = ink_of(model)
     cur = doctor.soft(ink)
     iou0 = doctor.iou(ink)
@@ -428,30 +427,30 @@ def _process_icon(gray, opts: Options = None, emit=_noop, name="icon", set_w=Non
             ev("doctor", f"Safety net: {nm} missing piece(s) restored, {nr} stray piece(s) removed", iou=doctor.iou(ink2))
     # Structure engine: skeleton of the render vs skeleton of the source; lumps, wobble, fused or displaced strokes are snapped / smoothed / re-traced
     sx = dict(before=0.0, after=0.0, found=0, fixed=0, sites=[], unresolved=[])
-    if opts.structure and time_ok():
-        st0 = time.time()
-        scap = min(3.0, max(0.5, t_deadline - st0))
-        m6, ink6, cur6, sx = SF.run_structure_engine(state["model"], D, doctor, ink_of, state["cur"], W0, time_ok=lambda: (time.time() - st0 < scap) and time_ok(),
+    if opts.structure:
+        sc0 = time.process_time()
+        scap = max(6.0, 0.2 * bud[0])
+        m6, ink6, cur6, sx = SF.run_structure_engine(state["model"], D, doctor, ink_of, state["cur"], W0, time_ok=lambda: time.process_time() - sc0 < scap,
                                                     memory_skip=(LS.skip_kinds() if opts.memory else ()))
         if sx["fixed"]:
             state.update(model=m6, ink=ink6, cur=cur6)
         ev("doctor", f"Structure check: score {sx['before']:.2f} -> {sx['after']:.2f}, {sx['fixed']}/{sx['found']} site(s) repaired, {len(sx['unresolved'])} left for review", iou=doctor.iou(state["ink"]))
     # Finisher: inspect this icon on its own and fix the few places that still look machine-made (each fix verified)
     fin = dict(found=0, fixed=0, sites=[])
-    if opts.finish and time_ok():
-        ft0 = time.time()
-        fcap = min(4.0, max(0.5, t_deadline - ft0))
-        m3, ink3, cur3, fin = FN.finish(state["model"], D, doctor, ink_of, state["cur"], W0, time_ok=lambda: (time.time() - ft0 < fcap) and time_ok(),
+    if opts.finish:
+        fc0 = time.process_time()
+        fcap = max(8.0, 0.25 * bud[0])
+        m3, ink3, cur3, fin = FN.finish(state["model"], D, doctor, ink_of, state["cur"], W0, time_ok=lambda: time.process_time() - fc0 < fcap,
                                        set_w=set_w, skip=(LS.skip_kinds() if opts.memory else ()))
         if fin["fixed"]:
             state.update(model=m3, ink=ink3, cur=cur3)
         ev("doctor", f"Finisher: {fin['found']} site(s) inspected, {fin['fixed']} fixed", iou=doctor.iou(state["ink"]))
     # Join engine: every joint is checked on its own; failing joints are repaired with the pen / line / arc / shape tools and re-checked
     jn = dict(total=0, clean_first=0, fixed=dict(unite=0, pen=0, line=0, arc=0, shape=0), unresolved=[], built=0)
-    if opts.joins and time_ok():
-        jt0 = time.time()
-        jcap = min(3.5, max(0.5, t_deadline - jt0))
-        m5, ink5, cur5, jn = JN.run_join_engine(state["model"], D, doctor, ink_of, state["cur"], W0, time_ok=lambda: (time.time() - jt0 < jcap) and time_ok())
+    if opts.joins:
+        jc0 = time.process_time()
+        jcap = max(6.0, 0.2 * bud[0])
+        m5, ink5, cur5, jn = JN.run_join_engine(state["model"], D, doctor, ink_of, state["cur"], W0, time_ok=lambda: time.process_time() - jc0 < jcap)
         # Quality Guard: only accept join modifications if it does not degrade the icon match!
         iou_pre_join = doctor.iou(state["ink"])
         iou_post_join = doctor.iou(ink5)
@@ -475,63 +474,63 @@ def _process_icon(gray, opts: Options = None, emit=_noop, name="icon", set_w=Non
             state.update(model=m_lock, ink=ink_lock, cur=s_lock)
     # final topology guard: refits above can reopen junctions, so weld/merge/trim once more
     waived.clear()
-    rep = doctor.diagnose(state["model"], state["ink"])
-    open_all(rep)
-    cmds = [c for c in Doctor.cosmetic_commands(rep) if c["op"] in ("trim_tail", "merge_nodes", "weld", "smooth_anchor")]
-    for cmd in pending(cmds):
-        if cmd["op"] == "weld":
-            do_weld()
-        elif cmd["path"] < len(state["model"].paths):
-            run(cmd)
-    if time_ok():
-        for cmd in pending(Doctor.region_commands(rep, 1)):
-            run(cmd)
+    for _ in range(2):
+        rep = doctor.diagnose(state["model"], state["ink"])
+        open_all(rep)
+        cmds = [c for c in Doctor.cosmetic_commands(rep) if c["op"] in ("trim_tail", "merge_nodes", "weld", "smooth_anchor")]
+        n = 0
+        for cmd in pending(cmds):
+            if cmd["op"] == "weld":
+                n += do_weld()[0]
+            elif cmd["path"] < len(state["model"].paths):
+                n += run(cmd)
+        for cmd in pending(Doctor.region_commands(rep, 4)):
+            n += run(cmd)
+        if not n:
+            break
     model, ink = state["model"], state["ink"]
-    if time_ok():
-        try:
-            from .craft import craft_model
-            iou_pre_craft = doctor.iou(ink)
-            soft_pre_craft = doctor.soft(ink)
-            m_craft = craft_model(model, D, doctor, W0)
-            ink_c = ink_of(m_craft)
-            iou_post_craft = doctor.iou(ink_c)
-            soft_post_craft = doctor.soft(ink_c)
-            # Quality Non-Regression Guard (craft_model enforces strict per-step try_accept internally)
-            if iou_post_craft >= iou_pre_craft - 0.0350 and soft_post_craft <= soft_pre_craft + max(180.0, 0.030 * doctor.area):
-                model, ink = m_craft, ink_c
-                state.update(model=model, ink=ink, cur=soft_post_craft)
-            else:
-                ev("doctor", f"Craft Guard: preserved clean vector ({iou_pre_craft*100:.2f}% vs degraded {iou_post_craft*100:.2f}%)")
-        except Exception as e:
-            import traceback
-            traceback.print_exc()
-    if time_ok():
-        try:
-            from .finisher import repair_acute_apexes
-            cur_soft = doctor.soft(ink)
-            m_apex, n_apex = repair_acute_apexes(model, W0, doctor, ink_of, cur_soft)
-            if n_apex > 0:
-                ink_a = ink_of(m_apex)
-                model, ink = m_apex, ink_a
-                state.update(model=model, ink=ink, cur=doctor.soft(ink_a))
-        except Exception as e:
-            import traceback
-            traceback.print_exc()
-    if time_ok():
-        try:
-            from . import opt
-            cur_soft = doctor.soft(ink)
-            cur_iou = doctor.iou(ink)
-            m_ref = opt.refine(model, D, taus=(0.6, 0.35), iters=8, lam_pos=0.05, lam_w=0.02, fit_width=True)
-            ink_ref = ink_of(m_ref)
-            s_ref = doctor.soft(ink_ref)
-            iou_ref = doctor.iou(ink_ref)
-            if s_ref <= cur_soft + 1.0 and iou_ref >= cur_iou - 0.0002:
-                model, ink = m_ref, ink_ref
-                state.update(model=model, ink=ink, cur=s_ref)
-                ev("edit", f"Subpixel Alignment: refined stroke width & coordinates to {iou_ref*100:.2f}% match", iou=iou_ref)
-        except Exception:
-            pass
+    try:
+        from .craft import craft_model
+        iou_pre_craft = doctor.iou(ink)
+        soft_pre_craft = doctor.soft(ink)
+        m_craft = craft_model(model, D, doctor, W0)
+        ink_c = ink_of(m_craft)
+        iou_post_craft = doctor.iou(ink_c)
+        soft_post_craft = doctor.soft(ink_c)
+        # Quality Non-Regression Guard (craft_model enforces strict per-step try_accept internally)
+        if iou_post_craft >= iou_pre_craft - 0.0350 and soft_post_craft <= soft_pre_craft + max(180.0, 0.030 * doctor.area):
+            model, ink = m_craft, ink_c
+            state.update(model=model, ink=ink, cur=soft_post_craft)
+        else:
+            ev("doctor", f"Craft Guard: preserved clean vector ({iou_pre_craft*100:.2f}% vs degraded {iou_post_craft*100:.2f}%)")
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+    try:
+        from .finisher import repair_acute_apexes
+        cur_soft = doctor.soft(ink)
+        m_apex, n_apex = repair_acute_apexes(model, W0, doctor, ink_of, cur_soft)
+        if n_apex > 0:
+            ink_a = ink_of(m_apex)
+            model, ink = m_apex, ink_a
+            state.update(model=model, ink=ink, cur=doctor.soft(ink_a))
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+    try:
+        from . import opt
+        cur_soft = doctor.soft(ink)
+        cur_iou = doctor.iou(ink)
+        m_ref = opt.refine(model, D, taus=(0.6, 0.35), iters=18, lam_pos=0.05, lam_w=0.02, fit_width=True)
+        ink_ref = ink_of(m_ref)
+        s_ref = doctor.soft(ink_ref)
+        iou_ref = doctor.iou(ink_ref)
+        if s_ref <= cur_soft + 1.0 and iou_ref >= cur_iou - 0.0002:
+            model, ink = m_ref, ink_ref
+            state.update(model=model, ink=ink, cur=s_ref)
+            ev("edit", f"Subpixel Alignment: refined stroke width & coordinates to {iou_ref*100:.2f}% match", iou=iou_ref)
+    except Exception:
+        pass
     rep = doctor.diagnose(model, ink)
     open_all(rep)
     iou = doctor.iou(ink)
@@ -553,15 +552,15 @@ def load_gray(data: bytes, max_side: int | None = None, **kwargs):
     im = cv2.imdecode(arr, cv2.IMREAD_UNCHANGED)
     if im is None:
         raise ValueError("Unsupported image")
-    if max_side and max(im.shape[:2]) > max_side:
-        s = max_side / max(im.shape[:2])
-        im = cv2.resize(im, None, fx=s, fy=s, interpolation=cv2.INTER_AREA)
     if im.ndim == 3 and im.shape[2] == 4:
         a = im[:, :, 3:4].astype(np.float32) / 255
         rgb = im[:, :, :3].astype(np.float32) * a + 255 * (1 - a)
         im = rgb.astype(np.uint8)
     if im.ndim == 3:
         im = cv2.cvtColor(im, cv2.COLOR_BGR2GRAY)
+    if max_side and max(im.shape[:2]) > max_side:
+        scale = max_side / float(max(im.shape[:2]))
+        im = cv2.resize(im, (int(round(im.shape[1] * scale)), int(round(im.shape[0] * scale))), interpolation=cv2.INTER_AREA)
     return im
 
 
