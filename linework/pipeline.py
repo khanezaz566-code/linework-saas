@@ -547,11 +547,14 @@ def _process_icon(gray, opts: Options = None, emit=_noop, name="icon", set_w=Non
     return dict(model=model, svg=model.svg(), metrics=metrics)
 
 
-def load_gray(data: bytes):
+def load_gray(data: bytes, max_side: int | None = None, **kwargs):
     arr = np.frombuffer(data, np.uint8)
     im = cv2.imdecode(arr, cv2.IMREAD_UNCHANGED)
     if im is None:
         raise ValueError("Unsupported image")
+    if max_side and max(im.shape[:2]) > max_side:
+        s = max_side / max(im.shape[:2])
+        im = cv2.resize(im, None, fx=s, fy=s, interpolation=cv2.INTER_AREA)
     if im.ndim == 3 and im.shape[2] == 4:
         a = im[:, :, 3:4].astype(np.float32) / 255
         rgb = im[:, :, :3].astype(np.float32) * a + 255 * (1 - a)
