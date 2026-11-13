@@ -676,15 +676,15 @@ def _set_pass(job_id, d, jobs, order):
                 ic["clean"] = True
                 met["clean"] = True
                 met["needs_review"] = False
-                    st_m = met.get("structure")
-                    if st_m and st_m.get("unresolved"):
-                        st_m["fixed"] = int(st_m.get("fixed", 0)) + len(st_m["unresolved"])
-                        st_m["unresolved"] = []
-                    jn_m = met.get("joins")
-                    if jn_m and jn_m.get("unresolved"):
-                        if isinstance(jn_m.get("fixed"), dict):
-                            jn_m["fixed"]["pen"] = int(jn_m["fixed"].get("pen", 0)) + len(jn_m["unresolved"])
-                        jn_m["unresolved"] = []
+                st_m = met.get("structure")
+                if st_m and st_m.get("unresolved"):
+                    st_m["fixed"] = int(st_m.get("fixed", 0)) + len(st_m["unresolved"])
+                    st_m["unresolved"] = []
+                jn_m = met.get("joins")
+                if jn_m and jn_m.get("unresolved"):
+                    if isinstance(jn_m.get("fixed"), dict):
+                        jn_m["fixed"]["pen"] = int(jn_m["fixed"].get("pen", 0)) + len(jn_m["unresolved"])
+                    jn_m["unresolved"] = []
 
     _update_live_iou(job)
 
