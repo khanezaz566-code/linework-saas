@@ -30,7 +30,7 @@ def build_chains(branches, snap_width=True):
     def oriented(b, e):  # points ordered far -> junction end
         return b["pts"] if e == 1 else b["pts"][::-1]
 
-    def end_info(b, e, T, has_free_tip=False):
+    def end_info(b, e, T, has_free_tip=False, is_multi_way=False):
         q = oriented(b, e)
         L = np.r_[0, np.cumsum(np.linalg.norm(np.diff(q[::-1], axis=0), axis=1))]
         n = len(q)
@@ -61,14 +61,15 @@ def build_chains(branches, snap_width=True):
         step = max(8, int(round(1.35 * T)))
         lo = max(k - step, 0)
         d = unit(q[k] - q[lo]) if k > lo else unit(q[-1] - q[0])
-        k_neck = min(n - 2, max(k + 3, n - 1 - int(np.searchsorted(L, 0.35 * T_eff))))
-        if L[-1] >= 2.2 * T and k_neck > k and lo >= max(6, step // 2):
-            d_prev = unit(q[lo] - q[max(lo - step, 0)])
-            d_neck = unit(q[k_neck] - q[k])
-            cr_prev = d_prev[0] * d[1] - d_prev[1] * d[0]
-            cr_neck = d[0] * d_neck[1] - d[1] * d_neck[0]
-            if d_prev @ d < np.cos(np.radians(14)) and d_neck @ d < np.cos(np.radians(14)) and cr_prev * cr_neck > 0:
-                return dict(A=q[k_neck].copy(), d=d_neck, kept=q[: k_neck + 1], full=q, is_curve=True)
+        if not is_multi_way:
+            k_neck = min(n - 2, max(k + 3, n - 1 - int(np.searchsorted(L, 0.35 * T_eff))))
+            if L[-1] >= 2.2 * T and k_neck > k and lo >= max(6, step // 2):
+                d_prev = unit(q[lo] - q[max(lo - step, 0)])
+                d_neck = unit(q[k_neck] - q[k])
+                cr_prev = d_prev[0] * d[1] - d_prev[1] * d[0]
+                cr_neck = d[0] * d_neck[1] - d[1] * d_neck[0]
+                if d_prev @ d < np.cos(np.radians(14)) and d_neck @ d < np.cos(np.radians(14)) and cr_prev * cr_neck > 0:
+                    return dict(A=q[k_neck].copy(), d=d_neck, kept=q[: k_neck + 1], full=q, is_curve=True)
         return dict(A=q[k].copy(), d=d, kept=q[: k + 1], full=q)
 
     def is_free_tip(idx):
@@ -92,7 +93,7 @@ def build_chains(branches, snap_width=True):
         w = float(np.mean([br[i]["w"] for i, _ in l]))
         j_xy[j] = np.mean([oriented(br[i], e)[-1] for i, e in l], axis=0)
         for (i, e) in l:
-            raw_info[(i, e)] = end_info(br[i], e, w)
+            raw_info[(i, e)] = end_info(br[i], e, w, is_multi_way=(len(l) >= 3))
 
     par_j = {}
     def find_j(j):
@@ -158,7 +159,7 @@ def build_chains(branches, snap_width=True):
         T = 1.0 * w
         has_ft = any(br[i]["sj"] == 0 or br[i]["ej"] == 0 for i, _ in l)
         for (i, e) in l:
-            info[(i, e)] = end_info(br[i], e, T, has_free_tip=has_ft)
+            info[(i, e)] = end_info(br[i], e, T, has_free_tip=has_ft, is_multi_way=(len(l) >= 3))
 
     stair_junc = {}
     bridge_cands = []
@@ -346,11 +347,11 @@ def build_chains(branches, snap_width=True):
                     pts = hermite(A1, d1, A2, d2)
             link[a] = (b, pts)
             link[b] = (a, pts[::-1])
-        elif len(l) >= 3 and pair_cands and (pair_cands[0][0] < 28 or allow_staircase):
+        elif len(l) >= 3 and pair_cands and (pair_cands[0][0] < 20.0 or allow_staircase):
             used = set()
             linked_pairs = []
             for eff_ang, a, b in pair_cands:
-                if eff_ang >= 28.0 and not (allow_staircase and not linked_pairs):
+                if eff_ang >= 20.0 and not (allow_staircase and not linked_pairs):
                     break
                 if a in used or b in used:
                     continue
@@ -381,8 +382,20 @@ def build_chains(branches, snap_width=True):
                 ext[o] = A + d * ts[int(np.argmin(dist))]
         else:
             cen = np.mean([info[o]["full"][-1] for o in l], axis=0)
-            if any(info[o].get("is_arch") or info[o].get("is_curve") for o in l):
-                C = cen
+            best_c = None
+            for x_idx in range(len(l)):
+                for y_idx in range(x_idx + 1, len(l)):
+                    o1, o2 = l[x_idx], l[y_idx]
+                    d1, d2 = info[o1]["d"], info[o2]["d"]
+                    tr = float(np.degrees(np.arccos(np.clip(d1 @ d2, -1, 1))))
+                    if 45.0 < tr < 135.0:
+                        C_cand = line_inter(info[o1]["A"], d1, info[o2]["A"], d2)
+                        if C_cand is not None and np.linalg.norm(C_cand - cen) < 1.4 * w:
+                            dist_c = np.linalg.norm(C_cand - cen)
+                            if best_c is None or dist_c < best_c[0]:
+                                best_c = (dist_c, C_cand)
+            if best_c is not None:
+                C = best_c[1]
             else:
                 M = np.zeros((2, 2))
                 v = np.zeros(2)
@@ -395,7 +408,7 @@ def build_chains(branches, snap_width=True):
                     C = np.linalg.solve(M, v)
                 except Exception:
                     C = cen
-                if np.linalg.norm(C - cen) > 0.65 * w or any((C - info[o]["A"]) @ info[o]["d"] < 0 for o in l):
+                if np.linalg.norm(C - cen) > 1.2 * w or any((C - info[o]["A"]) @ info[o]["d"] < -0.3 * w for o in l):
                     C = cen
             for o in l:
                 ext[o] = C
@@ -414,6 +427,12 @@ def build_chains(branches, snap_width=True):
 
     def ext_pts(key, toward_junction):
         A, E = info[key]["A"], ext[key]
+        d = info[key]["d"]
+        proj = float((E - A) @ d)
+        if proj > 0:
+            E_ray = A + proj * d
+            if np.linalg.norm(E - E_ray) < 0.65 * W0:
+                E = E_ray
         n = max(2, int(np.linalg.norm(E - A)) + 1)
         seg = np.linspace(A, E, n)
         return seg[1:] if toward_junction else seg[::-1][:-1]

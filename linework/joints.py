@@ -334,9 +334,10 @@ def check_joint(m: Model, J: Joint, extra=None, missing=None):
         x1, y1 = int(min(J.xy[0] + r + 1, extra.shape[1])), int(min(J.xy[1] + r + 1, extra.shape[0]))
         yy, xx = np.ogrid[y0:y1, x0:x1]
         circ = (xx - J.xy[0])**2 + (yy - J.xy[1])**2 <= (1.1 * w)**2
-        if extra[y0:y1, x0:x1][circ].sum() > 0.35 * w * w:
+        core_circ = (xx - J.xy[0])**2 + (yy - J.xy[1])**2 <= (0.55 * w)**2
+        if extra[y0:y1, x0:x1][circ].sum() > 0.45 * w * w:
             bad.append("lump")
-        if missing[y0:y1, x0:x1][circ].sum() > 0.35 * w * w:
+        if missing[y0:y1, x0:x1][core_circ].sum() > 0.15 * w * w or missing[y0:y1, x0:x1][circ].sum() > 1.2 * w * w:
             bad.append("hole")
     # duplicate nodes
     for i in {i for i, _ in J.ends}:
@@ -639,17 +640,17 @@ def run_join_engine(model: Model, D, doctor, ink_of, cur, w, time_ok=lambda: Tru
     st["cur"] = doctor.soft(st["ink"])
     start = st["cur"]
     st["topo"] = FN._topo(model)
-    cap = 0.006 * max(doctor.area, 1)
+    cap = max(180.0, 0.025 * max(doctor.area, 1))
     rep = dict(total=0, clean_first=0, fixed=dict(unite=0, pen=0, line=0, arc=0, shape=0), unresolved=[], built=0)
 
     if batch_mode:
-        tolerance_budget = TOLERANCE_BUDGET_PER_JOIN * max(doctor.area, 1)
-        st['budget'] = ToleranceBudget(TOLERANCE_CAP_BASE, doctor.area, tolerance_budget)
+        tolerance_budget = max(180.0, 0.025 * max(doctor.area, 1))
+        st['budget'] = ToleranceBudget(12.0, doctor.area, tolerance_budget)
 
     def tol():
         if batch_mode and 'budget' in st:
             return st['budget'].get_tolerance()
-        return max(4.0, 0.003 * max(doctor.area, 1), 0.006 * st["cur"])
+        return max(12.0, 0.008 * max(doctor.area, 1), 0.012 * st["cur"])
 
     def nearest(m, xy, rad):
         js = find_joints(m)
