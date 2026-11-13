@@ -127,7 +127,8 @@ def build_chains(branches, snap_width=True):
         for b_idx in range(a_idx + 1, len(j_keys)):
             j0, j1 = j_keys[a_idx], j_keys[b_idx]
             w_b = float(np.mean([br[i]["w"] for i, _ in raw_ends[j0] + raw_ends[j1]]))
-            if float(np.linalg.norm(j_xy[j0] - j_xy[j1])) <= 1.2 * max(W0, w_b) and has_collinear_cross(j0, j1):
+            d_j = float(np.linalg.norm(j_xy[j0] - j_xy[j1]))
+            if d_j <= 0.55 * max(W0, w_b) or (d_j <= 1.2 * max(W0, w_b) and has_collinear_cross(j0, j1)):
                 par_j[find_j(j0)] = find_j(j1)
                 cross_j.add(j0)
                 cross_j.add(j1)
@@ -138,7 +139,7 @@ def build_chains(branches, snap_width=True):
             continue
         L_b = len(b["pts"])
         w_b = float(np.mean([br[i]["w"] for i, _ in raw_ends.get(j0, []) + raw_ends.get(j1, [])])) if (j0 in raw_ends and j1 in raw_ends) else W0
-        if L_b <= 1.25 * max(W0, w_b) and (has_collinear_cross(j0, j1, ib) or find_j(j0) == find_j(j1) or (L_b <= 0.85 * max(W0, w_b) and (j0 in cross_j or j1 in cross_j))):
+        if L_b <= 0.85 * max(W0, w_b) or (L_b <= 1.25 * max(W0, w_b) and (has_collinear_cross(j0, j1, ib) or find_j(j0) == find_j(j1) or (j0 in cross_j or j1 in cross_j))):
             par_j[find_j(j0)] = find_j(j1)
             skip_bridges.add(ib)
     for ib, b in enumerate(br):
@@ -325,7 +326,7 @@ def build_chains(branches, snap_width=True):
                             np.degrees(np.arccos(np.clip(ta @ u, -1, 1))),
                             np.degrees(np.arccos(np.clip((-tb) @ u, -1, 1))),
                         )
-                        eff_ang = max(ang, 0.85 * ang_c)
+                        eff_ang = ang if ang_c < 22.0 else max(ang, 0.85 * ang_c)
                     else:
                         eff_ang = ang
                     pair_cands.append((eff_ang, a, b))
@@ -363,7 +364,7 @@ def build_chains(branches, snap_width=True):
             thr_list = []
             for eff_ang, a, b in linked_pairs:
                 A1, d1, A2, d2 = info[a]["A"], info[a]["d"], info[b]["A"], info[b]["d"]
-                if len(linked_pairs) >= 2 and eff_ang < 15.0:
+                if eff_ang < 15.0:
                     n_pts = max(2, int(np.linalg.norm(A2 - A1)) + 1)
                     pts = np.linspace(A1, A2, n_pts)
                 else:
@@ -372,30 +373,93 @@ def build_chains(branches, snap_width=True):
                 link[b] = (a, pts[::-1])
                 thr_list.append(np.vstack([info[a]["kept"][-int(2 * w):], pts, info[b]["kept"][-int(2 * w):][::-1]]))
             thr = np.vstack(thr_list)
+            rem = [o for o in l if o not in used]
+            if len(rem) == 2:
+                o1, o2 = rem[0], rem[1]
+                d1, d2 = info[o1]["d"], info[o2]["d"]
+                A1, A2 = info[o1]["A"], info[o2]["A"]
+                det = d1[0] * d2[1] - d1[1] * d2[0]
+                if abs(det) > 1e-3 and d1 @ d2 > 0.15:
+                    V = line_inter(A1, d1, A2, d2)
+                    if V is not None and (V - A1) @ d1 > -0.5 * w and (V - A2) @ d2 > -0.5 * w:
+                        dist_thr = float(np.min(np.linalg.norm(thr - V, axis=1)))
+                        if dist_thr <= 1.4 * w:
+                            n1 = max(2, int(np.linalg.norm(V - A1)) + 1)
+                            n2 = max(2, int(np.linalg.norm(A2 - V)) + 1)
+                            pts_apex = np.vstack([np.linspace(A1, V, n1), np.linspace(V, A2, n2)[1:]])
+                            link[o1] = (o2, pts_apex)
+                            link[o2] = (o1, pts_apex[::-1])
+                            used.add(o1)
+                            used.add(o2)
+            cen = np.mean([info[o]["full"][-1] for o in l], axis=0)
             for o in l:
                 if o in used:
                     continue
-                A, d = info[o]["A"], info[o]["d"]
+                Ao, do = info[o]["A"], info[o]["d"]
                 ts = np.arange(0, 4 * w, 0.5)
-                ray = A[None] + d[None] * ts[:, None]
+                ray = Ao[None] + do[None] * ts[:, None]
                 dist = np.array([np.min(np.linalg.norm(thr - r, axis=1)) for r in ray])
-                ext[o] = A + d * ts[int(np.argmin(dist))]
+                ext[o] = Ao + do * ts[int(np.argmin(dist))]
         else:
             cen = np.mean([info[o]["full"][-1] for o in l], axis=0)
             best_c = None
-            for x_idx in range(len(l)):
-                for y_idx in range(x_idx + 1, len(l)):
-                    o1, o2 = l[x_idx], l[y_idx]
-                    d1, d2 = info[o1]["d"], info[o2]["d"]
-                    tr = float(np.degrees(np.arccos(np.clip(d1 @ d2, -1, 1))))
-                    if 45.0 < tr < 135.0:
-                        C_cand = line_inter(info[o1]["A"], d1, info[o2]["A"], d2)
-                        if C_cand is not None and np.linalg.norm(C_cand - cen) < 1.4 * w:
-                            dist_c = np.linalg.norm(C_cand - cen)
-                            if best_c is None or dist_c < best_c[0]:
-                                best_c = (dist_c, C_cand)
-            if best_c is not None:
-                C = best_c[1]
+            corner_pair = None
+            par_pair = None
+            if len(l) == 3:
+                for x_idx in range(3):
+                    for y_idx in range(x_idx + 1, 3):
+                        o1_c, o2_c = l[x_idx], l[y_idx]
+                        if info[o1_c]["d"] @ info[o2_c]["d"] > 0.80:
+                            par_pair = (o1_c, o2_c)
+                            break
+                    if par_pair is not None:
+                        break
+            if par_pair is not None:
+                p1_o, p2_o = par_pair
+                p3_o = [o for o in l if o != p1_o and o != p2_o][0]
+                d1, d2, d3 = info[p1_o]["d"], info[p2_o]["d"], info[p3_o]["d"]
+                A1, A2, A3 = info[p1_o]["A"], info[p2_o]["A"], info[p3_o]["A"]
+                C1 = line_inter(A1, d1, A3, d3)
+                C2 = line_inter(A2, d2, A3, d3)
+                proj1 = float((C1 - A1) @ d1) if C1 is not None else -999.0
+                proj2 = float((C2 - A2) @ d2) if C2 is not None else -999.0
+                if proj1 > proj2 and C1 is not None and np.linalg.norm(C1 - cen) < 2.0 * w:
+                    corner_pair = (C1, p1_o, p3_o)
+                elif C2 is not None and np.linalg.norm(C2 - cen) < 2.0 * w:
+                    corner_pair = (C2, p2_o, p3_o)
+            if corner_pair is None:
+                for x_idx in range(len(l)):
+                    for y_idx in range(x_idx + 1, len(l)):
+                        o1, o2 = l[x_idx], l[y_idx]
+                        d1, d2 = info[o1]["d"], info[o2]["d"]
+                        tr = float(np.degrees(np.arccos(np.clip(d1 @ d2, -1, 1))))
+                        if 35.0 < tr < 145.0:
+                            C_cand = line_inter(info[o1]["A"], d1, info[o2]["A"], d2)
+                            if C_cand is not None and np.linalg.norm(C_cand - cen) < 1.4 * w:
+                                if (C_cand - info[o1]["A"]) @ d1 > -0.5 * w and (C_cand - info[o2]["A"]) @ d2 > -0.5 * w:
+                                    dist_c = np.linalg.norm(C_cand - cen)
+                                    if best_c is None or dist_c < best_c:
+                                        best_c = dist_c
+                                        corner_pair = (C_cand, o1, o2)
+            if corner_pair is not None and len(l) == 3:
+                C, o1, o2 = corner_pair
+                A1, d1 = info[o1]["A"], info[o1]["d"]
+                A2, d2 = info[o2]["A"], info[o2]["d"]
+                n1 = max(2, int(np.linalg.norm(C - A1)) + 1)
+                n2 = max(2, int(np.linalg.norm(A2 - C)) + 1)
+                pts = np.vstack([np.linspace(A1, C, n1), np.linspace(C, A2, n2)[1:]])
+                link[o1] = (o2, pts)
+                link[o2] = (o1, pts[::-1])
+                o3 = [o for o in l if o != o1 and o != o2][0]
+                A3, d3 = info[o3]["A"], info[o3]["d"]
+                ts = np.arange(0, 4 * w, 0.5)
+                ray = A3[None] + d3[None] * ts[:, None]
+                dist = np.array([np.min(np.linalg.norm(pts - r, axis=1)) for r in ray])
+                ext[o3] = A3 + d3 * ts[int(np.argmin(dist))]
+            elif corner_pair is not None:
+                C = corner_pair[0]
+                for o in l:
+                    ext[o] = C
             else:
                 M = np.zeros((2, 2))
                 v = np.zeros(2)
@@ -410,8 +474,8 @@ def build_chains(branches, snap_width=True):
                     C = cen
                 if np.linalg.norm(C - cen) > 1.2 * w or any((C - info[o]["A"]) @ info[o]["d"] < -0.3 * w for o in l):
                     C = cen
-            for o in l:
-                ext[o] = C
+                for o in l:
+                    ext[o] = C
 
     nb = len(br)
 
