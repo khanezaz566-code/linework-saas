@@ -106,7 +106,7 @@ def _execute_task_payload(payload: dict) -> dict:
     start_t = time.time()
     try:
         fut = _get_pool().submit(_solve_icon_in_subprocess, img_bytes, opts_dict, k)
-        res = fut.result(timeout=45)
+        res = fut.result(timeout=60)
         elapsed = time.time() - start_t
         iou_pct = round(res["metrics"]["iou"] * 100, 2)
         print(f"  [⚡ {WORKER_ID}] Icon #{k+1} finished in {round(elapsed, 2)}s | IoU: {iou_pct}% | Clean: {res['clean']}", flush=True)
